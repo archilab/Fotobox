@@ -1,55 +1,81 @@
-# Connected Photobox — Development Starter Kit V0.5
+# Fotobox: the AI photo booth
 
-**Phase 1 only:** 1 Raspberry Pi + standard UVC USB webcam; Mac Studio hosts API and (later) image-generation worker. **No touchscreen and no printer** in MVP. CLI-operated tests. Final deliverable: vertical PNG photo strip of 3–4 AI-generated frames combining 2 portraits. Multi-box, consent touchscreen and thermal printing are future phases.
+**A photo booth that turns one photo of a visitor into a funny photo strip: the visitor and an invented second person act out a short story in four pictures.**
 
-**To install and operate the photo booth, read the [user guide](docs/USER_GUIDE.md).** The rest of this file is for developers.
+Everything happens on your own devices. A Raspberry Pi with a webcam, screen and keyboard takes the photo, and a Mac on the same network creates the strip with an AI image model. No photo is sent to the internet or to a cloud service.
 
-## Current implementation status
-The included code is a **runnable vertical slice**, not a finished AI system: FastAPI + SQLite session tracking, temporary photo storage, basic seed/visitor matching, a durable generation queue and a Raspberry Pi CLI with optional webcam capture. Two image providers exist: `mflux-flux2` runs **FLUX.2 klein 4B** locally (see `docs/HARDWARE.md`), and `mock`, the default in `.env.example`, is **not AI**: it needs `PHOTOBOX_DEVELOPER_MODE=true`, is visibly labelled and exists for development only. Identity retention on real photos has not been evaluated yet, so do not treat the current output as final.
+> **Status: development version.** Good for supervised tests on your own network. Not yet ready for unsupervised use in public; see [Before you use it with the public](#before-you-use-it-with-the-public).
 
-## Quick start (macOS / Linux, Python 3.11+)
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
-cp .env.example .env
-python -m uvicorn photobox_server.app:app --host 127.0.0.1 --port 8000
+---
+
+## How a visit works
+
+1. **Start.** The visitor presses ENTER on the photo booth's keyboard.
+2. **Agree.** A short notice explains what happens with the photo. The visitor presses ENTER again to agree, or ESC to leave. No photo is taken without this.
+3. **Smile.** A 3-2-1 countdown, then the webcam takes the photo.
+4. **Wait.** About three minutes. A timer shows the progress.
+5. **Watch.** The finished strip appears on the screen for 20 seconds, with a personal deletion code next to it.
+6. **Gone.** One hour later the photo and the strip are deleted automatically. With the code, the visitor can have them deleted sooner.
+
+```mermaid
+flowchart LR
+    V([Visitor]) -->|ENTER, ENTER| P[Raspberry Pi<br/>photo booth]
+    P -->|photo, over your home network| M[Mac<br/>AI generator]
+    M -->|finished strip| P
+    O([You, the operator]) -->|dashboard| M
 ```
-In another terminal, register a device. Its token is printed once; only a hash is stored. All endpoints except `health` need it.
-```bash
-source .venv/bin/activate
-python -m photobox_server.admin device add pi-01
-export PHOTOBOX_DEVICE_TOKEN=PASTE_TOKEN_HERE
-python -m photobox_client.cli --server http://127.0.0.1:8000 health
-python -m photobox_client.cli --server http://127.0.0.1:8000 capture --file path/to/consented-test-portrait.jpg --attest-documented-consent --pool-consent
-python -m photobox_client.cli --server http://127.0.0.1:8000 status SESSION_ID
-python -m photobox_client.cli --server http://127.0.0.1:8000 result SESSION_ID --output result.png
-pytest -q
-```
-If no seed portrait exists the capture will fail with a useful error. **Before first run**, import an explicitly licensed/consented portrait with `python -m photobox_server.admin seed add FILE --rights-reference REF --attest-rights`. Files placed directly in the seed folder are ignored. Alternately run `python scripts/create_synthetic_seed.py` to import an *illustrative non-person* test image. On the Pi, the keyboard kiosk (`python -m photobox_client.kiosk`, ADR-020) lets participants confirm a consent notice on screen and take the photo with ENTER. `capture` waits for the strip while the server generates it in the background, and prints a one-time withdrawal code for the participant; `python -m photobox_server.admin withdraw` deletes that person's images and every strip containing them on the server. `capture` refuses to run without `--attest-documented-consent`, which the operator may pass only for synthetic images or when a documented consent procedure took place outside this MVP interface. That flag and `--pool-consent` are developer-only assertions, **not proof of informed consent**.
 
-The server reads `.env` from the folder it starts in; variables already set in the shell take precedence. See `.env.example` for the available settings. An unimplemented `PHOTOBOX_PROVIDER` stops the server at startup.
+## What the strips look like
 
-## Raspberry Pi
-Setup and network steps are in `docs/HARDWARE.md`. On the Pi, install with `pip install -e '.[client-camera]'`, store the device token in a file, then:
-```bash
-python -m photobox_client.cli camera-list
-python -m photobox_client.cli camera-probe --camera CAMERA_NAME
-python -m photobox_client.cli camera-test --camera CAMERA_NAME --count 20
-python -m photobox_client.cli --server http://SERVER_LAN_IP:8000 --token-file ~/.photobox.token capture --camera CAMERA_NAME --rotate 0 --attest-documented-consent
-```
-The server binds to localhost by default. To reach it from the Pi, bind to the Mac's LAN address on a trusted network only (see ADR-010): traffic is **not encrypted** until NetBird or Tailscale is added, and **the API must not be exposed to public networks**. Add `--pool-consent` only after obtaining separate, documented pool consent.
+Each strip has four pictures with one plain colored background, like a real photo booth. The visitor and an invented counterpart play out one of **100 short stories**, chosen at random: a pigeon lands on someone's head, a balloon grows until it bursts, a llama wanders in, a marching band takes over. People stand at different distances from the camera, overlap and move, so every strip looks different.
 
-## Important privacy / security boundary
-Current demo has per-device tokens, but **no TLS, no rate limiting, no production consent capture, no withdrawal flow, no real durable queue, and no production-hardening**. Do not use with exhibition visitors or publicly accessible network endpoints. Test only with synthetic images or explicit, documented, purpose-specific consent. Do not store identifiable portraits in Git. See `docs/PRIVACY.md` and `docs/SECURITY.md`.
+The stories are written to be friendly between strangers: nothing romantic, no weapons, and no jokes about how anyone looks.
 
-## Work with Claude Code
-From repo root run `claude`. The root `CLAUDE.md` project instructions are included. Start with `docs/MILESTONES.md` and ask Claude to implement M1 then check tests. Use `docs/CLAUDE_PROMPTS.md` for prompts. Don't run `/init`: a curated `CLAUDE.md` already exists.
+## Features
 
-## Architecture
-- `src/photobox_client`: CLI, webcam capture, HTTP client.
-- `src/photobox_server`: FastAPI, SQLite, files, matching, generation jobs, image providers, output.
-- `docs`: contracts, architecture decisions, privacy and milestone acceptance tests.
-- `tests`: API and image renderer checks.
+| | |
+|---|---|
+| **Simple for visitors** | Only ENTER and ESC; screens in German and English. |
+| **Consent first** | Your consent notice is shown before every photo, and each agreement is recorded together with the exact text that was shown. |
+| **Private by design** | Everything stays on your network, photos are deleted after an hour, and no face recognition is used. |
+| **Deletion on request** | Each visitor gets a code, and one command deletes their pictures everywhere. |
+| **Dashboard for you** | A web page on the Mac showing the booth, the queue and the strips, where you can also edit the consent notice and the stories. |
+| **Setup at the booth** | WiFi, server and camera are set up with the booth's own keyboard, protected by a PIN. |
+| **Runs on its own** | Everything starts automatically after a restart, and unfinished strips continue. |
 
-This ZIP is a scaffold, not a claim that production features are complete.
+## What you need
+
+| Part | What exactly | Notes |
+|---|---|---|
+| **Mac** | Apple Silicon (M1 or newer), about 20 GB free space | Creates the strips. Tested on a MacBook Pro M3 Max with 64 GB. |
+| **Raspberry Pi 5** | With a power supply and a memory card | Runs the photo booth. |
+| **USB webcam** | Any standard webcam | Tested with a Logitech BRIO. |
+| **Screen and USB keyboard** | Connected to the Pi | Any HDMI screen. |
+| **Network** | Mac and Pi in the same home or office network | A network you trust; see the limits below. |
+
+## Get started
+
+**👉 Follow the [installation guide](INSTALL.md).** It goes step by step, explains every command, and needs no programming knowledge. Plan about an hour, plus the time to download the AI model (about 15 GB).
+
+## Documentation
+
+| If you want to … | Read |
+|---|---|
+| Install the photo booth | [INSTALL.md](INSTALL.md) |
+| Run it day to day: dashboard, deleting a visitor's pictures, changing stories, fixing problems | [Operator guide](docs/OPERATOR_GUIDE.md) |
+| Understand how it is built, or change the code | [Developer guide](docs/DEVELOPMENT.md) and the [technical documentation](docs/README.md) |
+
+## Before you use it with the public
+
+This is a development version. Please keep these limits in mind:
+
+- **Your network must be trusted.** Photos travel between the Pi and the Mac without encryption. Use it only in a network where you trust everyone.
+- **The consent notice is your responsibility.** The included text is a draft, not legal advice. Have it checked, and in the EU carry out a data protection assessment (GDPR) before public use.
+- **A key press is not an identity check.** The booth records that the notice was confirmed, not who confirmed it or how old they are.
+- **The deletion code appears on screen,** where people nearby may see it.
+- **Not tested enough with real visitors.** How well two real people stay recognizable in the current stories has not been measured yet.
+- **Not yet available:** printing, a touchscreen, and several booths at once.
+
+## License
+
+No license has been chosen yet, so the usual copyright rules apply.

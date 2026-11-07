@@ -1,5 +1,5 @@
 # Runs the keyboard kiosk on the Pi's screen (tty1) in place of the login prompt (ADR-020).
-# Install: see docs/USER_GUIDE.md. The setup menu writes the settings in /home/admin/.photobox-kiosk.env.
+# Install: see INSTALL.md. The setup menu writes the settings in /home/admin/.photobox-kiosk.env.
 [Unit]
 Description=Photo booth keyboard kiosk
 After=network-online.target
