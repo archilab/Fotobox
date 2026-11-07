@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from photobox_server import throttle
 from photobox_server.app import app
 from photobox_server.auth import create_device
 from photobox_server.core import db_connect
@@ -9,6 +10,7 @@ from photobox_server.core import db_connect
 def anonymous_client(tmp_path, monkeypatch):
     monkeypatch.setenv("PHOTOBOX_STORAGE_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("PHOTOBOX_DB_PATH", str(tmp_path / "db.sqlite3"))
+    throttle.reset()
     return TestClient(app)
 
 

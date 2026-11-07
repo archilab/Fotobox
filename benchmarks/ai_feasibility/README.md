@@ -2,7 +2,7 @@
 
 **Question:** can a local model put two real people into one scene, across 3–4 frames, keeping both recognizable and without swapping them?
 
-This folder stands alone: nothing here is imported by the application, and its dependencies stay out of `pyproject.toml`. **Both candidates have run once on synthetic shapes (see Smoke test), and FLUX.2 klein 4B has run on two fictional faces. Real photos are untested, so the question above is still open.**
+This folder stands alone: nothing here is imported by the application, and its dependencies stay out of `pyproject.toml`. **Decision (2026-11-07): go for FLUX.2 klein 4B, by the project owner's judgement of the quality (ADR-014).** Both candidates ran once on synthetic shapes, and FLUX.2 klein 4B ran on fictional faces. Real photos are untested, so the question above is only answered for fictional faces.
 
 ## Candidates
 

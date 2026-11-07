@@ -8,14 +8,29 @@ Every path except `/api/v1/health` requires `Authorization: Bearer <device token
 | Method | Route | Request / Result |
 |---|---|---|
 | GET | `/health` | `{status,provider,production_ready}` (no token needed) |
-| POST | `/sessions` | no body -> `{id,status}`; `box_id` is the authenticated device |
-| POST | `/sessions/{id}/consent` | `{processing:true,pool:false,documented_externally:true}` (test-only attestation) |
-| POST | `/sessions/{id}/portrait` | multipart `image` JPEG/PNG/WebP, up to 20 megapixels -> `{portrait_id,status}` |
-| POST | `/sessions/{id}/process` | no body -> `{status,mode,result_url}`; synchronous mock |
+| POST | `/sessions` | no body -> `{id,status}`; `box_id` is the authenticated device; `201`, or `200` when repeated with the same key |
+| POST | `/sessions/{id}/consent` | `{processing:true,pool:false,documented_externally:true,evidence_ref?}` (test-only attestation); `evidence_ref` is at most 64 characters of letters, digits and `._:-`, and must not contain personal data |
+| POST | `/sessions/{id}/portrait` | multipart `image` -> `{portrait_id,status}`; limits below |
+| POST | `/sessions/{id}/process` | no body -> `{status,mode,result_url}`; synchronous mock; can be repeated after `failed` |
 | GET | `/sessions/{id}` | `{id,box_id,status,error,has_result}` |
 | GET | `/sessions/{id}/result` | image/png (demo only); `404` once a portrait in the strip has expired |
 
 Device management and on-demand cleanup are local commands, not HTTP endpoints: `python -m photobox_server.admin --help`. The server also runs cleanup automatically.
+
+## Repeating requests
+Requests can be repeated safely after a lost connection. Each one does its work only once:
+- `POST /sessions` and `POST /portrait` accept an `Idempotency-Key` header of 1-128 letters, digits, `-` or `_`; an invalid one returns `400`. Session keys are scoped to the device, upload keys to the session.
+- A repeated upload with the same key and image returns the original answer. The same key with a different image returns `409`, as does any second upload without the original key. Uploads count toward the limit even when repeated.
+- A repeated `consent` with identical values and a repeated `process` on a complete session return success. Anything that would change consent returns `409`.
+
+## Upload limits
+| Limit | Default | Otherwise |
+|---|---|---|
+| Size, `PHOTOBOX_MAX_UPLOAD_BYTES` | 10 MB | `413` |
+| Format: JPEG, PNG or WebP, judged by content; not animated | | `422` |
+| Pixels | 20 megapixels | `422` |
+| Each side | 64-8000 pixels | `422` |
+| Uploads per device, `PHOTOBOX_MAX_UPLOADS_PER_MINUTE` | 30 | `429` with `Retry-After` |
 
 ## Future design (not implemented)
 - `POST /sessions/{id}/process`: idempotent enqueue, return 202 + job ID

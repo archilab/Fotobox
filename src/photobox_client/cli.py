@@ -5,12 +5,15 @@ import os
 import stat
 import sys
 import time
+import uuid
 from pathlib import Path
 import httpx
 from .camera import ROTATIONS, CameraError, CaptureSettings, capture_jpeg, list_stable_paths, probe_camera
 
 TOKEN_ENV = "PHOTOBOX_DEVICE_TOKEN"
 COMMANDS_NEEDING_TOKEN = {"capture", "status", "result"}
+NETWORK_ATTEMPTS = 3
+RETRY_DELAY_SECONDS = 1.0
 
 
 def read_token(token_file: Path | None) -> str | None:
@@ -29,6 +32,26 @@ def add_camera_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--rotate", type=int, default=0, choices=ROTATIONS, help="Clockwise rotation in degrees")
     parser.add_argument("--jpeg-quality", type=int, default=90, help="JPEG quality 1-100 (default: 90)")
     parser.add_argument("--attempts", type=int, default=3, help="Capture attempts before giving up (default: 3)")
+
+
+def post_with_retry(client: httpx.Client, url: str, **kwargs) -> httpx.Response:
+    """POST, repeating only after a connection problem, where the server's answer was lost.
+
+    Each request here is safe to repeat: the server recognizes it by its Idempotency-Key or state.
+    """
+    for attempt in range(1, NETWORK_ATTEMPTS + 1):
+        try:
+            return client.post(url, **kwargs)
+        except httpx.TransportError as exc:
+            if attempt == NETWORK_ATTEMPTS:
+                raise
+            print(f"Connection problem ({type(exc).__name__}), retrying {attempt}/{NETWORK_ATTEMPTS - 1}", file=sys.stderr)
+            time.sleep(RETRY_DELAY_SECONDS * attempt)
+    raise AssertionError("unreachable")
+
+
+def idempotency_header() -> dict[str, str]:
+    return {"Idempotency-Key": uuid.uuid4().hex}
 
 
 def capture_settings(args: argparse.Namespace) -> CaptureSettings:
@@ -87,6 +110,7 @@ def main(argv: list[str] | None = None) -> None:
     add_camera_arguments(cap)
     cap.add_argument("--attest-documented-consent", action="store_true", help="Required: the subject gave documented consent outside this tool, or the image is synthetic")
     cap.add_argument("--pool-consent", action="store_true", help="Only when separate, documented pool authorization exists")
+    cap.add_argument("--consent-reference", help="Reference to the outside consent document, such as a form number. Never personal data.")
     cap.add_argument("--no-process", action="store_true")
     st = sub.add_parser("status"); st.add_argument("session_id")
     res = sub.add_parser("result"); res.add_argument("session_id"); res.add_argument("--output", type=Path, default=Path("photostrip.png"))
@@ -121,15 +145,18 @@ def main(argv: list[str] | None = None) -> None:
             else:
                 print("DEVELOPMENT TEST ONLY: operator attested documented consent for image processing; --pool-consent additionally attests separate pool-use permission.")
                 raw = args.file.read_bytes() if args.file else capture_jpeg(args.camera, capture_settings(args))
-                response = client.post("/api/v1/sessions"); response.raise_for_status()
+                response = post_with_retry(client, "/api/v1/sessions", headers=idempotency_header()); response.raise_for_status()
                 sid = response.json()["id"]
                 print(f"Session: {sid}")
-                c = client.post(f"/api/v1/sessions/{sid}/consent", json={"processing": True, "pool": args.pool_consent, "documented_externally": args.attest_documented_consent}); c.raise_for_status()
-                up = client.post(f"/api/v1/sessions/{sid}/portrait", files={"image": ("capture.jpg", raw, "image/jpeg")}); up.raise_for_status()
+                consent = {"processing": True, "pool": args.pool_consent, "documented_externally": args.attest_documented_consent}
+                if args.consent_reference:
+                    consent["evidence_ref"] = args.consent_reference
+                c = post_with_retry(client, f"/api/v1/sessions/{sid}/consent", json=consent); c.raise_for_status()
+                up = post_with_retry(client, f"/api/v1/sessions/{sid}/portrait", files={"image": ("capture.jpg", raw, "image/jpeg")}, headers=idempotency_header()); up.raise_for_status()
                 if args.no_process:
                     print("Uploaded; processing skipped.")
                     return
-                response = client.post(f"/api/v1/sessions/{sid}/process")
+                response = post_with_retry(client, f"/api/v1/sessions/{sid}/process")
             response.raise_for_status()
             print(response.json())
     except CameraError as exc:

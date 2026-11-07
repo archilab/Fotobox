@@ -5,13 +5,16 @@ import sqlite3
 import stat
 import uuid
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import NamedTuple
 from PIL import Image, ImageDraw, ImageOps, UnidentifiedImageError
+from .schema import migrate
 
 MAX_IMAGE_PIXELS = 20_000_000
+MIN_IMAGE_SIDE = 64
+MAX_IMAGE_SIDE = 8000
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 # Untracked files younger than this may belong to a request still in progress.
 ORPHAN_GRACE_SECONDS = 3600
@@ -33,11 +36,21 @@ def storage_root() -> Path:
     return p
 
 def write_private_image(img: Image.Image, dest: Path, image_format: str, **options) -> None:
-    """Save an image that only the server's own account can read."""
-    fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "wb") as handle:
-        img.save(handle, image_format, **options)
-    _restrict(dest, 0o600)
+    """Save an image only the server's account can read, appearing at `dest` only when complete.
+
+    A crash leaves at most a temporary file, which cleanup removes as untracked.
+    """
+    temporary = dest.with_name(f"{dest.name}.{uuid.uuid4().hex}.tmp")
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            img.save(handle, image_format, **options)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, dest)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 @contextmanager
 def db_connect() -> Iterator[sqlite3.Connection]:
@@ -48,33 +61,17 @@ def db_connect() -> Iterator[sqlite3.Connection]:
     # Create the file first so it is never readable by others. SQLite gives its -wal and -shm
     # files the database's permissions, but files from an older version need correcting.
     os.close(os.open(p, os.O_WRONLY | os.O_CREAT, 0o600))
-    for candidate in (p, p.with_name(p.name + "-wal"), p.with_name(p.name + "-shm")):
-        if candidate.exists():
-            _restrict(candidate, 0o600)
+    _restrict(p, 0o600)
+    for suffix in ("-wal", "-shm"):
+        # Another connection closing can remove these at any moment.
+        with suppress(FileNotFoundError):
+            _restrict(p.with_name(p.name + suffix), 0o600)
     db = sqlite3.connect(p, timeout=15)
     try:
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")
         db.execute("PRAGMA journal_mode=WAL")
-        db.executescript("""
-        CREATE TABLE IF NOT EXISTS sessions (
-            id TEXT PRIMARY KEY, box_id TEXT NOT NULL, status TEXT NOT NULL,
-            consent_processing INTEGER NOT NULL DEFAULT 0,
-            consent_pool INTEGER NOT NULL DEFAULT 0,
-            created_at TEXT NOT NULL, finished_at TEXT, error TEXT,
-            portrait_id TEXT, match_portrait_id TEXT, output_path TEXT
-        );
-        CREATE TABLE IF NOT EXISTS portraits (
-            id TEXT PRIMARY KEY, session_id TEXT, path TEXT NOT NULL,
-            pool_eligible INTEGER NOT NULL, created_at TEXT NOT NULL,
-            expires_at TEXT NOT NULL, use_count INTEGER NOT NULL DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS devices (
-            id TEXT PRIMARY KEY, token_hash TEXT NOT NULL UNIQUE,
-            created_at TEXT NOT NULL, revoked_at TEXT
-        );
-        """)
-        db.commit()
+        migrate(db)
         yield db
         db.commit()
     except BaseException:
@@ -93,6 +90,10 @@ def validate_image(payload: bytes) -> Image.Image:
             # Pillow only warns between the limit and twice the limit, so check it here.
             if opened.width * opened.height > MAX_IMAGE_PIXELS:
                 raise ValueError("image exceeds pixel limit")
+            if max(opened.size) > MAX_IMAGE_SIDE or min(opened.size) < MIN_IMAGE_SIDE:
+                raise ValueError(f"image sides must be {MIN_IMAGE_SIDE} to {MAX_IMAGE_SIDE} pixels")
+            if getattr(opened, "n_frames", 1) > 1:
+                raise ValueError("animated images are not accepted")
             opened.verify()
         with Image.open(io.BytesIO(payload)) as opened:
             return ImageOps.exif_transpose(opened).convert("RGB")

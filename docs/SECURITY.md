@@ -25,9 +25,8 @@ No way around authentication was found: missing, wrong and non-bearer tokens, `/
 ## Before any deployment beyond the trusted test LAN
 
 - encryption through NetBird, Tailscale or TLS; scoped short-lived credentials
-- image upload size limit and decoding protection (present), MIME sniffing, pixel limit and content validation
-- app-level idempotency; ensure retries cannot duplicate processing or corrupt records
-- rate limiting, request concurrency limits, timeouts and per-device quotas
+- a size limit on uploads sent without `Content-Length`: the server only refuses those after the framework has spooled them to disk, so a device with a valid token could fill the disk
+- rate limiting beyond uploads, request concurrency limits, timeouts and quotas (per-device upload limit present, in memory)
 - secure OS file permissions and encryption-at-rest evaluation
 - retention of original, generated, preview, thumbnail, logs, backups; verified lifecycle deletion
 - revocation token and prompt stop of using revoked portraits

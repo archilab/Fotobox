@@ -12,10 +12,10 @@
 ## Early AI test — alongside M1 (see ADR-008)
 - [x] Benchmark tool and model shortlist, in `benchmarks/ai_feasibility/`, outside the application code and its dependencies
 - [x] Approve each model's source, size and license before download
-- [ ] Run mflux on both candidates, then add ComfyUI for comparison (FLUX.2 klein 4B ran on fictional faces; Qwen-Image-Edit-2511 has only run on shapes)
+- [x] Run mflux on FLUX.2 klein 4B with fictional faces. Qwen-Image-Edit-2511 ran on shapes only; its face run and the ComfyUI comparison were dropped (ADR-014)
 - [x] Use only synthetic or expressly authorized portraits, kept out of Git
 - [x] Record measured results; never estimate or fabricate them (see `benchmarks/ai_feasibility/README.md`; continues with each new run)
-**Acceptance:** written results and a go/no-go decision, reviewed before M2 starts.
+**Acceptance:** written results and a go/no-go decision, reviewed before M2 starts. **Met: go for FLUX.2 klein 4B (ADR-014).**
 
 ## M1 — Raspberry Pi camera and networking
 - [x] Webcam selection by index and stable `/dev/v4l/by-id` path
@@ -27,11 +27,11 @@
 **Acceptance:** 20 consecutive CLI captures with correct orientation; invalid camera returns clear error; authenticated Pi→Mac upload succeeds. **Met for a scene without people, at the default 640×480.** Repeated camera reconnection is still untested. The ADR-010 review is recorded in `docs/SECURITY.md`, and its findings 1–4 are fixed (ADR-013).
 
 ## M2 — Session persistence and upload hardening
-- [ ] Define explicit session state transition table and concurrent access strategy
-- [ ] Idempotency key for uploads; atomic write + DB transaction consistency
-- [ ] Upload validation, max dimensions, per-device throttling (device tokens landed in M1)
-- [ ] Migrate normalized consent records with version and external attestation evidence
-**Acceptance:** repeat request does not duplicate; unauthorized cannot download; restart doesn't lose uploaded state.
+- [x] Define explicit session state transition table and concurrent access strategy (`docs/ARCHITECTURE.md`, ADR-015)
+- [x] Idempotency key for uploads; atomic write + DB transaction consistency
+- [x] Upload validation, max dimensions, per-device throttling (device tokens landed in M1)
+- [x] Migrate normalized consent records with version and external attestation evidence
+**Acceptance:** repeat request does not duplicate; unauthorized cannot download; restart doesn't lose uploaded state. **Met on 2026-11-07, from the real Pi to the MacBook server over the LAN, with synthetic files.** The camera was not used in this run. The client's retry after a lost connection is covered by automated tests only.
 
 ## M3 — Pool selection, deletion, withdrawal
 - [ ] Clear scope-based pool permission and audit trail
@@ -45,7 +45,7 @@
 ## M4 — AI provider abstraction
 - [ ] `ImageGenerationProvider` interface (input two portraits, prompt config, frame count, output images, metrics)
 - [ ] Durable queue, worker, progress/status, timeouts, cancellation and bounded retries
-- [ ] Bench ComfyUI vs direct MLX on Mac Studio with test portraits and measured speed/identity retention
+- [ ] FLUX.2 klein 4B adapter through mflux (ADR-014); measure speed and identity retention with test portraits, including real webcam photos with documented consent
 - [ ] Deterministic mock fallback ONLY in developer mode, visibly labelled
 **Acceptance:** provider swap does not change API; job survives service restart; real model creates two-person scene without identity swap on an agreed evaluation set.
 
