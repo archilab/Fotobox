@@ -4,7 +4,7 @@
 - Pi OS 64-bit: USB UVC camera + CLI (OpenCV uses V4L2); no display dependency.
 - Mac Studio M3 Ultra (target): FastAPI API, SQLite, local file storage, later AI provider worker. Development currently runs on a MacBook Pro M3 (see ADR-008).
 - HTTP polling is sufficient for MVP. WebSockets and multi-Pi pairing are reserved for later.
-- Connection in controlled local test network; secure remote deployment needs device authentication, TLS and hardening.
+- Connection in controlled local test network with per-device tokens (ADR-010); secure remote deployment needs encryption through NetBird, Tailscale or TLS, plus hardening.
 
 ## Boundary diagram
 `USB webcam -> Pi CLI -> HTTP POST -> API -> SQLite/files -> match pool/seed -> MOCK renderer -> PNG GET -> Pi`.
@@ -22,4 +22,4 @@
 - Seed images must be authorized and curated.
 
 ## Known omissions
-No auth, TLS, remote safe deployment, robust periodic cleanup, withdrawal mechanism, concurrent job reservation, queue, production quality controls, realtime events, actual AI, output retention policy enforcement. Work through milestones before public use.
+No TLS, rate limiting, remote safe deployment, robust periodic cleanup, withdrawal mechanism, concurrent job reservation, queue, production quality controls, realtime events, actual AI, output retention policy enforcement. Work through milestones before public use.

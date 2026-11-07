@@ -13,9 +13,11 @@ pip install -e '.[dev]'
 cp .env.example .env
 python -m uvicorn photobox_server.app:app --host 127.0.0.1 --port 8000
 ```
-In another terminal:
+In another terminal, register a device. Its token is printed once; only a hash is stored. All endpoints except `health` need it.
 ```bash
 source .venv/bin/activate
+python -m photobox_server.admin device add pi-01
+export PHOTOBOX_DEVICE_TOKEN=PASTE_TOKEN_HERE
 python -m photobox_client.cli --server http://127.0.0.1:8000 health
 python -m photobox_client.cli --server http://127.0.0.1:8000 capture --file path/to/consented-test-portrait.jpg --attest-documented-consent --pool-consent
 python -m photobox_client.cli --server http://127.0.0.1:8000 status SESSION_ID
@@ -27,15 +29,17 @@ If no seed portrait exists the capture will fail with a useful error. **Before f
 The server reads `.env` from the folder it starts in; variables already set in the shell take precedence. See `.env.example` for the available settings. An unimplemented `PHOTOBOX_PROVIDER` stops the server at startup.
 
 ## Raspberry Pi
-Install Raspberry Pi OS 64-bit, USB UVC webcam (`/dev/video*`), Python 3.11+, and dependencies on the Pi. `opencv-python` may need platform system packages; see `docs/HARDWARE.md`. Run:
+Setup and network steps are in `docs/HARDWARE.md`. On the Pi, install with `pip install -e '.[client-camera]'`, store the device token in a file, then:
 ```bash
-python -m photobox_client.cli --server http://MAC_STUDIO_IP:8000 camera-test
-python -m photobox_client.cli --server http://MAC_STUDIO_IP:8000 capture --camera 0 --attest-documented-consent
+python -m photobox_client.cli camera-list
+python -m photobox_client.cli camera-probe --camera CAMERA_NAME
+python -m photobox_client.cli camera-test --camera CAMERA_NAME --count 20
+python -m photobox_client.cli --server http://SERVER_LAN_IP:8000 --token-file ~/.photobox.token capture --camera CAMERA_NAME --rotate 0 --attest-documented-consent
 ```
-Default backend binds localhost, so remote access needs an authenticated reverse proxy or a private development network; **do not expose the demo API to public networks**. Add `--pool-consent` only after obtaining separate, documented pool consent.
+The server binds to localhost by default. To reach it from the Pi, bind to the Mac's LAN address on a trusted network only (see ADR-010): traffic is **not encrypted** until NetBird or Tailscale is added, and **the API must not be exposed to public networks**. Add `--pool-consent` only after obtaining separate, documented pool consent.
 
 ## Important privacy / security boundary
-Current demo has **no device authentication, no TLS termination, no production consent capture, no withdrawal flow, no real durable queue, and no production-hardening**. Do not use with exhibition visitors or publicly accessible network endpoints. Test only with synthetic images or explicit, documented, purpose-specific consent. Do not store identifiable portraits in Git. See `docs/PRIVACY.md` and `docs/SECURITY.md`.
+Current demo has per-device tokens, but **no TLS, no rate limiting, no production consent capture, no withdrawal flow, no real durable queue, and no production-hardening**. Do not use with exhibition visitors or publicly accessible network endpoints. Test only with synthetic images or explicit, documented, purpose-specific consent. Do not store identifiable portraits in Git. See `docs/PRIVACY.md` and `docs/SECURITY.md`.
 
 ## Work with Claude Code
 From repo root run `claude`. The root `CLAUDE.md` project instructions are included. Start with `docs/MILESTONES.md` and ask Claude to implement M1 then check tests. Use `docs/CLAUDE_PROMPTS.md` for prompts. Don't run `/init`: a curated `CLAUDE.md` already exists.

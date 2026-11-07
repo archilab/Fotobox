@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["fastapi>=0.110,<1", "uvicorn>=0.27,<1", "python-multipart>=0.0.9", "pillow>=10,<13", "httpx>=0.27,<1"]
 
 [project.optional-dependencies]
-client-camera = ["opencv-python>=4.8"]
+client-camera = ["opencv-python-headless>=4.8"]
 dev = ["pytest>=8", "ruff>=0.6"]
 
 [tool.setuptools.packages.find]

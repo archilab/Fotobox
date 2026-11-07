@@ -3,6 +3,7 @@
 ## Current tables
 `sessions(id UUID PK, box_id, status, consent_processing, consent_pool, created_at, finished_at, error, portrait_id, match_portrait_id, output_path)`
 `portraits(id UUID PK, session_id, path, pool_eligible, created_at, expires_at, use_count)`
+`devices(id PK, token_hash UNIQUE, created_at, revoked_at)`: `sessions.box_id` holds the authenticated device id
 
 ## Planned normalized schema
 - `photoboxes(id, name, location_code, last_seen, capabilities)`

@@ -10,23 +10,26 @@
 - [x] Verify with `pytest -q` and a clean install on the development MacBook
 
 ## Early AI test — alongside M1 (see ADR-008)
-- [ ] Standalone benchmark of ComfyUI vs direct MLX, outside the application code and its dependencies
+- [x] Benchmark tool and model shortlist, in `benchmarks/ai_feasibility/`, outside the application code and its dependencies
 - [ ] Approve each model's source, size and license before download
+- [ ] Run mflux on both candidates, then add ComfyUI for comparison
 - [ ] Use only synthetic or expressly authorized portraits, kept out of Git
 - [ ] Record measured results; never estimate or fabricate them
 **Acceptance:** written results and a go/no-go decision, reviewed before M2 starts.
 
 ## M1 — Raspberry Pi camera and networking
-- [ ] Webcam selection by index and stable `/dev/v4l/by-id` path
-- [ ] Camera probing (formats, frame size, FPS, optional focus/exposure)
-- [ ] Retry and proper resource cleanup; practical JPEG quality/rotation tests
-- [ ] Test secure connectivity to Mac via private network; add per-device authentication **before remotely binding**
+- [x] Webcam selection by index and stable `/dev/v4l/by-id` path
+- [x] Camera probing (formats, frame size, FPS, optional focus/exposure)
+- [x] Retry and proper resource cleanup; practical JPEG quality/rotation tests
+- [x] Add per-device authentication **before remotely binding**
+- [ ] Test connectivity from the real Pi to the Mac on the trusted LAN (ADR-010)
+- [ ] Run `scripts/m1_acceptance.sh` on the Pi; code so far is tested with simulated cameras only
 **Acceptance:** 20 consecutive CLI captures with correct orientation; invalid camera returns clear error; authenticated Pi→Mac upload succeeds.
 
 ## M2 — Session persistence and upload hardening
 - [ ] Define explicit session state transition table and concurrent access strategy
 - [ ] Idempotency key for uploads; atomic write + DB transaction consistency
-- [ ] Auth, upload validation, max dimensions, per-device throttling
+- [ ] Upload validation, max dimensions, per-device throttling (device tokens landed in M1)
 - [ ] Migrate normalized consent records with version and external attestation evidence
 **Acceptance:** repeat request does not duplicate; unauthorized cannot download; restart doesn't lose uploaded state.
 

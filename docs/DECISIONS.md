@@ -26,3 +26,12 @@ Development runs on a MacBook Pro M3 (64GB) with the Pi on the same LAN; the ser
 
 ## ADR-009: Standard-library `.env` loading
 The server reads `.env` with a small built-in parser instead of adding a dependency. Variables already set in the shell take precedence. Loading happens at server startup, not at import, so tests are not affected by a developer's local `.env`.
+
+## ADR-010: Plain LAN with device tokens during development (accepted risk)
+**Status: chosen by the project owner on 2026-11-07; security review still to be recorded.** `CLAUDE.md` asks for authentication/TLS and a review before remote access. For development only, the server binds to the Mac's LAN address with device tokens but without encryption, so portraits and tokens can be read by others on that network. This is limited to a trusted LAN and to synthetic or expressly authorized images. It does not cover exhibition visitors or public networks. NetBird or Tailscale replaces it later and needs no code change, only a different server address.
+
+## ADR-011: Deny-by-default device authentication
+Authentication runs in middleware and covers every path except `health`, including `/docs`. A route dependency would be too late, because FastAPI parses multipart bodies before running dependencies, letting unauthenticated clients spool uploads to disk. Tokens are 256-bit random values stored as SHA-256 hashes; a slow password hash is not needed for values with this much entropy. `box_id` now comes from the authenticated device, not the request body. The `POST /admin/cleanup` endpoint was removed in favour of a local admin command, which leaves no admin surface on the network.
+
+## ADR-012: Headless OpenCV on the client
+The `client-camera` extra uses `opencv-python-headless`, because the CLI needs no GUI functions and the Pi client must not depend on a display.

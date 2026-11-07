@@ -188,9 +188,13 @@ storage/
 *.png
 *.webp
 
+# Benchmark outputs and logs
+benchmarks/ai_feasibility/runs/
+
 # Local configuration (secrets stay out of Git; the example file is tracked)
 .env.*
 !.env.example
+*.token
 .claude/settings.local.json
 
 # macOS

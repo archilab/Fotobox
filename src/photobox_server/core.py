@@ -46,6 +46,10 @@ def db_connect() -> Iterator[sqlite3.Connection]:
             pool_eligible INTEGER NOT NULL, created_at TEXT NOT NULL,
             expires_at TEXT NOT NULL, use_count INTEGER NOT NULL DEFAULT 0
         );
+        CREATE TABLE IF NOT EXISTS devices (
+            id TEXT PRIMARY KEY, token_hash TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL, revoked_at TEXT
+        );
         """)
         db.commit()
         yield db
