@@ -27,6 +27,8 @@ Limits of this result: the webcam pairs use one real person, the operator, with 
 
 These scores were for the earlier documentary scenes (`scenes-1`). The photo booth micro-stories (ADR-019) have only been tried with fictional pairs and are not scored yet.
 
+**Kiosk:** automated tests cover the key flow, discarding of early presses, the notice and its version, refusals, the timer and the terminal input. A run on the real Pi used a test image, not the camera.
+
 **Outstanding test categories:** user consent proofs; EXIF stripping verification; repeated camera reconnection; AI identity retention with two real people; 50-run performance; image provenance, prompt safety and wrong-face checks; a real print.
 
 Do not use real participant images in CI, screenshots or fixtures.

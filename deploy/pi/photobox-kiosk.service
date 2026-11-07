@@ -1,0 +1,27 @@
+# Runs the keyboard kiosk on the Pi's screen (tty1) in place of the login prompt (ADR-020).
+# Install: see docs/HARDWARE.md. Settings come from /home/admin/.photobox-kiosk.env.
+[Unit]
+Description=Photo booth keyboard kiosk
+After=network-online.target
+Wants=network-online.target
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+User=admin
+WorkingDirectory=/home/admin/photobox
+EnvironmentFile=/home/admin/.photobox-kiosk.env
+# The console's default font is unreadably small on a 4K screen. "-" ignores a missing font; "+" runs it as root.
+ExecStartPre=-+/usr/bin/setfont -C /dev/tty1 /usr/share/consolefonts/Uni3-TerminusBold32x16.psf.gz
+ExecStart=/home/admin/photobox/.venv/bin/python -m photobox_client.kiosk --server ${PHOTOBOX_SERVER} --token-file /home/admin/.photobox.token --camera ${PHOTOBOX_CAMERA}
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

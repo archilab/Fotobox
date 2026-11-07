@@ -3,7 +3,7 @@
 ## Pi (current)
 - Raspberry Pi 5 (single client), appropriate power supply, Raspberry Pi OS 64-bit
 - Standard UVC USB webcam connected via USB (check `lsusb`, `v4l2-ctl --list-devices`, `ls -l /dev/v4l/by-id`)
-- CLI only, started over local console or SSH. The attached screen is used as a console only: no screen/touch UI and no printing.
+- The attached screen and USB keyboard run the kiosk (ADR-020); no touchscreen and no printing. The CLI remains available over SSH.
 - Optional `sudo apt install v4l-utils python3-opencv`; environment versions vary; use venv with site-package strategy only after testing.
 - Use the stable name from `camera-list` rather than an index, because indexes can change after a reboot or replug. Webcams often list two entries; `video-index0` is normally the capture device.
 - `pip install -e '.[client-camera]'` installs `opencv-python-headless`, which has no display dependency.
@@ -25,6 +25,23 @@ Then point the camera at a synthetic scene or an authorized subject and run the 
 PHOTOBOX_DEVICE_TOKEN="$(cat ~/.photobox.token)" scripts/m1_acceptance.sh http://MAC_LAN_IP:8000 CAMERA_NAME --attest-documented-consent --rotate 0
 ```
 Moving to NetBird or Tailscale later changes only the server address on both machines.
+
+### Running the server permanently on the Mac
+`scripts/run_server.sh` starts the server on the Mac's current LAN address with the settings in `.env`. macOS does not let launchd agents read `~/Documents`, `~/Desktop` or `~/Downloads`, so run the service from a copy outside them, for example `~/photobox-server` with its own `.venv`, `.env`, `consent-notice.txt` and `storage/`. To start it at login, install the launchd agent from that folder:
+```bash
+sed -e "s|REPOSITORY|$PWD|g" -e "s|HOME|$HOME|g" deploy/mac/com.photobox.server.plist > ~/Library/LaunchAgents/com.photobox.server.plist && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.photobox.server.plist
+```
+To stop it: `launchctl bootout gui/$(id -u)/com.photobox.server`. The log is `~/Library/Logs/photobox-server.log`. macOS may ask once whether Python may accept incoming connections. Exclude `storage/` from Time Machine before real portraits are stored: `tmutil addexclusion storage`.
+
+### Keyboard kiosk on the Pi's screen (ADR-020)
+On the Mac, copy `consent-notice.example.txt` to `consent-notice.txt` in the folder the server starts from, and replace every `TODO-OPERATOR`. Until then the kiosk shows "not ready". On the Pi, write the settings and install the service, which replaces the login prompt on tty1:
+```bash
+printf 'PHOTOBOX_SERVER=http://MAC_LAN_IP:8000\nPHOTOBOX_CAMERA=/dev/v4l/by-id/CAMERA_NAME\n' > ~/.photobox-kiosk.env
+```
+```bash
+sudo cp ~/photobox/deploy/pi/photobox-kiosk.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now photobox-kiosk
+```
+To get the login prompt back: `sudo systemctl disable --now photobox-kiosk && sudo systemctl start getty@tty1`. To try the kiosk without the camera, run `python -m photobox_client.kiosk --server URL --token-file ~/.photobox.token --test-image FILE --once` in a terminal.
 
 ### Tested setup (2026-11-07)
 `scripts/m1_acceptance.sh` passed once, with 20 of 20 uploads, on this setup:

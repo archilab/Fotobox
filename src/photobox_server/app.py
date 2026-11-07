@@ -17,6 +17,7 @@ from PIL import Image
 from pydantic import BaseModel, Field
 from . import audit, throttle
 from .auth import authenticate
+from .consent_notice import NoticeError, load_notice
 from .config import get_cleanup_interval, get_frame_count, get_provider, load_env_file
 from .core import cleanup_expired, db_connect, now_iso, save_portrait, storage_root, strip_images_active, validate_image
 from .jobs import Worker, cancel_for_session, cleanup_job_folders, enqueue, job_for_session, recover_after_restart, wake
@@ -107,6 +108,10 @@ class ConsentRequest(BaseModel):
     processing: bool
     pool: bool = False
     documented_externally: bool = False
+    # How consent was given: stated by the operator, or confirmed by the participant on the box's screen.
+    method: Literal["operator_attestation", "participant_screen"] = "operator_attestation"
+    # For participant_screen: the version of the notice that was shown.
+    notice_version: str | None = Field(default=None, max_length=40)
     # A reference to the outside consent document, such as a form number. Never personal data.
     evidence_ref: str | None = Field(default=None, max_length=64, pattern=r"^[A-Za-z0-9._:-]+$")
 
@@ -116,6 +121,16 @@ def idempotency_key(request: Request) -> str | None:
     if key is not None and not IDEMPOTENCY_KEY_PATTERN.fullmatch(key):
         raise HTTPException(400, "Idempotency-Key must be 1-128 letters, digits, '-' or '_'")
     return key
+
+
+@app.get("/api/v1/consent-notice")
+def consent_notice():
+    """The text a box shows before taking a photo, and its version to send back with the consent."""
+    try:
+        version, text = load_notice()
+    except NoticeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return {"version": version, "text": text}
 
 
 @app.get("/api/v1/health")
@@ -159,8 +174,23 @@ def active_consent(db, session_id: str, purpose: str):
 def record_consent(session_id: str, body: ConsentRequest, request: Request):
     with db_connect() as db:
         s = get_session(db, session_id, request.state.device_id)
+        if body.method == "participant_screen":
+            try:
+                current_version, _ = load_notice()
+            except NoticeError as exc:
+                raise HTTPException(503, str(exc)) from exc
+            if body.pool:
+                raise HTTPException(403, "the screen notice does not cover pool use")
+            policy_version = current_version
+        else:
+            policy_version = CONSENT_POLICY_VERSION
         if s["status"] == AWAITING_CONSENT:
-            if not body.processing or not body.documented_externally:
+            if body.method == "participant_screen":
+                if not body.processing:
+                    raise HTTPException(403, "consent to processing is required")
+                if body.notice_version != current_version:
+                    raise HTTPException(409, "the consent notice has changed; show the current one")
+            elif not body.processing or not body.documented_externally:
                 raise HTTPException(403, "documented external test subject authorization required")
             if transition(db, session_id, AWAITING_CONSENT, AWAITING_PORTRAIT):
                 granted = now_iso()
@@ -169,7 +199,7 @@ def record_consent(session_id: str, body: ConsentRequest, request: Request):
                 for purpose in ("processing", "pool") if body.pool else ("processing",):
                     db.execute(
                         "INSERT INTO consent_records(id,session_id,purpose,policy_version,granted_at,provenance,evidence_ref) VALUES(?,?,?,?,?,?,?)",
-                        (str(uuid.uuid4()), session_id, purpose, CONSENT_POLICY_VERSION, granted, "operator_attestation", body.evidence_ref),
+                        (str(uuid.uuid4()), session_id, purpose, policy_version, granted, body.method, body.evidence_ref),
                     )
                     audit.record(db, "consent_granted", session_id=session_id, device_id=request.state.device_id, detail=purpose)
                 return {"status": AWAITING_PORTRAIT, "pool_consent": body.pool, "withdrawal_code": code}
@@ -177,7 +207,9 @@ def record_consent(session_id: str, body: ConsentRequest, request: Request):
         # A retry of the same request succeeds; anything that would change consent does not.
         processing = active_consent(db, session_id, "processing")
         same = (
-            processing is not None and body.processing and body.documented_externally
+            processing is not None and body.processing
+            and processing["provenance"] == body.method and processing["policy_version"] == policy_version
+            and (body.documented_externally or body.method == "participant_screen")
             and processing["evidence_ref"] == body.evidence_ref
             and (active_consent(db, session_id, "pool") is not None) == body.pool
         )

@@ -70,7 +70,11 @@
 - [ ] No touchscreen, no printer, no additional Pi in this phase
 **Acceptance:** one Pi produces photographic AI PNG strip via Mac backend repeatedly under test conditions.
 
+## Brought forward from phase 2 (ADR-020)
+- [x] Keyboard kiosk on the Pi's screen: on-screen consent notice, confirmation, countdown, generation timer, withdrawal code
+- [ ] Accessibility (larger text, languages, refusal path reviewed), legal review of the notice
+
 ## Later phases — NOT in v0.5 MVP
-- Phase 2: touchscreen and accessible consent + countdown
+- Phase 2: touchscreen and accessible consent + countdown (keyboard kiosk already exists, ADR-020)
 - Phase 3: thermoprinter + idempotent printing
 - Phase 4: multi-Pi online presence, real-time matching, both sites get printed output

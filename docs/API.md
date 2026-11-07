@@ -8,8 +8,9 @@ Every path except `/api/v1/health` requires `Authorization: Bearer <device token
 | Method | Route | Request / Result |
 |---|---|---|
 | GET | `/health` | `{status,provider,production_ready}` (no token needed) |
+| GET | `/consent-notice` | `{version,text}` for the box's screen; `503` if no completed notice is configured (ADR-020) |
 | POST | `/sessions` | no body -> `{id,status}`; `box_id` is the authenticated device; `201`, or `200` when repeated with the same key |
-| POST | `/sessions/{id}/consent` | `{processing:true,pool:false,documented_externally:true,evidence_ref?}` (test-only attestation); `evidence_ref` is at most 64 characters of letters, digits and `._:-`, and must not contain personal data. Returns `{status,pool_consent,withdrawal_code}`; the code appears once and is `null` on a repeat |
+| POST | `/sessions/{id}/consent` | `{processing:true,pool:false,documented_externally:true,evidence_ref?}` (test-only attestation); `evidence_ref` is at most 64 characters of letters, digits and `._:-`, and must not contain personal data. Returns `{status,pool_consent,withdrawal_code}`; the code appears once and is `null` on a repeat. With `method: "participant_screen"` and the shown `notice_version`, the participant's on-screen confirmation replaces the operator attestation; pool use is refused, and an outdated version returns `409` |
 | POST | `/sessions/{id}/portrait` | multipart `image` -> `{portrait_id,status}`; limits below |
 | POST | `/sessions/{id}/process` | no body -> `202 {status,job_id,mode,status_url,result_url}` queues generation, for every provider; can be requested again after `failed`; `200` if already complete |
 | POST | `/sessions/{id}/cancel` | no body -> `{status,cancelled}`; stops waiting or running generation and keeps the portrait |

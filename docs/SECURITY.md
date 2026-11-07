@@ -24,6 +24,8 @@ No way around authentication was found: missing, wrong and non-bearer tokens, `/
 
 **Image model (ADR-017):** mflux runs as a separate process with arguments passed directly rather than through a shell, in offline mode, and its log is discarded. Only metrics and generic errors are stored. It runs under the server's account, so it can read everything the server can.
 
+**Kiosk (ADR-020):** the withdrawal code appears on the box's screen, where bystanders may see it. The kiosk runs as the Pi's `admin` account on tty1, in place of the login prompt.
+
 ## Before any deployment beyond the trusted test LAN
 
 - encryption through NetBird, Tailscale or TLS; scoped short-lived credentials
