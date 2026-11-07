@@ -24,7 +24,7 @@
 - [x] Add per-device authentication **before remotely binding**
 - [x] Test connectivity from the real Pi to the Mac on the trusted LAN (ADR-010)
 - [x] Run `scripts/m1_acceptance.sh` on the Pi: passed 2026-11-07 (see `docs/HARDWARE.md`)
-**Acceptance:** 20 consecutive CLI captures with correct orientation; invalid camera returns clear error; authenticated Pi→Mac upload succeeds. **Met for a scene without people, at the default 640×480.** Repeated camera reconnection is still untested, and the ADR-010 review is still outstanding.
+**Acceptance:** 20 consecutive CLI captures with correct orientation; invalid camera returns clear error; authenticated Pi→Mac upload succeeds. **Met for a scene without people, at the default 640×480.** Repeated camera reconnection is still untested. The ADR-010 review is recorded in `docs/SECURITY.md`, and its findings 1–4 are fixed (ADR-013).
 
 ## M2 — Session persistence and upload hardening
 - [ ] Define explicit session state transition table and concurrent access strategy
@@ -37,7 +37,8 @@
 - [ ] Clear scope-based pool permission and audit trail
 - [ ] Make seed import admin-only; validity checks, weighted random fairness
 - [ ] Separate temporary session images from reusable pool files
-- [ ] Automatic periodic deletion and background cleanup of images, output, temp jobs
+- [x] Automatic periodic deletion and background cleanup of images and output, done early (ADR-013)
+- [ ] Cleanup of temp jobs, once a queue exists
 - [ ] Private revocation workflow for future public users
 **Acceptance:** expired/revoked never match; synthetic test images purge; pool-empty with no seed yields clear error.
 

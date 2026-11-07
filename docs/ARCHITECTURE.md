@@ -22,4 +22,4 @@
 - Seed images must be authorized and curated.
 
 ## Known omissions
-No TLS, rate limiting, remote safe deployment, robust periodic cleanup, withdrawal mechanism, concurrent job reservation, queue, production quality controls, realtime events, actual AI, output retention policy enforcement. Work through milestones before public use.
+No TLS, rate limiting, remote safe deployment, withdrawal mechanism, concurrent job reservation, queue, production quality controls, realtime events, actual AI, an approved retention schedule. Work through milestones before public use.

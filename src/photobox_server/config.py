@@ -30,6 +30,18 @@ def load_env_file(path: Path = Path(".env")) -> None:
         os.environ.setdefault(key, value)
 
 
+def get_cleanup_interval() -> int:
+    """Return the seconds between automatic cleanup runs."""
+    raw = os.getenv("PHOTOBOX_CLEANUP_INTERVAL_SECONDS", "300")
+    try:
+        seconds = int(raw)
+    except ValueError:
+        seconds = 0
+    if not 1 <= seconds <= 86400:
+        raise ConfigError(f"PHOTOBOX_CLEANUP_INTERVAL_SECONDS={raw!r} must be a whole number from 1 to 86400")
+    return seconds
+
+
 def get_provider() -> str:
     """Return the configured image provider, rejecting any that is not implemented."""
     provider = os.getenv("PHOTOBOX_PROVIDER", "mock")

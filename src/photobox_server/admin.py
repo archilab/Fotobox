@@ -15,13 +15,16 @@ def main(argv: list[str] | None = None) -> int:
     actions.add_parser("add", help="register a device and print its token once").add_argument("device_id")
     actions.add_parser("revoke", help="revoke a device's token").add_argument("device_id")
     actions.add_parser("list", help="list devices (tokens are not shown)")
-    commands.add_parser("cleanup", help="delete expired portraits now")
+    commands.add_parser("cleanup", help="delete expired portraits, their strips and untracked files now")
     args = parser.parse_args(argv)
 
     load_env_file()
     with db_connect() as db:
         if args.cmd == "cleanup":
-            print(f"Expired portraits deleted: {cleanup_expired(db)}")
+            result = cleanup_expired(db)
+            print(f"Expired portraits deleted: {result.portraits}")
+            print(f"Strips deleted: {result.strips}")
+            print(f"Untracked files deleted: {result.untracked_files}")
         elif args.action == "add":
             try:
                 token = create_device(db, args.device_id)

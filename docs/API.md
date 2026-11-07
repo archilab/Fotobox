@@ -10,12 +10,12 @@ Every path except `/api/v1/health` requires `Authorization: Bearer <device token
 | GET | `/health` | `{status,provider,production_ready}` (no token needed) |
 | POST | `/sessions` | no body -> `{id,status}`; `box_id` is the authenticated device |
 | POST | `/sessions/{id}/consent` | `{processing:true,pool:false,documented_externally:true}` (test-only attestation) |
-| POST | `/sessions/{id}/portrait` | multipart `image` JPEG/PNG/WebP -> `{portrait_id,status}` |
+| POST | `/sessions/{id}/portrait` | multipart `image` JPEG/PNG/WebP, up to 20 megapixels -> `{portrait_id,status}` |
 | POST | `/sessions/{id}/process` | no body -> `{status,mode,result_url}`; synchronous mock |
 | GET | `/sessions/{id}` | `{id,box_id,status,error,has_result}` |
-| GET | `/sessions/{id}/result` | image/png (demo only) |
+| GET | `/sessions/{id}/result` | image/png (demo only); `404` once a portrait in the strip has expired |
 
-Cleanup and device management are local commands, not HTTP endpoints: `python -m photobox_server.admin --help`.
+Device management and on-demand cleanup are local commands, not HTTP endpoints: `python -m photobox_server.admin --help`. The server also runs cleanup automatically.
 
 ## Future design (not implemented)
 - `POST /sessions/{id}/process`: idempotent enqueue, return 202 + job ID

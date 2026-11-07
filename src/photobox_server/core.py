@@ -2,25 +2,42 @@ from __future__ import annotations
 import io
 import os
 import sqlite3
+import stat
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import NamedTuple
 from PIL import Image, ImageDraw, ImageOps, UnidentifiedImageError
 
 MAX_IMAGE_PIXELS = 20_000_000
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+# Untracked files younger than this may belong to a request still in progress.
+ORPHAN_GRACE_SECONDS = 3600
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+def _restrict(path: Path, mode: int) -> None:
+    if stat.S_IMODE(path.stat().st_mode) != mode:
+        path.chmod(mode)
+
 def storage_root() -> Path:
     p = Path(os.getenv("PHOTOBOX_STORAGE_DIR", "./storage")).resolve()
     p.mkdir(parents=True, exist_ok=True)
+    _restrict(p, 0o700)
     for folder in ("portraits", "generated", "seed_portraits"):
         (p / folder).mkdir(exist_ok=True)
+        _restrict(p / folder, 0o700)
     return p
+
+def write_private_image(img: Image.Image, dest: Path, image_format: str, **options) -> None:
+    """Save an image that only the server's own account can read."""
+    fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as handle:
+        img.save(handle, image_format, **options)
+    _restrict(dest, 0o600)
 
 @contextmanager
 def db_connect() -> Iterator[sqlite3.Connection]:
@@ -28,6 +45,12 @@ def db_connect() -> Iterator[sqlite3.Connection]:
     root = storage_root()
     p = Path(os.getenv("PHOTOBOX_DB_PATH", str(root / "photobox.sqlite3"))).resolve()
     p.parent.mkdir(parents=True, exist_ok=True)
+    # Create the file first so it is never readable by others. SQLite gives its -wal and -shm
+    # files the database's permissions, but files from an older version need correcting.
+    os.close(os.open(p, os.O_WRONLY | os.O_CREAT, 0o600))
+    for candidate in (p, p.with_name(p.name + "-wal"), p.with_name(p.name + "-shm")):
+        if candidate.exists():
+            _restrict(candidate, 0o600)
     db = sqlite3.connect(p, timeout=15)
     try:
         db.row_factory = sqlite3.Row
@@ -67,6 +90,9 @@ def validate_image(payload: bytes) -> Image.Image:
         with Image.open(io.BytesIO(payload)) as opened:
             if opened.format not in {"JPEG", "PNG", "WEBP"}:
                 raise ValueError("unsupported image type")
+            # Pillow only warns between the limit and twice the limit, so check it here.
+            if opened.width * opened.height > MAX_IMAGE_PIXELS:
+                raise ValueError("image exceeds pixel limit")
             opened.verify()
         with Image.open(io.BytesIO(payload)) as opened:
             return ImageOps.exif_transpose(opened).convert("RGB")
@@ -76,7 +102,7 @@ def validate_image(payload: bytes) -> Image.Image:
 def save_portrait(img: Image.Image, portrait_id: str) -> Path:
     dest = storage_root() / "portraits" / f"{portrait_id}.jpg"
     img.thumbnail((1600, 1600))
-    img.save(dest, "JPEG", quality=88)
+    write_private_image(img, dest, "JPEG", quality=88)
     return dest
 
 def select_match(db: sqlite3.Connection, own_id: str) -> tuple[str, Path] | None:
@@ -106,13 +132,49 @@ def render_mock_strip(image_a: Image.Image, image_b: Image.Image, frames: int = 
     draw.text((margin, strip.height - 32), "CONNECTED PHOTOBOX - DEVELOPMENT MOCK", fill="black")
     return strip
 
-def cleanup_expired(db: sqlite3.Connection) -> int:
+def strip_images_active(db: sqlite3.Connection, session: sqlite3.Row) -> bool:
+    """A strip contains its portraits, so it is only available while all of them are unexpired."""
+    for portrait_id in (session["portrait_id"], session["match_portrait_id"]):
+        if portrait_id is None or portrait_id.startswith("seed:"):
+            continue
+        if db.execute("SELECT 1 FROM portraits WHERE id=? AND expires_at>?", (portrait_id, now_iso())).fetchone() is None:
+            return False
+    return True
+
+class CleanupResult(NamedTuple):
+    portraits: int
+    strips: int
+    untracked_files: int
+
+def cleanup_expired(db: sqlite3.Connection) -> CleanupResult:
+    """Delete expired portraits, every strip containing one, and files no record refers to."""
     # Do not remove records for active generations; production cleanup must handle queued jobs explicitly.
+    root = storage_root()
     expired = db.execute("SELECT id,path FROM portraits WHERE expires_at<=?", (now_iso(),)).fetchall()
     for record in expired:
         p = Path(record["path"])
-        if p.parent == (storage_root() / "portraits"):
+        if p.parent == root / "portraits":
             p.unlink(missing_ok=True)
         db.execute("DELETE FROM portraits WHERE id=?", (record["id"],))
+    stale_strips = db.execute(
+        """SELECT id,output_path FROM sessions WHERE output_path IS NOT NULL AND (
+               portrait_id IS NULL OR portrait_id NOT IN (SELECT id FROM portraits)
+               OR (match_portrait_id IS NOT NULL AND match_portrait_id NOT LIKE 'seed:%'
+                   AND match_portrait_id NOT IN (SELECT id FROM portraits)))"""
+    ).fetchall()
+    for record in stale_strips:
+        p = Path(record["output_path"])
+        if p.parent == root / "generated":
+            p.unlink(missing_ok=True)
+        db.execute("UPDATE sessions SET output_path=NULL WHERE id=?", (record["id"],))
+    tracked = {Path(row[0]).name for row in db.execute("SELECT path FROM portraits")}
+    tracked |= {Path(row[0]).name for row in db.execute("SELECT output_path FROM sessions WHERE output_path IS NOT NULL")}
+    cutoff = datetime.now(timezone.utc).timestamp() - ORPHAN_GRACE_SECONDS
+    untracked = 0
+    for folder in ("portraits", "generated"):
+        for p in (root / folder).iterdir():
+            if p.is_file() and p.name not in tracked and p.stat().st_mtime < cutoff:
+                p.unlink(missing_ok=True)
+                untracked += 1
     db.commit()
-    return len(expired)
+    return CleanupResult(len(expired), len(stale_strips), untracked)

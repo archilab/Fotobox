@@ -1,8 +1,10 @@
 from __future__ import annotations
+import asyncio
+import logging
 import os
 import uuid
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
@@ -10,18 +12,37 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from PIL import Image
 from .auth import authenticate
-from .config import get_provider, load_env_file
-from .core import db_connect, now_iso, save_portrait, validate_image, select_match, render_mock_strip, storage_root
+from .config import get_cleanup_interval, get_provider, load_env_file
+from .core import cleanup_expired, db_connect, now_iso, save_portrait, strip_images_active, validate_image, select_match, render_mock_strip, storage_root, write_private_image
 
 PUBLIC_PATHS = frozenset({"/api/v1/health"})
+logger = logging.getLogger(__name__)
+
+def run_cleanup() -> None:
+    with db_connect() as db:
+        cleanup_expired(db)
+
+async def cleanup_loop(interval: int) -> None:
+    while True:
+        try:
+            await asyncio.to_thread(run_cleanup)
+        except Exception as exc:
+            # Keep retrying: stopping would silently leave expired images on disk.
+            logger.error("automatic cleanup failed: %s", type(exc).__name__)
+        await asyncio.sleep(interval)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     load_env_file()
     get_provider()
+    interval = get_cleanup_interval()
     with db_connect():
         pass
+    cleanup_task = asyncio.create_task(cleanup_loop(interval))
     yield
+    cleanup_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await cleanup_task
 
 app = FastAPI(title="Connected Photobox API", version="0.5.0", description="DEVELOPMENT ONLY: device tokens, no TLS. Never expose publicly.", lifespan=lifespan)
 
@@ -76,24 +97,31 @@ def record_consent(session_id: str, body: ConsentRequest, request: Request):
 
 @app.post("/api/v1/sessions/{session_id}/portrait")
 async def upload_portrait(session_id: str, request: Request, image: UploadFile = File(...)):
+    hours = int(os.getenv("PHOTOBOX_POOL_HOURS", "24"))
+    if not 1 <= hours <= 720:
+        raise HTTPException(500, "invalid pool retention configuration")
     limit = int(os.getenv("PHOTOBOX_MAX_UPLOAD_BYTES", "10000000"))
     raw = await image.read(limit+1)
     try:
         img = validate_image(raw)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
-    with db_connect() as db:
-        s = get_session(db, session_id, request.state.device_id)
-        if s["status"] != "awaiting_portrait":
-            raise HTTPException(409, "portrait not accepted in current state")
-        photo_id = str(uuid.uuid4())
-        path = save_portrait(img, photo_id)
-        hours = int(os.getenv("PHOTOBOX_POOL_HOURS", "24"))
-        if not 1 <= hours <= 720:
-            raise HTTPException(500, "invalid pool retention configuration")
-        expires = (datetime.now(timezone.utc)+timedelta(hours=hours if s["consent_pool"] else 1)).isoformat()
-        db.execute("INSERT INTO portraits(id,session_id,path,pool_eligible,created_at,expires_at) VALUES(?,?,?,?,?,?)", (photo_id, session_id,str(path),s["consent_pool"],now_iso(),expires))
-        db.execute("UPDATE sessions SET portrait_id=?,status='uploaded' WHERE id=?", (photo_id,session_id))
+    path = None
+    try:
+        with db_connect() as db:
+            s = get_session(db, session_id, request.state.device_id)
+            if s["status"] != "awaiting_portrait":
+                raise HTTPException(409, "portrait not accepted in current state")
+            photo_id = str(uuid.uuid4())
+            path = save_portrait(img, photo_id)
+            expires = (datetime.now(timezone.utc)+timedelta(hours=hours if s["consent_pool"] else 1)).isoformat()
+            db.execute("INSERT INTO portraits(id,session_id,path,pool_eligible,created_at,expires_at) VALUES(?,?,?,?,?,?)", (photo_id, session_id,str(path),s["consent_pool"],now_iso(),expires))
+            db.execute("UPDATE sessions SET portrait_id=?,status='uploaded' WHERE id=?", (photo_id,session_id))
+    except Exception:
+        # A portrait with no record could never be found again for deletion.
+        if path is not None:
+            path.unlink(missing_ok=True)
+        raise
     return {"portrait_id": photo_id, "status": "uploaded"}
 
 @app.post("/api/v1/sessions/{session_id}/process")
@@ -114,7 +142,7 @@ def process_session(session_id: str, request: Request):
             frame_count = int(os.getenv("PHOTOBOX_NUM_FRAMES","4"))
             result = render_mock_strip(a,b,frame_count)
             dest = storage_root()/"generated"/f"{session_id}.png"
-            result.save(dest,"PNG")
+            write_private_image(result,dest,"PNG")
         with db_connect() as db:
             if not match_id.startswith("seed:"):
                 db.execute("UPDATE portraits SET use_count=use_count+1 WHERE id=?",(match_id,))
@@ -137,6 +165,8 @@ def get_result(session_id: str, request: Request):
         s = get_session(db, session_id, request.state.device_id)
         if s["status"] != "complete" or not s["output_path"]:
             raise HTTPException(404,"no completed result")
+        if not strip_images_active(db, s):
+            raise HTTPException(404,"result expired")
         path = Path(s["output_path"])
         if not path.is_file() or path.parent != (storage_root()/"generated"):
             raise HTTPException(404,"result not found")
