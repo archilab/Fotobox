@@ -100,6 +100,7 @@ flowchart LR
 | **Starts on its own** | The server starts at login on the Mac, and the kiosk starts at boot on the Pi. |
 | **Survives restarts** | Jobs are stored in a queue and resume from finished frames after a restart. |
 | **Admin commands** | Manage devices, seed images, withdrawals and cleanup, and view the audit trail. None of these are reachable over the network. |
+| **Dashboard** | A web page on the Mac: boxes online and what they're doing, the queue, stored strips, the consent notice and the stories with version history, seed images, pairing and the audit trail. |
 | **Evaluation tool** | `scripts/evaluate_pairs.py` makes test strips from portrait pairs, with a review page and score sheet. |
 
 ## What you need
@@ -180,12 +181,21 @@ sed -e "s|REPOSITORY|$PWD|g" -e "s|HOME|$HOME|g" deploy/mac/com.photobox.server.
 ```
 The server binds to the Mac's current LAN address on `en0`, never to `0.0.0.0`. If macOS asks whether Python may accept incoming connections, allow it.
 
-### 9. Keep photos out of backups
+### 9. Set up the dashboard
+```bash
+.venv/bin/python -m photobox_server.admin dashboard set-password
+```
+```bash
+sed -e "s|REPOSITORY|$PWD|g" -e "s|HOME|$HOME|g" deploy/mac/com.photobox.dashboard.plist > ~/Library/LaunchAgents/com.photobox.dashboard.plist && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.photobox.dashboard.plist
+```
+Then open <http://127.0.0.1:8001> in a browser on the Mac. It is reachable from this Mac only.
+
+### 10. Keep photos out of backups
 ```bash
 tmutil addexclusion ~/photobox-server/storage
 ```
 
-### 10. Check
+### 11. Check
 ```bash
 curl -s http://$(ipconfig getifaddr en0):8000/api/v1/health
 ```
@@ -276,6 +286,24 @@ Through the API or the Pi's command line, a strip can be fetched as `color`, `gr
 
 ## Operator tasks
 
+### In the dashboard
+Open <http://127.0.0.1:8001> on the Mac and log in. It refreshes the overview and the queue by itself.
+
+| Page | What you can do |
+|---|---|
+| **Overview** | See which boxes are online (a report within the last 90 s) and what each is doing, plus the queue, model, notice and story versions, and free disk space. |
+| **Queue** | Follow jobs frame by frame, and cancel one; the portrait stays, so the box can try again. |
+| **Strips** | View stored strips in color, grayscale or thermal, see when each is deleted, and withdraw a visitor's images, after ticking a confirmation box. |
+| **Consent notice** | Edit the text with a preview as on the box. Every saved version is kept with the number of consents given for it, and older versions can be activated again. |
+| **Stories** | Turn stories on or off, edit, add or delete them, and see example prompts. Unsafe or broken stories are refused with the reason. Every change is a version you can go back to, including the original 100. |
+| **Prompts** | Edit the scene template, backdrop colors and stagings. |
+| **Seeds** | Upload seed images, with a rights confirmation and reference, or remove them. |
+| **Boxes** | Show a pairing code, or revoke a box. |
+| **Audit** | Browse and filter the audit trail. |
+
+Changes to stories apply to strips queued afterwards; strips already waiting or being made keep their version.
+
+### On the command line
 Run these on the Mac in `~/photobox-server`. None of them can be reached over the network.
 
 | Task | Command |
@@ -287,6 +315,7 @@ Run these on the Mac in `~/photobox-server`. None of them can be reached over th
 | Register, list or revoke photo booths | `... admin device add NAME`, `... admin device list`, `... admin device revoke NAME` |
 | Change the box's WiFi, server or camera | Ctrl+Alt+S on the box's start screen, then the PIN |
 | View the audit trail | `... admin audit --limit 50` |
+| Set or change the dashboard password | `... admin dashboard set-password` |
 | Run cleanup now | `... admin cleanup` |
 | Stop or start the server | `launchctl bootout gui/$(id -u)/com.photobox.server`, or step 8 again |
 | Restart the server | `launchctl kickstart -k gui/$(id -u)/com.photobox.server` |
@@ -360,6 +389,9 @@ sudo systemctl restart photobox-kiosk
 | **Server won't start: "mflux was not found"** | Set `PHOTOBOX_MFLUX_COMMAND` to the full path. |
 | **Generation fails at once** | The model is not downloaded yet; see server step 3, because the server runs offline. |
 | **A strip has disappeared** | Strips expire with the visitor's photo after about one hour. |
+| **Dashboard: "only available on this Mac"** | Open it as `http://127.0.0.1:8001` on the Mac itself, not by its network address or another name. |
+| **Dashboard login page says no password is set** | Run `admin dashboard set-password`. |
+| **A box shows "offline"** | It has not reported for 90 s: it is off, has no network, or its server address or pairing is wrong. |
 | **`python: command not found` or a wrong version** | Use `python3` or `.venv/bin/python`. |
 | **Camera errors** | Run `camera-list` and `camera-probe`, and use the stable `by-id` name. Unplugging and replugging the camera can change `/dev/videoN`. |
 

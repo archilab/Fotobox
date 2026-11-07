@@ -31,6 +31,8 @@ def main(argv: list[str] | None = None) -> int:
     seed_actions.add_parser("list", help="list seeds")
     withdraw = commands.add_parser("withdraw", help="withdraw consent and delete a session's images and strips")
     withdraw.add_argument("--session", help="Session id; without it, the participant's code is asked for")
+    dashboard = commands.add_parser("dashboard", help="the operator dashboard")
+    dashboard.add_subparsers(dest="action", required=True).add_parser("set-password", help="set or change the dashboard password")
     log = commands.add_parser("audit", help="show recent audit events")
     log.add_argument("--limit", type=int, default=50)
     args = parser.parse_args(argv)
@@ -38,6 +40,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("seed add requires --attest-rights: use it only when you hold the rights and permission to use this image")
 
     load_env_file()
+    if args.cmd == "dashboard":
+        return set_dashboard_password()
     code = None
     if args.cmd == "withdraw" and not args.session:
         # Asked for here rather than as an argument, which other accounts could see.
@@ -81,6 +85,23 @@ def main(argv: list[str] | None = None) -> int:
         else:
             for row in db.execute("SELECT id,created_at,revoked_at FROM devices ORDER BY id"):
                 print(f"{row['id']}\tcreated {row['created_at']}\t{'revoked ' + row['revoked_at'] if row['revoked_at'] else 'active'}")
+    return 0
+
+
+def set_dashboard_password() -> int:
+    from getpass import getpass
+    from .dashboard.security import MIN_PASSWORD, set_password
+    first = getpass(f"New dashboard password (at least {MIN_PASSWORD} characters): ")
+    if getpass("Again: ") != first:
+        print("Error: the passwords did not match", file=sys.stderr)
+        return 1
+    try:
+        with db_connect() as db:
+            set_password(db, first)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    print("Dashboard password set. Open http://127.0.0.1:8001 on this Mac.")
     return 0
 
 

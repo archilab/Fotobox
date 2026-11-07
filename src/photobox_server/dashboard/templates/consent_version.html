@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Consent notice {{ notice.version }}{% endblock %}
+{% block content %}
+<h1>Consent notice <span class="mono">{{ notice.version }}</span></h1>
+<p class="muted">Saved {{ notice.created_at[:19].replace('T', ' ') }} UTC{% if notice.active %} · active{% endif %}. <a href="/consent">Back</a></p>
+<div class="screen">{{ notice.text }}</div>
+{% endblock %}

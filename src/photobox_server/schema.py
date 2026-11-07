@@ -79,6 +79,22 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
             wrong_guesses INTEGER NOT NULL DEFAULT 0
         )""",
     ),
+    # 6: the dashboard (ADR-022): versioned content, box status, and its password.
+    (
+        """CREATE TABLE prompt_sets (
+            version TEXT PRIMARY KEY, content TEXT NOT NULL, created_at TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0
+        )""",
+        """CREATE TABLE consent_notices (
+            version TEXT PRIMARY KEY, text TEXT NOT NULL, created_at TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0
+        )""",
+        """CREATE TABLE device_status (
+            device_id TEXT PRIMARY KEY, state TEXT NOT NULL, detail TEXT, reported_at TEXT NOT NULL
+        )""",
+        """CREATE TABLE dashboard_password (
+            id INTEGER PRIMARY KEY CHECK (id = 1), salt TEXT NOT NULL, hash TEXT NOT NULL,
+            iterations INTEGER NOT NULL, set_at TEXT NOT NULL
+        )""",
+    ),
 )
 
 

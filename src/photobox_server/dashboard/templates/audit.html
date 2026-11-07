@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Audit{% endblock %}
+{% block content %}
+<h1>Audit trail</h1>
+<form method="get" action="/audit" class="panel">
+  <label for="event">Event</label>
+  <select id="event" name="event"><option value="">all</option>{% for k in kinds %}<option {{ 'selected' if k == selected else '' }}>{{ k }}</option>{% endfor %}</select>
+  <button class="quiet">Filter</button>
+</form>
+<div class="panel">
+<table>
+  <tr><th>Time (UTC)</th><th>Event</th><th>Session</th><th>Image</th><th>Box</th><th>Detail</th></tr>
+  {% for e in events %}
+  <tr class="mono"><td class="muted">{{ e.occurred_at[:19].replace('T', ' ') }}</td><td>{{ e.event }}</td><td>{{ (e.session_id or '')[:8] }}</td>
+    <td>{{ (e.portrait_id or '')[:13] }}</td><td>{{ e.device_id or '' }}</td><td>{{ e.detail or '' }}</td></tr>
+  {% endfor %}
+</table>
+<p class="muted">Latest 200 events. IDs are shortened.</p>
+</div>
+{% endblock %}

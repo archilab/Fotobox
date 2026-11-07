@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Consent notice{% endblock %}
+{% block content %}
+<h1>Consent notice</h1>
+<p class="muted">Visitors read this on the box and confirm it before any photo is taken. Every saved version is kept, so each consent stays linked to the exact text it was given for. This is your text and your responsibility; have it reviewed before public use.</p>
+{% if source == 'file' %}<div class="msg">Currently served from <span class="mono">consent-notice.txt</span>. Saving here stores it as a version and serves it from the dashboard from then on.</div>{% endif %}
+{% if source == 'none' %}<div class="msg error">No notice is set, so the boxes show "not ready".</div>{% endif %}
+<div class="panel">
+  <form method="post" action="/consent">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="text">Text{% if version %} <span class="muted mono">({{ version }}, active)</span>{% endif %}</label>
+    <textarea class="tall" id="text" name="text">{{ text or '' }}</textarea>
+    <p><button>Save as new version and activate</button></p>
+  </form>
+</div>
+<h2>Preview, as on the box's screen</h2>
+<div class="screen">{{ text or '' }}</div>
+<h2>Versions</h2>
+<div class="panel">
+{% if versions %}
+<table>
+  <tr><th>Version</th><th>Saved (UTC)</th><th>Consents given</th><th></th></tr>
+  {% for v in versions %}
+  <tr>
+    <td class="mono"><a href="/consent/{{ v.version }}">{{ v.version }}</a>{% if v.active %} <span class="ok">active</span>{% endif %}</td>
+    <td class="mono muted">{{ v.created_at[:19].replace('T', ' ') }}</td>
+    <td>{{ v.consents }}</td>
+    <td>{% if not v.active %}<form class="inline" method="post" action="/consent/{{ v.version }}/activate"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="quiet">Activate</button></form>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p class="muted">No versions saved in the dashboard yet.</p>{% endif %}
+</div>
+{% endblock %}

@@ -28,6 +28,8 @@ No way around authentication was found: missing, wrong and non-bearer tokens, `/
 
 **Setup menu and pairing (ADR-021):** `POST /api/v1/pair` is public. A 6-digit code is only safe because it expires after 5 minutes, works once, ends after 5 wrong guesses and is rate limited. A polkit rule lets the Pi's `admin` account change WiFi settings. Anyone who opens the menu before a PIN is set chooses the PIN.
 
+**Dashboard (ADR-022):** only `127.0.0.1:8001`, only requests from the Mac itself under a local host name, a password, strict session cookies, form tokens and no-store headers. It shows faces and changes what boxes show, so do not expose it beyond the Mac. Anyone with an account on the Mac who knows the password can use it.
+
 ## Before any deployment beyond the trusted test LAN
 
 - encryption through NetBird, Tailscale or TLS; scoped short-lived credentials

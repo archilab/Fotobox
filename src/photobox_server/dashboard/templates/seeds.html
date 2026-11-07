@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Seeds{% endblock %}
+{% block content %}
+<h1>Seed images</h1>
+<p class="muted">Counterparts for visitors when no pool portrait is available. Import only images you hold the rights to use. The reference is a licence or permission reference, never personal data.</p>
+<div class="panel">
+<form method="post" action="/seeds" enctype="multipart/form-data">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="image">Image (JPEG, PNG or WebP)</label>
+  <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp">
+  <label for="rights_reference">Rights reference</label>
+  <input type="text" id="rights_reference" name="rights_reference" placeholder="for example LICENSE-2026-04 or FICTIONAL-AI">
+  <label><input type="checkbox" name="attest" value="yes"> I hold the rights and permission to use this image as a seed</label>
+  <p><button>Import</button></p>
+</form>
+</div>
+<div class="panel seeds">
+{% if seeds %}
+<table>
+  <tr><th></th><th>Rights reference</th><th>Imported (UTC)</th><th>Used</th><th></th></tr>
+  {% for s in seeds %}
+  <tr><td><img src="/seeds/{{ s.id }}.jpg" alt="Seed {{ s.id[:8] }}"></td><td class="mono">{{ s.rights_ref }}</td>
+    <td class="mono muted">{{ s.imported_at[:19].replace('T', ' ') }}</td><td>{{ s.use_count }}</td>
+    <td><form class="inline" method="post" action="/seeds/{{ s.id }}/remove"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger">Remove</button></form></td></tr>
+  {% endfor %}
+</table>
+{% else %}<p class="muted">No seeds. Without one, boxes cannot make strips when the pool is empty.</p>{% endif %}
+</div>
+{% endblock %}

@@ -6,6 +6,9 @@
 `seeds(id UUID PK, path, rights_ref, imported_at, removed_at, use_count)`
 `generation_jobs(id UUID PK, session_id UNIQUE, provider, prompt_version, status, run_id, attempts, seed, frames_done, frames_total, next_attempt_at, error, metrics, created_at, started_at, finished_at)`: `metrics` holds seconds and peak memory per frame, never image data; a session has one job, reused if requested again
 `audit_events(id PK, occurred_at, event, session_id, portrait_id, device_id, detail)`: opaque ids only, never images, names, codes or paths
+`prompt_sets(version PK, content, created_at, active)` and `consent_notices(version PK, text, created_at, active)`: every saved version, one active each (ADR-022); `generation_jobs.prompt_version` names the set a job used
+`device_status(device_id PK, state, detail, reported_at)`: the latest report from each box
+`dashboard_password(id=1, salt, hash, iterations, set_at)` and `device_pairings(id, device_id, code_hash, created_at, expires_at, used_at, wrong_guesses)`
 `devices(id PK, token_hash UNIQUE, created_at, revoked_at)`: `sessions.box_id` holds the authenticated device id
 `consent_records(id PK, session_id, purpose, policy_version, granted_at, withdrawn_at, provenance, evidence_ref)`: one record per session and purpose (`processing`, `pool`)
 

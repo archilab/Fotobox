@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Prompts{% endblock %}
+{% block content %}
+<h1>Prompts</h1>
+<p class="muted">The parts every frame is built from. The scene needs <span class="mono">{backdrop}</span>, <span class="mono">{staging}</span> and <span class="mono">{beat}</span>, and must keep the camera at eye level. Stagings name both people as <span class="mono">{x}</span> and <span class="mono">{y}</span>, one per line; each frame gets a different one.</p>
+<div class="panel">
+<form method="post" action="/prompts">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="scene">Scene</label>
+  <textarea class="tall" id="scene" name="scene" style="min-height:160px">{{ content.scene }}</textarea>
+  <label for="clear_faces">Added to every opening beat</label>
+  <input type="text" id="clear_faces" name="clear_faces" value="{{ content.clear_faces.strip() }}">
+  <label for="backdrops">Backdrop colors, one per line</label>
+  <textarea id="backdrops" name="backdrops">{{ content.backdrops|join('\n') }}</textarea>
+  <label for="opening_stagings">Stagings for the first frame, one per line</label>
+  <textarea class="tall" id="opening_stagings" name="opening_stagings" style="min-height:160px">{{ content.opening_stagings|join('\n') }}</textarea>
+  <label for="stagings">Stagings for the other frames, one per line</label>
+  <textarea class="tall" id="stagings" name="stagings">{{ content.stagings|join('\n') }}</textarea>
+  <p><button>Save as new version and activate</button></p>
+</form>
+</div>
+{% endblock %}

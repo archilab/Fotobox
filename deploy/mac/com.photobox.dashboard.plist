@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Runs the operator dashboard (127.0.0.1 only) while the user is logged in. REPOSITORY is replaced at install (docs/HARDWARE.md). -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.photobox.dashboard</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>REPOSITORY/scripts/run_dashboard.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>REPOSITORY</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>15</integer>
+    <key>StandardOutPath</key>
+    <string>HOME/Library/Logs/photobox-dashboard.log</string>
+    <key>StandardErrorPath</key>
+    <string>HOME/Library/Logs/photobox-dashboard.log</string>
+</dict>
+</plist>

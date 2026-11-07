@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% set refresh = 10 %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<h1>Overview</h1>
+<div class="grid">
+  <div class="panel stat"><b>{{ jobs.get('running', 0) }} / {{ jobs.get('queued', 0) }}</b><span>strips being made / waiting</span></div>
+  <div class="panel stat"><b>{{ strips }}</b><span>strips stored (deleted after about 1 hour)</span></div>
+  <div class="panel stat"><b>{{ seeds }}</b><span>seed images</span></div>
+  <div class="panel stat"><b>{{ '%.0f' % free_gb }} GB</b><span>free disk space</span></div>
+</div>
+<h2>Boxes</h2>
+<div class="panel">
+{% if devices %}
+<table>
+  <tr><th>Box</th><th>Connection</th><th>Doing</th><th>Last report</th></tr>
+  {% for d in devices %}
+  <tr>
+    <td>{{ d.id }}{% if d.revoked_at %} <span class="muted">(revoked)</span>{% endif %}</td>
+    <td class="{{ 'ok' if d.online else 'bad' }}">{{ 'online' if d.online else 'offline' }}</td>
+    <td>{{ d.state or '—' }}{% if d.detail %} <span class="warn">· {{ d.detail }}</span>{% endif %}</td>
+    <td class="muted mono">{{ (d.reported_at or '')[:19].replace('T', ' ') }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p class="muted">No boxes yet. Pair one under <a href="/devices">Boxes</a>.</p>{% endif %}
+</div>
+<h2>Server</h2>
+<div class="panel">
+<table>
+  <tr><th>Image model</th><td class="mono">{{ provider }}</td></tr>
+  <tr><th>Consent notice</th><td class="mono {{ 'bad' if notice.startswith('not ready') else '' }}">{{ notice }}</td></tr>
+  <tr><th>Stories and prompts</th><td class="mono">{{ prompts }}</td></tr>
+  <tr><th>Jobs failed / complete</th><td>{{ jobs.get('failed', 0) }} / {{ jobs.get('complete', 0) }}</td></tr>
+</table>
+</div>
+<p class="muted">Refreshes every 10 seconds. Times are UTC.</p>
+{% endblock %}

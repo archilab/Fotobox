@@ -7,7 +7,7 @@ name = "connected-photobox"
 version = "0.5.0"
 description = "Development scaffold for connected photobox"
 requires-python = ">=3.11"
-dependencies = ["fastapi>=0.110,<1", "uvicorn>=0.27,<1", "python-multipart>=0.0.9", "pillow>=10,<13", "httpx>=0.27,<1"]
+dependencies = ["fastapi>=0.110,<1", "uvicorn>=0.27,<1", "python-multipart>=0.0.9", "pillow>=10,<13", "httpx>=0.27,<1", "jinja2>=3.1,<4"]
 
 [project.optional-dependencies]
 client-camera = ["opencv-python-headless>=4.8"]
@@ -17,6 +17,9 @@ dev = ["pytest>=8", "ruff>=0.6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+photobox_server = ["dashboard/templates/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

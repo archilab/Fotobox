@@ -8,6 +8,7 @@ Every path except `/api/v1/health` and `/api/v1/pair` requires `Authorization: B
 | Method | Route | Request / Result |
 |---|---|---|
 | GET | `/health` | `{status,provider,production_ready}` (no token needed) |
+| POST | `/devices/status` | `{state,detail?}` -> `204`; `state` is `idle`, `consent`, `capturing`, `generating`, `showing`, `setup` or `not ready`; `detail` at most 120 characters, operator-facing only (ADR-022) |
 | POST | `/pair` | `{code}` -> `{device_id,token}`; **no token needed**; `403` for a wrong, used or expired code, `429` after 10 attempts per minute (ADR-021) |
 | GET | `/consent-notice` | `{version,text}` for the box's screen; `503` if no completed notice is configured (ADR-020) |
 | POST | `/sessions` | no body -> `{id,status}`; `box_id` is the authenticated device; `201`, or `200` when repeated with the same key |

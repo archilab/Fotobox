@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Strips{% endblock %}
+{% block content %}
+<h1>Strips</h1>
+<p class="muted">Strips are deleted automatically with the visitor's photo, about an hour after it was taken. They show real people: keep this screen private.</p>
+{% if strips %}
+<div class="strips">
+  {% for s in strips %}
+  <div class="panel">
+    <a href="/strips/{{ s.id }}.png"><img src="/strips/{{ s.id }}.png" alt="Strip from {{ s.box_id }}"></a>
+    <p class="muted">{{ s.box_id }} · {{ (s.finished_at or '')[11:16] }} UTC{% if s.minutes_left is not none %} · deleted in {{ s.minutes_left }} min{% endif %}</p>
+    <p>{% for p in profiles %}<a href="/strips/{{ s.id }}.png?profile={{ p }}">{{ p }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>
+    <form method="post" action="/strips/{{ s.id }}/withdraw">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label class="muted"><input type="checkbox" name="confirm" value="yes"> Delete this visitor's images and every strip with them</label>
+      <button class="danger">Withdraw</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<div class="panel muted">No strips are stored right now.</div>{% endif %}
+{% endblock %}

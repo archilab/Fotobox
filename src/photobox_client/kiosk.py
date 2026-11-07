@@ -184,12 +184,49 @@ def big(number: int) -> str:
     return "\n\n" + "\n".join("        " + row.replace("#", "██") for row in BIG_DIGITS[number])
 
 
+class StatusReporter:
+    """Tells the server what the box is doing, on every change and every 30 s, without ever blocking the kiosk."""
+
+    INTERVAL_SECONDS = 30
+
+    def __init__(self, post: Callable[[dict], None]) -> None:
+        import threading
+        self.post = post
+        self.state, self.detail = "idle", None
+        self.changed = threading.Event()
+        self.stopped = threading.Event()
+        self.thread = threading.Thread(target=self._loop, name="photobox-status", daemon=True)
+
+    def start(self) -> "StatusReporter":
+        self.thread.start()
+        return self
+
+    def stop(self) -> None:
+        self.stopped.set()
+        self.changed.set()
+
+    def __call__(self, state: str, detail: str | None = None) -> None:
+        if (state, detail) != (self.state, self.detail):
+            self.state, self.detail = state, detail
+            self.changed.set()
+
+    def _loop(self) -> None:
+        while not self.stopped.is_set():
+            try:
+                self.post({"state": self.state, "detail": self.detail})
+            except Exception:
+                pass  # the dashboard is informational; the kiosk carries on without it
+            self.changed.wait(self.INTERVAL_SECONDS)
+            self.changed.clear()
+
+
 class Kiosk:
     def __init__(self, api: Api, camera: Callable[[], bytes], screen: Screen, keys: Keys, *,
                  wait_seconds: int = 1800, sleep: Callable[[float], None] = time.sleep,
                  clock: Callable[[], float] = time.monotonic, test_mode: bool = False,
-                 display: FramebufferDisplay | None = None, strip_seconds: int = STRIP_SECONDS) -> None:
-        self.api, self.camera, self.screen, self.keys = api, camera, screen, keys
+                 display: FramebufferDisplay | None = None, strip_seconds: int = STRIP_SECONDS,
+                 report: Callable[..., None] = lambda *_args: None) -> None:
+        self.api, self.camera, self.screen, self.keys, self.report = api, camera, screen, keys, report
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
         self.banner = "TEST MODE - no camera\n\n" if test_mode else ""
@@ -204,8 +241,10 @@ class Kiosk:
 
     def run_once(self) -> str:
         """One participant from start to finish. Returns how it ended."""
+        self.report("idle")
         if self.ask("FOTOBOX\n\nDruecke ENTER zum Starten.\nPress ENTER to start.", {ENTER, SETUP}, None) == SETUP:
             return "setup"
+        self.report("consent")
         try:
             version, text = self.api.notice()
         except httpx.HTTPError:
@@ -216,6 +255,7 @@ class Kiosk:
             return "declined"
         try:
             session_id, code = self.api.start(version)
+            self.report("capturing")
             for number in COUNTDOWN:
                 self.screen.show(self.banner + "Schau in die Kamera / Look at the camera" + big(number))
                 self.sleep(1)
@@ -223,6 +263,7 @@ class Kiosk:
             jpeg = self.camera()
             self.api.upload_and_process(session_id, jpeg)
         except CameraError:
+            self.report("idle", "camera failed")
             self.message("Die Kamera hat nicht funktioniert. Bitte melde dich bei der Betreuung.\nThe camera failed. Please ask the staff.")
             return "camera failed"
         except httpx.HTTPError:
@@ -231,6 +272,7 @@ class Kiosk:
         return self.follow(session_id, code)
 
     def follow(self, session_id: str, code: str | None) -> str:
+        self.report("generating")
         started = self.clock()
         while True:
             try:
@@ -261,6 +303,7 @@ class Kiosk:
         """Show the finished strip on the screen. Returns False if it could not be shown."""
         if self.display is None:
             return False
+        self.report("showing")
         try:
             image = result_screen(self.api.strip(session_id), code, self.display.size)
             self.display.show(image)
@@ -307,6 +350,19 @@ def main(argv: list[str] | None = None) -> None:
         return settings, token
 
     screen, wifi = TerminalScreen(), Wifi()
+    reporter = None
+
+    def reporting(settings: Settings, token: str | None) -> StatusReporter | None:
+        """A reporter for the current server and token, replacing any earlier one."""
+        nonlocal reporter
+        if reporter is not None:
+            reporter.stop()
+        reporter = None
+        if settings.server and token:
+            def post(body: dict, server=settings.server, token=token) -> None:
+                httpx.post(f"{server}/api/v1/devices/status", json=body, headers={"Authorization": f"Bearer {token}"}, timeout=5)
+            reporter = StatusReporter(post).start()
+        return reporter
     display = None if args.no_display else FramebufferDisplay.open()
     with TerminalKeys(sys.stdin.fileno()) as keys:
         menu = SetupMenu(screen, keys, settings_path=args.config, token_path=args.token_file, pin=Pin(args.pin_file), wifi=wifi, display=display)
@@ -316,8 +372,10 @@ def main(argv: list[str] | None = None) -> None:
             menu.run()
         while True:
             settings, token = current()
+            report = reporting(settings, token) or (lambda *_args: None)
             problem = blocking_problem(diagnose(settings, token, wifi, httpx.Client))
             if problem:
+                report("not ready", problem[:120])
                 menu.run(reason=f"The photo booth cannot start. {problem}")
                 settings, token = current()
                 problem = blocking_problem(diagnose(settings, token, wifi, httpx.Client))
@@ -334,8 +392,9 @@ def main(argv: list[str] | None = None) -> None:
                 camera = lambda: capture_jpeg(settings.camera, capture)
             with httpx.Client(base_url=settings.server, timeout=60, headers={"Authorization": f"Bearer {token}"}) as client:
                 kiosk = Kiosk(Api(client), camera, screen, keys, wait_seconds=args.wait_seconds,
-                              test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds)
+                              test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds, report=report)
                 if kiosk.run_once() == "setup":
+                    report("setup")
                     menu.run()
             if args.once:
                 return

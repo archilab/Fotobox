@@ -107,6 +107,15 @@ async def require_device_token(request: Request, call_next):
     return await call_next(request)
 
 
+DEVICE_STATES = ("idle", "consent", "capturing", "generating", "showing", "setup", "not ready")
+
+
+class StatusReport(BaseModel):
+    state: Literal["idle", "consent", "capturing", "generating", "showing", "setup", "not ready"]
+    # Only operator-facing text such as "camera failed"; never anything about a participant.
+    detail: str | None = Field(default=None, max_length=120)
+
+
 class PairRequest(BaseModel):
     code: str = Field(min_length=1, max_length=12)
 
@@ -128,6 +137,18 @@ def idempotency_key(request: Request) -> str | None:
     if key is not None and not IDEMPOTENCY_KEY_PATTERN.fullmatch(key):
         raise HTTPException(400, "Idempotency-Key must be 1-128 letters, digits, '-' or '_'")
     return key
+
+
+@app.post("/api/v1/devices/status", status_code=204)
+def report_status(body: StatusReport, request: Request):
+    """A box reports what it is doing, for the dashboard. Boxes send it on every change and every 30 s."""
+    with db_connect() as db:
+        db.execute(
+            "INSERT INTO device_status(device_id,state,detail,reported_at) VALUES(?,?,?,?) "
+            "ON CONFLICT(device_id) DO UPDATE SET state=excluded.state, detail=excluded.detail, reported_at=excluded.reported_at",
+            (request.state.device_id, body.state, body.detail, now_iso()),
+        )
+    return Response(status_code=204)
 
 
 @app.post("/api/v1/pair")

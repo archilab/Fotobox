@@ -20,7 +20,8 @@ from . import audit
 from .config import get_frame_count, get_provider, int_setting
 from .core import SEED_PREFIX, db_connect, now_iso, storage_root, strip_images_active, write_private_image
 from .pool import record_use, select_match
-from .prompts import PROMPT_VERSION, prompts_for
+from .library import active_prompt_version, prompt_content
+from .prompts import prompts_for
 from .providers import FrameMetrics, FrameRequest, GenerationCancelled, GenerationError, ImageGenerationProvider, create_provider
 from .strip import dated_footer, frame_problem, render_strip
 from .sessions import COMPLETE, FAILED, PROCESSING, QUEUED, UPLOADED, transition
@@ -67,12 +68,12 @@ def enqueue(db: sqlite3.Connection, session_id: str, source_state: str) -> str |
     if existing:
         db.execute(
             "UPDATE generation_jobs SET provider=?,prompt_version=?,status=?,run_id=NULL,attempts=0,frames_done=0,next_attempt_at=?,error=NULL,finished_at=NULL WHERE id=?",
-            (get_provider(), PROMPT_VERSION, QUEUED_JOB, now, job_id),
+            (get_provider(), active_prompt_version(db), QUEUED_JOB, now, job_id),
         )
     else:
         db.execute(
             "INSERT INTO generation_jobs(id,session_id,provider,prompt_version,status,seed,frames_total,next_attempt_at,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
-            (job_id, session_id, get_provider(), PROMPT_VERSION, QUEUED_JOB, random.randrange(2**31), get_frame_count(), now, now),
+            (job_id, session_id, get_provider(), active_prompt_version(db), QUEUED_JOB, random.randrange(2**31), get_frame_count(), now, now),
         )
     db.execute("UPDATE sessions SET error=NULL WHERE id=?", (session_id,))
     return job_id
@@ -151,6 +152,7 @@ class Run:
     seed: int
     frames_total: int
     attempts: int
+    prompt_version: str
 
 
 def _image_path(db: sqlite3.Connection, image_id: str) -> Path | None:
@@ -192,7 +194,7 @@ def _claim() -> Run | None:
             "UPDATE generation_jobs SET status=?,run_id=?,attempts=?,started_at=? WHERE id=?",
             (RUNNING_JOB, run_id, attempts, now_iso(), job["id"]),
         )
-        return Run(job["id"], run_id, session["id"], own, match_path, match_id, job["seed"], job["frames_total"], attempts)
+        return Run(job["id"], run_id, session["id"], own, match_path, match_id, job["seed"], job["frames_total"], attempts, job["prompt_version"])
 
 
 def _still_current(run: Run) -> bool:
@@ -264,7 +266,10 @@ def run_one(provider: ImageGenerationProvider, stop: threading.Event | None = No
     folder = job_folder(run.job_id)
     frames: list[Path] = []
     metrics: list[FrameMetrics] = []
-    prompts = prompts_for(run.frames_total, run.seed)
+    # The content the job was queued with, even if it has been edited since.
+    with db_connect() as db:
+        content = prompt_content(db, run.prompt_version)
+    prompts = prompts_for(run.frames_total, run.seed, content)
     try:
         for index in range(run.frames_total):
             output = folder / f"frame-{index + 1}.png"

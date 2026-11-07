@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ story.title or 'New story' }}{% endblock %}
+{% block content %}
+<h1>{{ story.title or 'New story' }}</h1>
+<p class="muted">Write <span class="mono">{a}</span> for the visitor (the person from Image 1) and <span class="mono">{b}</span> for the counterpart. The opening must name both. Strips with three frames skip beat 3, so beats 2 and 4 must work without it. <a href="/stories">Back</a></p>
+<div class="panel">
+<form method="post" action="{{ '/stories/new' if index is none else '/stories/' ~ index }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="title">Title</label>
+  <input type="text" id="title" name="title" value="{{ story.title }}">
+  {% for label in ["1 Opening (both faces visible)", "2 Development", "3 Escalation", "4 Payoff"] %}
+  <label for="beat{{ loop.index }}">{{ label }}</label>
+  <textarea id="beat{{ loop.index }}" name="beat{{ loop.index }}">{{ story.beats[loop.index0] }}</textarea>
+  {% endfor %}
+  <label><input type="checkbox" name="enabled" value="yes" {{ 'checked' if story.get('enabled', True) else '' }}> Enabled</label>
+  <p><button>Save as new version and activate</button></p>
+</form>
+{% if index is not none %}
+<form method="post" action="/stories/{{ index }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="delete" value="yes">
+  <button class="danger">Delete this story</button></form>
+{% endif %}
+</div>
+{% if preview %}
+<h2>Example prompts sent to the model</h2>
+{% for p in preview %}<div class="panel mono">{{ p }}</div>{% endfor %}
+{% endif %}
+{% endblock %}

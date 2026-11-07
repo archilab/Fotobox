@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Stories{% endblock %}
+{% block content %}
+<h1>Stories</h1>
+<p class="muted">Each strip tells one enabled story, chosen at random. Every change is saved as a new version and checked first: four beats, both people named, the camera kept at eye level, and nothing romantic, violent or unkind about looks, because the two people may be strangers. Active version: <span class="mono">{{ version }}</span>.</p>
+<p><a href="/stories/new"><button>New story</button></a></p>
+<div class="panel">
+<table>
+  <tr><th>#</th><th>Story</th><th>Opening</th><th>Enabled</th></tr>
+  {% for s in content.stories %}
+  <tr>
+    <td class="muted">{{ loop.index }}</td>
+    <td><a href="/stories/{{ loop.index0 }}">{{ s.title }}</a></td>
+    <td class="muted">{{ s.beats[0][:110] }}{% if s.beats[0]|length > 110 %}…{% endif %}</td>
+    <td><form class="inline" method="post" action="/stories/{{ loop.index0 }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="{{ 'quiet' if s.get('enabled', True) else 'danger' }}">{{ 'on' if s.get('enabled', True) else 'off' }}</button></form></td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+<h2>Versions</h2>
+<div class="panel">
+<table>
+  <tr><th>Version</th><th>Saved (UTC)</th><th></th></tr>
+  {% for v in versions %}
+  <tr><td class="mono">{{ v.version }}{% if v.active %} <span class="ok">active</span>{% endif %}</td><td class="mono muted">{{ v.created_at[:19].replace('T', ' ') }}</td>
+    <td>{% if not v.active %}<form class="inline" method="post" action="/stories/versions/{{ v.version }}/activate"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="quiet">Activate</button></form>{% endif %}</td></tr>
+  {% endfor %}
+  {% if version != default_version %}
+  <tr><td class="mono">{{ default_version }} <span class="muted">(original 100 stories)</span></td><td></td>
+    <td><form class="inline" method="post" action="/stories/versions/{{ default_version }}/activate"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="quiet">Reset to original</button></form></td></tr>
+  {% endif %}
+</table>
+</div>
+{% endblock %}

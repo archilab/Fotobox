@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{% if refresh %}<meta http-equiv="refresh" content="{{ refresh }}">{% endif %}
+<title>{% block title %}Photo booth{% endblock %} · Photo booth dashboard</title>
+<style>
+:root { --bg:#f6f5f1; --panel:#fff; --text:#1d1d1f; --muted:#6b6b70; --line:#e2e0d8; --accent:#1f6f6b; --ok:#2e7d32; --bad:#b3261e; --warn:#a15c00; }
+@media (prefers-color-scheme: dark) { :root { --bg:#18181a; --panel:#222225; --text:#ececee; --muted:#a0a0a6; --line:#34343a; --accent:#6cc4bd; --ok:#7fc785; --bad:#f08b83; --warn:#e3a85b; } }
+* { box-sizing:border-box; }
+body { margin:0; font:15px/1.5 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--text); }
+header { display:flex; align-items:center; gap:24px; padding:12px 24px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+header strong { font-size:16px; }
+nav a { color:var(--muted); text-decoration:none; margin-right:16px; }
+nav a.here { color:var(--text); font-weight:600; }
+header form { margin-left:auto; }
+main { max-width:1100px; margin:24px auto; padding:0 24px; }
+h1 { font-size:22px; margin:0 0 16px; }
+h2 { font-size:17px; margin:28px 0 10px; }
+.panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin-bottom:16px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+.stat b { display:block; font-size:22px; }
+.stat span { color:var(--muted); font-size:13px; }
+table { width:100%; border-collapse:collapse; }
+th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { color:var(--muted); font-weight:500; font-size:13px; }
+.ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); } .muted { color:var(--muted); }
+.mono { font-family:ui-monospace, Menlo, monospace; font-size:13px; }
+.msg { padding:10px 14px; border-radius:8px; background:var(--panel); border:1px solid var(--accent); margin-bottom:16px; }
+.error { border-color:var(--bad); color:var(--bad); }
+textarea, input[type=text], input[type=password] { width:100%; font:inherit; padding:8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); }
+textarea { min-height:90px; }
+textarea.tall { min-height:340px; font-family:ui-monospace, Menlo, monospace; font-size:13px; }
+button { font:inherit; padding:6px 14px; border-radius:6px; border:1px solid var(--accent); background:var(--accent); color:var(--panel); cursor:pointer; }
+button.quiet { background:transparent; color:var(--accent); }
+button.danger { border-color:var(--bad); background:transparent; color:var(--bad); }
+form.inline { display:inline; }
+label { display:block; margin:12px 0 4px; font-weight:500; }
+.strips { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:16px; }
+.strips img { width:100%; border-radius:6px; border:1px solid var(--line); }
+.seeds img { width:72px; height:96px; object-fit:cover; border-radius:4px; }
+.screen { background:#000; color:#fff; padding:18px 24px; border-radius:8px; white-space:pre-wrap; font-family:ui-monospace, Menlo, monospace; font-size:13px; max-width:760px; }
+.code { font-size:34px; letter-spacing:6px; font-weight:700; }
+</style>
+</head>
+<body>
+<header>
+  <strong>Photo booth</strong>
+  {% if csrf %}
+  <nav>
+    {% for href, label in [("/", "Overview"), ("/queue", "Queue"), ("/strips", "Strips"), ("/consent", "Consent notice"), ("/stories", "Stories"), ("/prompts", "Prompts"), ("/seeds", "Seeds"), ("/devices", "Boxes"), ("/audit", "Audit")] %}
+    <a href="{{ href }}" class="{{ 'here' if path == href or (href != '/' and path.startswith(href)) else '' }}">{{ label }}</a>
+    {% endfor %}
+  </nav>
+  <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="quiet">Log out</button></form>
+  {% endif %}
+</header>
+<main>
+{% if message %}<div class="msg">{{ message }}</div>{% endif %}
+{% if error %}<div class="msg error">{{ error }}</div>{% endif %}
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>
