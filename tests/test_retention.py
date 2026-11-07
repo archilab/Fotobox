@@ -12,6 +12,7 @@ from photobox_server import app as app_module
 from photobox_server.app import app
 from photobox_server.config import ConfigError
 from photobox_server.core import ORPHAN_GRACE_SECONDS, cleanup_expired, db_connect, storage_root
+from photobox_server.pool import import_seed
 
 
 def png(width=120, height=160):
@@ -30,8 +31,11 @@ def upload(client, sid, data=None):
     return client.post(f"/api/v1/sessions/{sid}/portrait", files={"image": ("x.png", data or png(), "image/png")})
 
 
-def add_seed():
-    Image.new("RGB", (120, 160), "#444444").save(storage_root() / "seed_portraits" / "seed.png")
+def add_seed(color="#444444"):
+    out = io.BytesIO()
+    Image.new("RGB", (120, 160), color).save(out, format="PNG")
+    with db_connect() as db:
+        return import_seed(db, out.getvalue(), "SYNTHETIC")
 
 
 def completed_session(client):
@@ -82,18 +86,20 @@ def test_expired_result_is_refused_before_cleanup_runs(client):
 
 def test_strip_is_deleted_when_its_pool_match_expires(client):
     donor = new_session(client, pool=True)
-    donor_id = upload(client, donor).json()["portrait_id"]
+    upload(client, donor)
+    with db_connect() as db:
+        pool_id = db.execute("SELECT id FROM portraits WHERE session_id=? AND pool_eligible=1", (donor,)).fetchone()[0]
     sid = new_session(client)
     upload(client, sid)
     assert client.post(f"/api/v1/sessions/{sid}/process").status_code == 200
     with db_connect() as db:
-        assert db.execute("SELECT match_portrait_id FROM sessions WHERE id=?", (sid,)).fetchone()[0] == donor_id
-    expire_portraits(donor_id)
+        assert db.execute("SELECT match_portrait_id FROM sessions WHERE id=?", (sid,)).fetchone()[0] == pool_id
+    expire_portraits(pool_id)
     assert client.get(f"/api/v1/sessions/{sid}/result").status_code == 404
     with db_connect() as db:
         assert cleanup_expired(db).strips == 1
-    assert files_in("generated") == []
-    assert len(files_in("portraits")) == 1
+    assert files_in("generated") == [] and files_in("pool_portraits") == []
+    assert len(files_in("portraits")) == 2
 
 
 def test_cleanup_keeps_a_strip_whose_portraits_are_valid(client):
@@ -213,7 +219,7 @@ def test_cleanup_removes_old_untracked_files_only(anonymous_client, folder):
 
 def test_cleanup_never_removes_seed_images(anonymous_client):
     add_seed()
-    seed = storage_root() / "seed_portraits" / "seed.png"
+    seed = files_in("seed_portraits")[0]
     stamp = time.time() - ORPHAN_GRACE_SECONDS - 60
     os.utime(seed, (stamp, stamp))
     with db_connect() as db:

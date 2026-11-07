@@ -9,13 +9,13 @@ Every path except `/api/v1/health` requires `Authorization: Bearer <device token
 |---|---|---|
 | GET | `/health` | `{status,provider,production_ready}` (no token needed) |
 | POST | `/sessions` | no body -> `{id,status}`; `box_id` is the authenticated device; `201`, or `200` when repeated with the same key |
-| POST | `/sessions/{id}/consent` | `{processing:true,pool:false,documented_externally:true,evidence_ref?}` (test-only attestation); `evidence_ref` is at most 64 characters of letters, digits and `._:-`, and must not contain personal data |
+| POST | `/sessions/{id}/consent` | `{processing:true,pool:false,documented_externally:true,evidence_ref?}` (test-only attestation); `evidence_ref` is at most 64 characters of letters, digits and `._:-`, and must not contain personal data. Returns `{status,pool_consent,withdrawal_code}`; the code appears once and is `null` on a repeat |
 | POST | `/sessions/{id}/portrait` | multipart `image` -> `{portrait_id,status}`; limits below |
 | POST | `/sessions/{id}/process` | no body -> `{status,mode,result_url}`; synchronous mock; can be repeated after `failed` |
 | GET | `/sessions/{id}` | `{id,box_id,status,error,has_result}` |
-| GET | `/sessions/{id}/result` | image/png (demo only); `404` once a portrait in the strip has expired |
+| GET | `/sessions/{id}/result` | image/png (demo only); `404` once an image in the strip has expired, been withdrawn or been removed |
 
-Device management and on-demand cleanup are local commands, not HTTP endpoints: `python -m photobox_server.admin --help`. The server also runs cleanup automatically.
+Device and seed management, withdrawal, the audit trail and on-demand cleanup are local commands, not HTTP endpoints: `python -m photobox_server.admin --help`. The server also runs cleanup automatically.
 
 ## Repeating requests
 Requests can be repeated safely after a lost connection. Each one does its work only once:

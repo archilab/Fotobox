@@ -8,6 +8,8 @@ UPLOADED = "uploaded"
 PROCESSING = "processing"
 COMPLETE = "complete"
 FAILED = "failed"
+# Final, and reachable from any state: withdrawal is an instruction, not a request.
+WITHDRAWN = "withdrawn"
 
 TRANSITIONS: frozenset[tuple[str, str]] = frozenset({
     (AWAITING_CONSENT, AWAITING_PORTRAIT),

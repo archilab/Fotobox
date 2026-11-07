@@ -5,7 +5,8 @@ from PIL import Image
 from photobox_server import admin
 from photobox_server.app import app
 from photobox_server.auth import create_device, hash_token, revoke_device
-from photobox_server.core import db_connect, storage_root
+from photobox_server.core import db_connect
+from photobox_server.pool import import_seed
 
 
 def bearer(token):
@@ -24,8 +25,8 @@ def add_device(device_id):
 
 
 def completed_session(client):
-    seed = storage_root() / "seed_portraits" / "seed.png"
-    Image.new("RGB", (120, 160), "#444444").save(seed)
+    with db_connect() as db:
+        import_seed(db, synthetic_jpeg(), "SYNTHETIC")
     sid = client.post("/api/v1/sessions").json()["id"]
     client.post(f"/api/v1/sessions/{sid}/consent", json={"processing": True, "documented_externally": True})
     client.post(f"/api/v1/sessions/{sid}/portrait", files={"image": ("t.jpg", synthetic_jpeg(), "image/jpeg")})

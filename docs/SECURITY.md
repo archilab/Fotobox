@@ -29,7 +29,7 @@ No way around authentication was found: missing, wrong and non-bearer tokens, `/
 - rate limiting beyond uploads, request concurrency limits, timeouts and quotas (per-device upload limit present, in memory)
 - secure OS file permissions and encryption-at-rest evaluation
 - retention of original, generated, preview, thumbnail, logs, backups; verified lifecycle deletion
-- revocation token and prompt stop of using revoked portraits
+- a self-service withdrawal path if participants should not depend on the operator (a code and prompt stop of revoked portraits are present); a retention limit for the audit trail
 - server-push only via authenticated channels
 - never log images, EXIF, external IPs unless clearly needed and documented
 - random file identifiers and storage isolation (present, review as implementation evolves)

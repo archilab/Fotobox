@@ -13,14 +13,17 @@ from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from PIL import Image
-from . import throttle
+from . import audit, throttle
 from .auth import authenticate
 from .config import get_cleanup_interval, get_provider, load_env_file
-from .core import cleanup_expired, db_connect, now_iso, save_portrait, strip_images_active, validate_image, select_match, render_mock_strip, storage_root, write_private_image
+from .core import cleanup_expired, db_connect, now_iso, save_portrait, strip_images_active, validate_image, render_mock_strip, storage_root, write_private_image
+from .pool import record_use, select_match
 from .sessions import AWAITING_CONSENT, AWAITING_PORTRAIT, COMPLETE, FAILED, PROCESSING, UPLOADED, recover_interrupted, transition
+from .withdrawal import new_code
 
 PUBLIC_PATHS = frozenset({"/api/v1/health"})
 CONSENT_POLICY_VERSION = "dev-attestation-1"
+SESSION_PORTRAIT_HOURS = 1
 IDEMPOTENCY_KEY_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,128}")
 # Room for the multipart boundary and headers around the image itself.
 MULTIPART_OVERHEAD_BYTES = 64 * 1024
@@ -150,12 +153,15 @@ def record_consent(session_id: str, body: ConsentRequest, request: Request):
                 raise HTTPException(403, "documented external test subject authorization required")
             if transition(db, session_id, AWAITING_CONSENT, AWAITING_PORTRAIT):
                 granted = now_iso()
+                code, code_hash = new_code()
+                db.execute("UPDATE sessions SET withdrawal_hash=? WHERE id=?", (code_hash, session_id))
                 for purpose in ("processing", "pool") if body.pool else ("processing",):
                     db.execute(
                         "INSERT INTO consent_records(id,session_id,purpose,policy_version,granted_at,provenance,evidence_ref) VALUES(?,?,?,?,?,?,?)",
                         (str(uuid.uuid4()), session_id, purpose, CONSENT_POLICY_VERSION, granted, "operator_attestation", body.evidence_ref),
                     )
-                return {"status": AWAITING_PORTRAIT, "pool_consent": body.pool}
+                    audit.record(db, "consent_granted", session_id=session_id, device_id=request.state.device_id, detail=purpose)
+                return {"status": AWAITING_PORTRAIT, "pool_consent": body.pool, "withdrawal_code": code}
             s = get_session(db, session_id, request.state.device_id)
         # A retry of the same request succeeds; anything that would change consent does not.
         processing = active_consent(db, session_id, "processing")
@@ -166,7 +172,8 @@ def record_consent(session_id: str, body: ConsentRequest, request: Request):
         )
         if not same:
             raise HTTPException(409, "consent cannot be changed in current state")
-        return {"status": s["status"], "pool_consent": body.pool}
+        # The code is shown once: only its hash is stored, so a repeat cannot return it.
+        return {"status": s["status"], "pool_consent": body.pool, "withdrawal_code": None}
 
 
 def replay_upload(db, session_id: str, key: str | None, digest: str) -> dict:
@@ -201,7 +208,7 @@ def upload_portrait(session_id: str, request: Request, image: UploadFile = File(
         img = validate_image(raw)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
-    path = None
+    saved: list[Path] = []
     try:
         with db_connect() as db:
             # Taking the state first holds the write lock, so the file and its record commit together.
@@ -209,16 +216,24 @@ def upload_portrait(session_id: str, request: Request, image: UploadFile = File(
                 return replay_upload(db, session_id, key, digest)
             pool = active_consent(db, session_id, "pool") is not None
             photo_id = str(uuid.uuid4())
-            path = save_portrait(img, photo_id)
-            expires = (datetime.now(timezone.utc)+timedelta(hours=hours if pool else 1)).isoformat()
+            saved.append(save_portrait(img, photo_id))
+            now = datetime.now(timezone.utc)
             db.execute(
-                "INSERT INTO portraits(id,session_id,path,pool_eligible,created_at,expires_at,upload_key,upload_sha256) VALUES(?,?,?,?,?,?,?,?)",
-                (photo_id, session_id, str(path), int(pool), now_iso(), expires, key, digest),
+                "INSERT INTO portraits(id,session_id,path,pool_eligible,created_at,expires_at,upload_key,upload_sha256) VALUES(?,?,?,0,?,?,?,?)",
+                (photo_id, session_id, str(saved[0]), now_iso(), (now+timedelta(hours=SESSION_PORTRAIT_HOURS)).isoformat(), key, digest),
             )
+            if pool:
+                # A separate copy with its own lifetime, so the two uses can expire independently.
+                pool_id = str(uuid.uuid4())
+                saved.append(save_portrait(img, pool_id, "pool_portraits"))
+                db.execute(
+                    "INSERT INTO portraits(id,session_id,path,pool_eligible,created_at,expires_at) VALUES(?,?,?,1,?,?)",
+                    (pool_id, session_id, str(saved[1]), now_iso(), (now+timedelta(hours=hours)).isoformat()),
+                )
             db.execute("UPDATE sessions SET portrait_id=? WHERE id=?", (photo_id, session_id))
     except Exception:
         # A portrait with no record could never be found again for deletion.
-        if path is not None:
+        for path in saved:
             path.unlink(missing_ok=True)
         raise
     return {"portrait_id": photo_id, "status": UPLOADED}
@@ -238,7 +253,7 @@ def process_session(session_id: str, request: Request):
         own = db.execute("SELECT * FROM portraits WHERE id=?", (s["portrait_id"],)).fetchone()
         if own is None:
             raise HTTPException(409, "portrait has expired")
-        matched = select_match(db, s["portrait_id"])
+        matched = select_match(db, session_id)
         if matched is None:
             raise HTTPException(409, "no eligible match: add a rights-cleared seed portrait")
         match_id, match_path = matched
@@ -250,15 +265,19 @@ def process_session(session_id: str, request: Request):
             dest = storage_root()/"generated"/f"{session_id}.png"
             write_private_image(result, dest, "PNG")
         with db_connect() as db:
-            if not match_id.startswith("seed:"):
-                db.execute("UPDATE portraits SET use_count=use_count+1 WHERE id=?", (match_id,))
-            transition(db, session_id, PROCESSING, COMPLETE)
-            db.execute("UPDATE sessions SET output_path=?,finished_at=? WHERE id=?", (str(dest), now_iso(), session_id))
+            completed = transition(db, session_id, PROCESSING, COMPLETE)
+            if completed:
+                record_use(db, match_id, session_id)
+                db.execute("UPDATE sessions SET output_path=?,finished_at=? WHERE id=?", (str(dest), now_iso(), session_id))
     except Exception:
         with db_connect() as db:
-            transition(db, session_id, PROCESSING, FAILED)
-            db.execute("UPDATE sessions SET error='render failed' WHERE id=?", (session_id,))
+            if transition(db, session_id, PROCESSING, FAILED):
+                db.execute("UPDATE sessions SET error='render failed' WHERE id=?", (session_id,))
         raise HTTPException(500, "render failed")
+    if not completed:
+        # Consent was withdrawn during the render, so this strip must not survive.
+        dest.unlink(missing_ok=True)
+        raise HTTPException(409, "session was withdrawn")
     return {"status": COMPLETE, "mode": "mock", "result_url": result_url}
 
 

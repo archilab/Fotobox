@@ -152,6 +152,11 @@ def main(argv: list[str] | None = None) -> None:
                 if args.consent_reference:
                     consent["evidence_ref"] = args.consent_reference
                 c = post_with_retry(client, f"/api/v1/sessions/{sid}/consent", json=consent); c.raise_for_status()
+                code = c.json().get("withdrawal_code")
+                if code:
+                    print(f"Withdrawal code, shown only now. Give it to the participant: {code}")
+                else:
+                    print(f"No withdrawal code was received. Consent can still be withdrawn on the server with session {sid}.", file=sys.stderr)
                 up = post_with_retry(client, f"/api/v1/sessions/{sid}/portrait", files={"image": ("capture.jpg", raw, "image/jpeg")}, headers=idempotency_header()); up.raise_for_status()
                 if args.no_process:
                     print("Uploaded; processing skipped.")

@@ -14,6 +14,7 @@ from photobox_server import core
 from photobox_server.app import app
 from photobox_server.auth import create_device
 from photobox_server.core import db_connect, storage_root
+from photobox_server.pool import import_seed
 from photobox_server.schema import MIGRATIONS, schema_version
 from photobox_server.sessions import TRANSITIONS, transition
 
@@ -36,8 +37,11 @@ def upload(client, sid, data=None, key=None):
     return client.post(f"/api/v1/sessions/{sid}/portrait", files={"image": ("x.png", data or png(), "image/png")}, headers=headers)
 
 
-def add_seed():
-    Image.new("RGB", (120, 160), "#444444").save(storage_root() / "seed_portraits" / "seed.png")
+def add_seed(color="#444444"):
+    out = io.BytesIO()
+    Image.new("RGB", (120, 160), color).save(out, format="PNG")
+    with db_connect() as db:
+        return import_seed(db, out.getvalue(), "SYNTHETIC")
 
 
 def count(table):
@@ -377,8 +381,8 @@ def test_pool_is_a_separate_record_and_decides_eligibility(client):
     upload(client, pool)
     upload(client, plain)
     with db_connect() as db:
-        eligible = {r["session_id"]: r["pool_eligible"] for r in db.execute("SELECT session_id,pool_eligible FROM portraits")}
-    assert eligible == {pool: 1, plain: 0}
+        rows = {(r["session_id"], r["pool_eligible"]) for r in db.execute("SELECT session_id,pool_eligible FROM portraits")}
+    assert rows == {(pool, 0), (pool, 1), (plain, 0)}
 
 
 def test_refused_consent_records_nothing(client):

@@ -14,12 +14,13 @@
 
 ## Design invariants
 - Session ID generated server-side; never derive file paths from user input.
-- Portrait files separate from metadata; only explicit pool authorization makes them eligible.
-- Never use own portrait as matched counterpart.
+- Portrait files separate from metadata; only explicit pool authorization makes them eligible, and matching re-checks it at the moment of use.
+- Session images (`portraits`) and reusable pool copies (`pool_portraits`) are separate files with separate lifetimes (ADR-016).
+- Never use an image from the same session as matched counterpart.
 - Anonymous temporary portrait pool; avoid face embeddings or identification features.
 - Rendered artifact PNG and single request; print only in a later phase.
 - Persistence: SQLite metadata; job queue is synchronous demo only; plan durable queue for real AI.
-- Seed images must be authorized and curated.
+- Seed images must be authorized and curated; they enter only through `admin seed add`.
 
 ## Session states
 | From | To | Trigger |
@@ -30,6 +31,8 @@
 | `processing` | `complete` | strip rendered |
 | `processing` | `failed` | render failed, or the server restarted during processing |
 | `failed` | `processing` | `POST /process` again |
+
+| any | `withdrawn` | `admin withdraw`; final |
 
 No other move is possible. The table lives in `photobox_server/sessions.py`.
 

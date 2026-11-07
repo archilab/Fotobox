@@ -34,17 +34,17 @@
 **Acceptance:** repeat request does not duplicate; unauthorized cannot download; restart doesn't lose uploaded state. **Met on 2026-11-07, from the real Pi to the MacBook server over the LAN, with synthetic files.** The camera was not used in this run. The client's retry after a lost connection is covered by automated tests only.
 
 ## M3 — Pool selection, deletion, withdrawal
-- [ ] Clear scope-based pool permission and audit trail
-- [ ] Make seed import admin-only; validity checks, weighted random fairness
-- [ ] Separate temporary session images from reusable pool files
+- [x] Clear scope-based pool permission and audit trail
+- [x] Make seed import admin-only; validity checks, weighted random fairness
+- [x] Separate temporary session images from reusable pool files
 - [x] Automatic periodic deletion and background cleanup of images and output, done early (ADR-013)
-- [ ] Cleanup of temp jobs, once a queue exists
-- [ ] Private revocation workflow for future public users
-**Acceptance:** expired/revoked never match; synthetic test images purge; pool-empty with no seed yields clear error.
+- [ ] Cleanup of temp jobs, once a queue exists (moves to M4)
+- [x] Private revocation workflow for future public users: a code for the participant, carried out by the operator (ADR-016)
+**Acceptance:** expired/revoked never match; synthetic test images purge; pool-empty with no seed yields clear error. **Met on 2026-11-07: by automated tests, plus pool matching, withdrawal by code and seed fallback from the real Pi with synthetic files.** The camera was not used in this run.
 
 ## M4 — AI provider abstraction
 - [ ] `ImageGenerationProvider` interface (input two portraits, prompt config, frame count, output images, metrics)
-- [ ] Durable queue, worker, progress/status, timeouts, cancellation and bounded retries
+- [ ] Durable queue, worker, progress/status, timeouts, cancellation and bounded retries; cleanup of temp jobs; withdrawal must stop queued and running jobs
 - [ ] FLUX.2 klein 4B adapter through mflux (ADR-014); measure speed and identity retention with test portraits, including real webcam photos with documented consent
 - [ ] Deterministic mock fallback ONLY in developer mode, visibly labelled
 **Acceptance:** provider swap does not change API; job survives service restart; real model creates two-person scene without identity swap on an agreed evaluation set.

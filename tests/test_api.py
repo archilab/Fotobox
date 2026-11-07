@@ -1,14 +1,15 @@
 import io
 from PIL import Image
-from photobox_server.core import storage_root
+from photobox_server.core import db_connect
+from photobox_server.pool import import_seed
 
 def img_bytes():
     im=Image.new('RGB',(120,160),'#878787')
     out=io.BytesIO(); im.save(out,format='JPEG');return out.getvalue()
 
 def test_flow(client):
-    seed=storage_root()/"seed_portraits"/"seed.png"
-    Image.new('RGB',(120,160),'#444444').save(seed)
+    with db_connect() as db:
+        import_seed(db,img_bytes(),"SYNTHETIC")
     assert client.get('/api/v1/health').json()['status']=='ok'
     s=client.post('/api/v1/sessions',json={'box_id':'pi-01'}).json()['id']
     denied=client.post(f'/api/v1/sessions/{s}/consent',json={'processing':True,'pool':True,'documented_externally':False})

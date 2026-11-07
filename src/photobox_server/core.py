@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import NamedTuple
 from PIL import Image, ImageDraw, ImageOps, UnidentifiedImageError
+from . import audit
 from .schema import migrate
 
 MAX_IMAGE_PIXELS = 20_000_000
@@ -18,6 +19,9 @@ MAX_IMAGE_SIDE = 8000
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 # Untracked files younger than this may belong to a request still in progress.
 ORPHAN_GRACE_SECONDS = 3600
+SEED_PREFIX = "seed:"
+# Short-lived session images and reusable pool images are kept apart.
+PORTRAIT_FOLDERS = ("portraits", "pool_portraits")
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -30,7 +34,7 @@ def storage_root() -> Path:
     p = Path(os.getenv("PHOTOBOX_STORAGE_DIR", "./storage")).resolve()
     p.mkdir(parents=True, exist_ok=True)
     _restrict(p, 0o700)
-    for folder in ("portraits", "generated", "seed_portraits"):
+    for folder in (*PORTRAIT_FOLDERS, "generated", "seed_portraits"):
         (p / folder).mkdir(exist_ok=True)
         _restrict(p / folder, 0o700)
     return p
@@ -100,20 +104,11 @@ def validate_image(payload: bytes) -> Image.Image:
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
         raise ValueError("invalid image") from exc
 
-def save_portrait(img: Image.Image, portrait_id: str) -> Path:
-    dest = storage_root() / "portraits" / f"{portrait_id}.jpg"
+def save_portrait(img: Image.Image, portrait_id: str, folder: str = "portraits") -> Path:
+    dest = storage_root() / folder / f"{portrait_id}.jpg"
     img.thumbnail((1600, 1600))
     write_private_image(img, dest, "JPEG", quality=88)
     return dest
-
-def select_match(db: sqlite3.Connection, own_id: str) -> tuple[str, Path] | None:
-    candidates = db.execute("SELECT id,path FROM portraits WHERE pool_eligible=1 AND expires_at>? AND id!=? ORDER BY use_count ASC, RANDOM() LIMIT 1", (now_iso(), own_id)).fetchone()
-    if candidates:
-        return candidates["id"], Path(candidates["path"])
-    seeds = [p for p in (storage_root() / "seed_portraits").iterdir() if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}]
-    if seeds:
-        return "seed:" + seeds[0].name, seeds[0]
-    return None
 
 def render_mock_strip(image_a: Image.Image, image_b: Image.Image, frames: int = 4) -> Image.Image:
     if frames not in (3, 4):
@@ -134,13 +129,43 @@ def render_mock_strip(image_a: Image.Image, image_b: Image.Image, frames: int = 
     return strip
 
 def strip_images_active(db: sqlite3.Connection, session: sqlite3.Row) -> bool:
-    """A strip contains its portraits, so it is only available while all of them are unexpired."""
-    for portrait_id in (session["portrait_id"], session["match_portrait_id"]):
-        if portrait_id is None or portrait_id.startswith("seed:"):
+    """A strip contains its images, so it is only available while all of them are still valid."""
+    for image_id in (session["portrait_id"], session["match_portrait_id"]):
+        if image_id is None:
             continue
-        if db.execute("SELECT 1 FROM portraits WHERE id=? AND expires_at>?", (portrait_id, now_iso())).fetchone() is None:
+        if image_id.startswith(SEED_PREFIX):
+            found = db.execute("SELECT 1 FROM seeds WHERE id=? AND removed_at IS NULL", (image_id[len(SEED_PREFIX):],)).fetchone()
+        else:
+            found = db.execute("SELECT 1 FROM portraits WHERE id=? AND expires_at>?", (image_id, now_iso())).fetchone()
+        if found is None:
             return False
     return True
+
+def delete_portrait(db: sqlite3.Connection, portrait: sqlite3.Row, reason: str, session_id: str | None = None) -> None:
+    root = storage_root()
+    path = Path(portrait["path"])
+    if path.parent in {root / folder for folder in PORTRAIT_FOLDERS}:
+        path.unlink(missing_ok=True)
+    db.execute("DELETE FROM portraits WHERE id=?", (portrait["id"],))
+    audit.record(db, "portrait_deleted", portrait_id=portrait["id"], session_id=session_id, detail=reason)
+
+def purge_stale_strips(db: sqlite3.Connection) -> int:
+    """Delete every strip containing an image that no longer exists or may no longer be used."""
+    root = storage_root()
+    stale = db.execute(
+        """SELECT id,output_path FROM sessions WHERE output_path IS NOT NULL AND (
+               portrait_id IS NULL OR portrait_id NOT IN (SELECT id FROM portraits)
+               OR (match_portrait_id IS NOT NULL AND (
+                   (match_portrait_id LIKE 'seed:%' AND substr(match_portrait_id, 6) NOT IN (SELECT id FROM seeds WHERE removed_at IS NULL))
+                   OR (match_portrait_id NOT LIKE 'seed:%' AND match_portrait_id NOT IN (SELECT id FROM portraits)))))"""
+    ).fetchall()
+    for record in stale:
+        path = Path(record["output_path"])
+        if path.parent == root / "generated":
+            path.unlink(missing_ok=True)
+        db.execute("UPDATE sessions SET output_path=NULL WHERE id=?", (record["id"],))
+        audit.record(db, "strip_deleted", session_id=record["id"])
+    return len(stale)
 
 class CleanupResult(NamedTuple):
     portraits: int
@@ -151,31 +176,18 @@ def cleanup_expired(db: sqlite3.Connection) -> CleanupResult:
     """Delete expired portraits, every strip containing one, and files no record refers to."""
     # Do not remove records for active generations; production cleanup must handle queued jobs explicitly.
     root = storage_root()
-    expired = db.execute("SELECT id,path FROM portraits WHERE expires_at<=?", (now_iso(),)).fetchall()
+    expired = db.execute("SELECT id,path,session_id FROM portraits WHERE expires_at<=?", (now_iso(),)).fetchall()
     for record in expired:
-        p = Path(record["path"])
-        if p.parent == root / "portraits":
-            p.unlink(missing_ok=True)
-        db.execute("DELETE FROM portraits WHERE id=?", (record["id"],))
-    stale_strips = db.execute(
-        """SELECT id,output_path FROM sessions WHERE output_path IS NOT NULL AND (
-               portrait_id IS NULL OR portrait_id NOT IN (SELECT id FROM portraits)
-               OR (match_portrait_id IS NOT NULL AND match_portrait_id NOT LIKE 'seed:%'
-                   AND match_portrait_id NOT IN (SELECT id FROM portraits)))"""
-    ).fetchall()
-    for record in stale_strips:
-        p = Path(record["output_path"])
-        if p.parent == root / "generated":
-            p.unlink(missing_ok=True)
-        db.execute("UPDATE sessions SET output_path=NULL WHERE id=?", (record["id"],))
+        delete_portrait(db, record, "expired", record["session_id"])
+    strips = purge_stale_strips(db)
     tracked = {Path(row[0]).name for row in db.execute("SELECT path FROM portraits")}
     tracked |= {Path(row[0]).name for row in db.execute("SELECT output_path FROM sessions WHERE output_path IS NOT NULL")}
     cutoff = datetime.now(timezone.utc).timestamp() - ORPHAN_GRACE_SECONDS
     untracked = 0
-    for folder in ("portraits", "generated"):
+    for folder in (*PORTRAIT_FOLDERS, "generated"):
         for p in (root / folder).iterdir():
             if p.is_file() and p.name not in tracked and p.stat().st_mtime < cutoff:
                 p.unlink(missing_ok=True)
                 untracked += 1
     db.commit()
-    return CleanupResult(len(expired), len(stale_strips), untracked)
+    return CleanupResult(len(expired), strips, untracked)

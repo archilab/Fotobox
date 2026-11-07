@@ -46,6 +46,19 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
         "ALTER TABLE sessions DROP COLUMN consent_processing",
         "ALTER TABLE sessions DROP COLUMN consent_pool",
     ),
+    # 3: M3. Admin-imported seeds, an audit trail, and private withdrawal codes.
+    (
+        """CREATE TABLE seeds (
+            id TEXT PRIMARY KEY, path TEXT NOT NULL, rights_ref TEXT NOT NULL,
+            imported_at TEXT NOT NULL, removed_at TEXT, use_count INTEGER NOT NULL DEFAULT 0
+        )""",
+        """CREATE TABLE audit_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, occurred_at TEXT NOT NULL, event TEXT NOT NULL,
+            session_id TEXT, portrait_id TEXT, device_id TEXT, detail TEXT
+        )""",
+        "ALTER TABLE sessions ADD COLUMN withdrawal_hash TEXT",
+        "CREATE UNIQUE INDEX sessions_withdrawal_hash ON sessions(withdrawal_hash) WHERE withdrawal_hash IS NOT NULL",
+    ),
 )
 
 

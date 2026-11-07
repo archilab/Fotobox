@@ -1,8 +1,10 @@
 # Data model V0.5
 
 ## Current tables
-`sessions(id UUID PK, box_id, status, created_at, finished_at, error, portrait_id, match_portrait_id, output_path, create_key)`: unique on `(box_id, create_key)`
-`portraits(id UUID PK, session_id, path, pool_eligible, created_at, expires_at, use_count, upload_key, upload_sha256)`
+`sessions(id UUID PK, box_id, status, created_at, finished_at, error, portrait_id, match_portrait_id, output_path, create_key, withdrawal_hash)`: unique on `(box_id, create_key)`; `match_portrait_id` is a pool portrait id or `seed:<seed id>`
+`portraits(id UUID PK, session_id, path, pool_eligible, created_at, expires_at, use_count, upload_key, upload_sha256)`: one row per file; pool consent adds a second row with `pool_eligible=1`
+`seeds(id UUID PK, path, rights_ref, imported_at, removed_at, use_count)`
+`audit_events(id PK, occurred_at, event, session_id, portrait_id, device_id, detail)`: opaque ids only, never images, names, codes or paths
 `devices(id PK, token_hash UNIQUE, created_at, revoked_at)`: `sessions.box_id` holds the authenticated device id
 `consent_records(id PK, session_id, purpose, policy_version, granted_at, withdrawn_at, provenance, evidence_ref)`: one record per session and purpose (`processing`, `pool`)
 
