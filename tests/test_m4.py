@@ -15,12 +15,13 @@ from PIL import Image
 from conftest import process
 from photobox_client import cli
 from photobox_server import app as app_module
-from photobox_server import jobs
+from photobox_server import faces, jobs
+from photobox_server import strip as strip_module
 from photobox_server.app import app
 from photobox_server.config import ConfigError
 from photobox_server.core import cleanup_expired, db_connect, storage_root
 from photobox_server.pool import import_seed
-from photobox_server.prompts import SCENES
+from photobox_server.prompts import PROMPT_VERSION, prompts_for
 from photobox_server.providers import FrameRequest, GenerationCancelled, GenerationError, create_provider
 from photobox_server.providers.mflux_flux2 import MfluxFlux2Provider
 from photobox_server.providers.mock import MockProvider
@@ -83,7 +84,7 @@ class Recording:
             raise self.error
         if should_cancel():
             raise GenerationCancelled()
-        Image.new("RGB", (768, 1024), "#336699").save(request.output, "PNG")
+        Image.linear_gradient("L").resize((768, 1024)).convert("RGB").save(request.output, "PNG")
         return jobs.FrameMetrics(seconds=1.5, peak_memory_gb=10.3)
 
 
@@ -123,9 +124,29 @@ def test_frame_count_comes_from_configuration(client, monkeypatch, frames):
     provider = Recording()
     process(client, sid, provider)
     assert [r.frame_index for r in provider.requests] == list(range(int(frames)))
-    assert [r.prompt for r in provider.requests] == list(SCENES[: int(frames)])
-    assert len({r.seed for r in provider.requests}) == int(frames)
+    seed = job_row(sid)["seed"]
+    assert [r.prompt for r in provider.requests] == prompts_for(int(frames), seed)
+    assert {r.seed for r in provider.requests} == {seed}
     assert state(client, sid)["job"]["frames_done"] == int(frames)
+
+
+def test_a_resumed_job_keeps_its_backdrop(client):
+    sid = ready(client)
+    client.post(f"/api/v1/sessions/{sid}/process")
+    stop = threading.Event()
+
+    def stop_after_one(request):
+        if request.frame_index == 1:
+            stop.set()
+
+    first = Recording(on_frame=stop_after_one)
+    jobs.run_one(first, stop)
+    with db_connect() as db:
+        jobs.recover_after_restart(db)
+    second = Recording()
+    jobs.run_pending(second)
+    expected = prompts_for(4, job_row(sid)["seed"])
+    assert [r.prompt for r in first.requests + second.requests][-3:] == expected[1:]
 
 
 def test_invalid_frame_count_stops_startup(anonymous_client, tmp_path, monkeypatch):
@@ -198,7 +219,7 @@ def test_metrics_and_versions_are_recorded(client):
     sid = ready(client)
     process(client, sid, Recording())
     job = job_row(sid)
-    assert job["status"] == "complete" and job["prompt_version"] == "scenes-1" and job["provider"] == "mock"
+    assert job["status"] == "complete" and job["prompt_version"] == PROMPT_VERSION and job["provider"] == "mock"
     frames = json.loads(job["metrics"])["frames"]
     assert len(frames) == 4 and frames[0] == {"seconds": 1.5, "peak_memory_gb": 10.3}
     assert files("jobs") == []
@@ -444,7 +465,7 @@ if mode == "garbage":
 if mode == "none":
     sys.exit(0)
 from PIL import Image
-Image.new("RGB", (768, 1024), "#123456").save(output, "PNG")
+Image.linear_gradient("L").resize((768, 1024)).save(output, "PNG")
 """
 
 
@@ -454,6 +475,9 @@ def fake_tool(tmp_path, monkeypatch):
     tool.write_text(FAKE_TOOL.format(python=sys.executable))
     tool.chmod(0o700)
     monkeypatch.setenv("PHOTOBOX_MFLUX_COMMAND", str(tool))
+    # These tests are about the adapter; test_faces.py covers the detector itself.
+    monkeypatch.setattr(faces, "ensure_available", lambda: None)
+    monkeypatch.setattr(strip_module, "count_faces", lambda _path: 2)
     record = tmp_path / "record.json"
     monkeypatch.setenv("FAKE_RECORD", str(record))
     return record
@@ -532,6 +556,7 @@ def test_adapter_error_does_not_contain_the_prompt_or_paths(tmp_path, fake_tool,
 def test_missing_tool_stops_the_server_with_instructions(tmp_path, monkeypatch):
     monkeypatch.setenv("PHOTOBOX_PROVIDER", "mflux-flux2")
     monkeypatch.setenv("PHOTOBOX_MFLUX_COMMAND", str(tmp_path / "missing"))
+    monkeypatch.setattr(faces, "ensure_available", lambda: None)
     with pytest.raises(ConfigError, match="uv tool install mflux"):
         create_provider("mflux-flux2")
 

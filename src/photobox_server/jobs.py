@@ -18,10 +18,11 @@ from pathlib import Path
 from PIL import Image
 from . import audit
 from .config import get_frame_count, get_provider, int_setting
-from .core import SEED_PREFIX, db_connect, now_iso, render_strip, storage_root, strip_images_active, write_private_image
+from .core import SEED_PREFIX, db_connect, now_iso, storage_root, strip_images_active, write_private_image
 from .pool import record_use, select_match
-from .prompts import PROMPT_VERSION, SCENES
+from .prompts import PROMPT_VERSION, prompts_for
 from .providers import FrameMetrics, FrameRequest, GenerationCancelled, GenerationError, ImageGenerationProvider, create_provider
+from .strip import dated_footer, frame_problem, render_strip
 from .sessions import COMPLETE, FAILED, PROCESSING, QUEUED, UPLOADED, transition
 
 QUEUED_JOB, RUNNING_JOB, COMPLETE_JOB, FAILED_JOB, CANCELLED_JOB = "queued", "running", "complete", "failed", "cancelled"
@@ -219,9 +220,12 @@ def _finish(run: Run, provider: ImageGenerationProvider, frames: list[Path], met
         with Image.open(path) as image:
             images.append(image.convert("RGB"))
     dest = storage_root() / "generated" / f"{run.session_id}.png"
-    write_private_image(render_strip(images, provider.strip_footer), dest, "PNG")
     kept = False
     try:
+        write_private_image(render_strip(images, dated_footer(provider.strip_footer)), dest, "PNG")
+        # Read it back, so a damaged file can never become the session's result.
+        with Image.open(dest) as written:
+            written.verify()
         with db_connect() as db:
             job = db.execute("SELECT run_id FROM generation_jobs WHERE id=?", (run.job_id,)).fetchone()
             if job is None or job["run_id"] != run.run_id:
@@ -260,16 +264,27 @@ def run_one(provider: ImageGenerationProvider, stop: threading.Event | None = No
     folder = job_folder(run.job_id)
     frames: list[Path] = []
     metrics: list[FrameMetrics] = []
+    prompts = prompts_for(run.frames_total, run.seed)
     try:
         for index in range(run.frames_total):
             output = folder / f"frame-{index + 1}.png"
             frames.append(output)
+            # A frame from an earlier attempt is only reused if it is still sound.
             if output.exists():
-                continue
+                if frame_problem(output, getattr(provider, "max_faces", None)) is None:
+                    continue
+                output.unlink()
             folder.mkdir(parents=True, exist_ok=True)
             folder.chmod(0o700)
-            request = FrameRequest(run.portrait_a, run.portrait_b, SCENES[index], index, run.frames_total, run.seed + index, output, frame_timeout())
+            # A new attempt gets a new seed, so it does not simply repeat a frame that failed.
+            # All frames share a seed, which helps them look like one session.
+            seed = run.seed + 1000 * (run.attempts - 1)
+            request = FrameRequest(run.portrait_a, run.portrait_b, prompts[index], index, run.frames_total, seed, output, frame_timeout())
             metrics.append(provider.generate_frame(request, should_cancel))
+            problem = frame_problem(output, getattr(provider, "max_faces", None))
+            if problem is not None:
+                output.unlink(missing_ok=True)
+                raise GenerationError(f"frame {index + 1} failed its check: {problem}")
             output.chmod(0o600)
             with db_connect() as db:
                 db.execute("UPDATE generation_jobs SET frames_done=? WHERE id=? AND run_id=?", (index + 1, run.job_id, run.run_id))

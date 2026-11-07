@@ -42,6 +42,18 @@ def int_setting(name: str, default: int, minimum: int, maximum: int) -> int:
     return value
 
 
+def float_setting(name: str, default: float, minimum: float, maximum: float) -> float:
+    """Read a decimal setting, refusing a value outside its allowed range."""
+    raw = os.getenv(name, str(default))
+    try:
+        value = float(raw)
+    except ValueError:
+        value = minimum - 1
+    if not minimum <= value <= maximum:
+        raise ConfigError(f"{name}={raw!r} must be a number from {minimum} to {maximum}")
+    return value
+
+
 def get_frame_count() -> int:
     frames = int_setting("PHOTOBOX_NUM_FRAMES", 4, 3, 4)
     return frames

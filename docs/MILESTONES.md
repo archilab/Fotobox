@@ -46,16 +46,17 @@
 - [x] `ImageGenerationProvider` interface (input two portraits, prompt config, frame count, output images, metrics)
 - [x] Durable queue, worker, progress/status, timeouts, cancellation and bounded retries; cleanup of temp jobs; withdrawal stops queued and running jobs
 - [x] FLUX.2 klein 4B adapter through mflux (ADR-014); speed measured with fictional portraits
-- [ ] Measure identity retention on an agreed evaluation set, including real webcam photos with documented consent
+- [x] Measure identity retention on an agreed evaluation set, including real webcam photos with documented consent
 - [x] Deterministic mock ONLY in developer mode, visibly labelled, and never used as an automatic fallback
-**Acceptance:** provider swap does not change API; job survives service restart; real model creates two-person scene without identity swap on an agreed evaluation set. **Partly met on 2026-11-07, from the real Pi with real FLUX.2 and fictional portraits: provider swap (tests), restart mid-job and cancellation passed. The agreed evaluation set does not exist yet, so M4 stays open.**
+**Acceptance:** provider swap does not change API; job survives service restart; real model creates two-person scene without identity swap on an agreed evaluation set. **Met on 2026-11-07:** provider swap (tests), restart mid-job and cancellation (real FLUX.2 from the Pi), and the evaluation set of 5 pairs, scored by the owner at an average of 4.6 out of 5 with no swaps (`docs/TEST_PLAN.md`). Two real faces together remain untested. The prompts have since changed to photo booth micro-stories (ADR-019), which are not yet scored.
 
 ## M5 — Photostrip composition and quality
-- [ ] 3/4 separate frames from image provider, optional contact-sheet crop
-- [ ] Frame selection and resolution checks; consistent subjects across frames
-- [ ] Printer-agnostic layout with physical dimensions deferred until hardware phase
-- [ ] grayscale, brightness, contrast, dithering profile outputs
-**Acceptance:** 3/4 frames and expected geometry; print-ready PNG; failures don't create corrupt results.
+- [x] 3/4 separate frames from image provider. The optional contact-sheet crop is not implemented, because providers deliver separate frames
+- [x] Resolution and blank-frame checks; a bad frame is regenerated with a new seed
+- [x] Consistent subjects across frames: judged by eye in M4's evaluation set, and passed. **Not checked automatically**, because that would need face comparison, which `docs/ARCHITECTURE.md` rules out
+- [x] Printer-agnostic layout with physical dimensions deferred until hardware phase
+- [x] grayscale, brightness, contrast, dithering profile outputs
+**Acceptance:** 3/4 frames and expected geometry; print-ready PNG; failures don't create corrupt results. **Met on 2026-11-07 by automated tests, plus a real FLUX.2 strip from the Pi in all three profiles.** "Print-ready" means a valid PNG in each profile. It has not been printed, because the printer belongs to a later phase.
 
 ## Mac Studio port — before M6
 - [ ] Move the server to the Mac Studio using configuration only; write a setup guide

@@ -14,7 +14,7 @@ Every path except `/api/v1/health` requires `Authorization: Bearer <device token
 | POST | `/sessions/{id}/process` | no body -> `202 {status,job_id,mode,status_url,result_url}` queues generation, for every provider; can be requested again after `failed`; `200` if already complete |
 | POST | `/sessions/{id}/cancel` | no body -> `{status,cancelled}`; stops waiting or running generation and keeps the portrait |
 | GET | `/sessions/{id}` | `{id,box_id,status,error,has_result,job}`; `job` is `null` or `{status,frames_done,frames_total,attempts,provider}`. Poll this for progress |
-| GET | `/sessions/{id}/result` | image/png (demo only); `404` once an image in the strip has expired, been withdrawn or been removed |
+| GET | `/sessions/{id}/result?profile=` | image/png (demo only); `profile` is `color` (default, RGB), `grayscale` (8-bit) or `thermal` (1-bit dithered), and other values return `422`; `404` once an image in the strip has expired, been withdrawn or been removed |
 
 Device and seed management, withdrawal, the audit trail and on-demand cleanup are local commands, not HTTP endpoints: `python -m photobox_server.admin --help`. The server also runs cleanup automatically.
 

@@ -9,7 +9,7 @@ from contextlib import contextmanager, suppress
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import NamedTuple
-from PIL import Image, ImageDraw, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 from . import audit
 from .schema import migrate
 
@@ -109,19 +109,6 @@ def save_portrait(img: Image.Image, portrait_id: str, folder: str = "portraits")
     img.thumbnail((1600, 1600))
     write_private_image(img, dest, "JPEG", quality=88)
     return dest
-
-def render_strip(frames: list[Image.Image], footer: str) -> Image.Image:
-    """Stack frames into one vertical strip. Knows nothing about how they were made."""
-    if len(frames) not in (3, 4):
-        raise ValueError("frames must be 3 or 4")
-    width, margin, gap = 560, 18, 12
-    frame_width = width - 2 * margin
-    frame_height = round(frame_width * frames[0].height / frames[0].width)
-    strip = Image.new("RGB", (width, frame_height * len(frames) + gap * (len(frames) - 1) + 2 * margin + 42), "white")
-    for index, frame in enumerate(frames):
-        strip.paste(ImageOps.fit(frame.convert("RGB"), (frame_width, frame_height)), (margin, margin + index * (frame_height + gap)))
-    ImageDraw.Draw(strip).text((margin, strip.height - 32), footer, fill="black")
-    return strip
 
 def strip_images_active(db: sqlite3.Connection, session: sqlite3.Row) -> bool:
     """A strip contains its images, so it is only available while all of them are still valid."""

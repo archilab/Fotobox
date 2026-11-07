@@ -140,7 +140,7 @@ def main(argv: list[str] | None = None) -> None:
     cap.add_argument("--wait-seconds", type=int, default=1800, help="How long to wait for the strip (default: 1800)")
     st = sub.add_parser("status"); st.add_argument("session_id")
     can = sub.add_parser("cancel", help="Stop generation; the portrait stays"); can.add_argument("session_id")
-    res = sub.add_parser("result"); res.add_argument("session_id"); res.add_argument("--output", type=Path, default=Path("photostrip.png"))
+    res = sub.add_parser("result"); res.add_argument("session_id"); res.add_argument("--output", type=Path, default=Path("photostrip.png")); res.add_argument("--profile", default="color", choices=("color", "grayscale", "thermal"), help="Output profile (default: color)")
     args = parser.parse_args(argv)
     if args.cmd == "capture" and not args.attest_documented_consent:
         parser.error("capture requires --attest-documented-consent: use it only when the subject gave documented consent outside this tool, or the image is synthetic")
@@ -166,7 +166,7 @@ def main(argv: list[str] | None = None) -> None:
             elif args.cmd == "cancel":
                 response = post_with_retry(client, f"/api/v1/sessions/{args.session_id}/cancel")
             elif args.cmd == "result":
-                response = client.get(f"/api/v1/sessions/{args.session_id}/result")
+                response = client.get(f"/api/v1/sessions/{args.session_id}/result", params={"profile": args.profile})
                 response.raise_for_status()
                 args.output.write_bytes(response.content)
                 print(f"Saved: {args.output}")

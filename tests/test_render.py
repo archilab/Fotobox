@@ -1,6 +1,6 @@
 import pytest
 from PIL import Image
-from photobox_server.core import render_strip
+from photobox_server.strip import render_strip
 
 
 @pytest.mark.parametrize("count", [3, 4])

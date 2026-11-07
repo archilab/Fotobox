@@ -11,6 +11,7 @@ FRAME_SIZE = (524, 400)
 class MockProvider:
     name = "mock"
     strip_footer = "CONNECTED PHOTOBOX - DEVELOPMENT MOCK"
+    max_faces = None
 
     def generate_frame(self, request: FrameRequest, should_cancel: Callable[[], bool]) -> FrameMetrics:
         if should_cancel():

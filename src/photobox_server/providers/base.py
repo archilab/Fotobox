@@ -38,6 +38,8 @@ class ImageGenerationProvider(Protocol):
     name: str
     # Printed on every strip, so that its origin stays visible.
     strip_footer: str
+    # The most faces a frame may show, or None if this provider's frames need no count.
+    max_faces: int | None
 
     def generate_frame(self, request: FrameRequest, should_cancel: Callable[[], bool]) -> FrameMetrics:
         """Write a complete image to `request.output`, or raise GenerationError or GenerationCancelled."""

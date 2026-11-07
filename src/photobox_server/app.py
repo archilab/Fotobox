@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import hashlib
+import io
 import logging
 import os
 import re
@@ -9,8 +10,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Literal
 from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
+from PIL import Image
 from pydantic import BaseModel, Field
 from . import audit, throttle
 from .auth import authenticate
@@ -19,6 +22,7 @@ from .core import cleanup_expired, db_connect, now_iso, save_portrait, storage_r
 from .jobs import Worker, cancel_for_session, cleanup_job_folders, enqueue, job_for_session, recover_after_restart, wake
 from .pool import select_match
 from .providers import create_provider
+from .strip import apply_profile, validate_settings
 from .sessions import AWAITING_CONSENT, AWAITING_PORTRAIT, COMPLETE, FAILED, PROCESSING, QUEUED, UPLOADED, transition
 from .withdrawal import new_code
 
@@ -56,6 +60,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     load_env_file()
     provider = create_provider(get_provider())
     get_frame_count()
+    validate_settings()
     interval = get_cleanup_interval()
     with db_connect() as db:
         interrupted = recover_after_restart(db)
@@ -303,7 +308,7 @@ def session_status(session_id: str, request: Request):
 
 
 @app.get("/api/v1/sessions/{session_id}/result")
-def get_result(session_id: str, request: Request):
+def get_result(session_id: str, request: Request, profile: Literal["color", "grayscale", "thermal"] = "color"):
     with db_connect() as db:
         s = get_session(db, session_id, request.state.device_id)
         if s["status"] != COMPLETE or not s["output_path"]:
@@ -313,4 +318,10 @@ def get_result(session_id: str, request: Request):
         path = Path(s["output_path"])
         if not path.is_file() or path.parent != (storage_root()/"generated"):
             raise HTTPException(404, "result not found")
+    if profile == "color":
         return FileResponse(path, media_type="image/png", filename="photostrip.png")
+    # Made on request rather than stored, so there are no further copies to expire or withdraw.
+    with Image.open(path) as strip:
+        output = io.BytesIO()
+        apply_profile(strip, profile).save(output, "PNG")
+    return Response(output.getvalue(), media_type="image/png", headers={"Content-Disposition": f'attachment; filename="photostrip-{profile}.png"'})

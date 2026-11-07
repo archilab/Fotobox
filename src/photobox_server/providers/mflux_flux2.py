@@ -13,11 +13,13 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 from PIL import Image, UnidentifiedImageError
+from .. import faces
 from ..config import ConfigError, int_setting
 from .base import FrameMetrics, FrameRequest, GenerationCancelled, GenerationError
 
 POLL_SECONDS = 0.5
-WIDTH, HEIGHT = 768, 1024
+# Wider than tall, so two people fit side by side and close to the camera.
+WIDTH, HEIGHT = 1024, 768
 PEAK_MEMORY = re.compile(r"Peak MLX memory:\s*([0-9.]+)\s*GB")
 
 
@@ -39,6 +41,11 @@ class MfluxFlux2Provider:
     strip_footer = "CONNECTED PHOTOBOX - AI GENERATED"
 
     def __init__(self) -> None:
+        # Extra people are welcome in stories, so counting faces is optional and off by default.
+        limit = os.getenv("PHOTOBOX_MAX_FACES")
+        self.max_faces = int_setting("PHOTOBOX_MAX_FACES", 2, 2, 20) if limit else None
+        if self.max_faces is not None:
+            faces.ensure_available()
         command = os.getenv("PHOTOBOX_MFLUX_COMMAND", "mflux-generate-flux2-edit")
         resolved = shutil.which(command)
         if resolved is None:

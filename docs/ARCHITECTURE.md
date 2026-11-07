@@ -10,7 +10,7 @@
 `USB webcam -> Pi CLI -> HTTP POST -> API -> SQLite/files -> job queue -> worker -> provider (frames) -> strip renderer -> PNG GET -> Pi`. Matching happens when a job starts and is re-checked when it ends.
 
 ## Feature flags
-`PHOTOBOX_PROVIDER` selects the provider: `mflux-flux2` (FLUX.2 klein 4B, ADR-014) or `mock`, which is not AI, needs `PHOTOBOX_DEVELOPER_MODE=true`, and labels every frame. Any other value stops the server at startup, and so does a missing mflux. Providers live in `photobox_server/providers/`; route handlers never name a model. Strip footers state the origin.
+`PHOTOBOX_PROVIDER` selects the provider: `mflux-flux2` (FLUX.2 klein 4B, ADR-014) or `mock`, which is not AI, needs `PHOTOBOX_DEVELOPER_MODE=true`, and labels every frame. Any other value stops the server at startup, and so does a missing mflux. Providers live in `photobox_server/providers/`; route handlers never name a model. Strip footers state the origin. Prompts and the 100 micro-stories live in `photobox_server/prompts.py` and `stories.py` (ADR-019). Composition and output profiles live in `photobox_server/strip.py`, which knows nothing about how frames were made (ADR-018).
 
 ## Design invariants
 - Session ID generated server-side; never derive file paths from user input.

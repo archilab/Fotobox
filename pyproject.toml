@@ -11,6 +11,8 @@ dependencies = ["fastapi>=0.110,<1", "uvicorn>=0.27,<1", "python-multipart>=0.0.
 
 [project.optional-dependencies]
 client-camera = ["opencv-python-headless>=4.8"]
+# The face-count check needs CascadeClassifier, which OpenCV 5 no longer includes.
+server-ai = ["opencv-python-headless>=4.8,<5"]
 dev = ["pytest>=8", "ruff>=0.6"]
 
 [tool.setuptools.packages.find]
