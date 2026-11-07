@@ -2,6 +2,8 @@
 
 **Phase 1 only:** 1 Raspberry Pi + standard UVC USB webcam; Mac Studio hosts API and (later) image-generation worker. **No touchscreen and no printer** in MVP. CLI-operated tests. Final deliverable: vertical PNG photo strip of 3–4 AI-generated frames combining 2 portraits. Multi-box, consent touchscreen and thermal printing are future phases.
 
+**To install and operate the photo booth, read the [user guide](docs/USER_GUIDE.md).** The rest of this file is for developers.
+
 ## Current implementation status
 The included code is a **runnable vertical slice**, not a finished AI system: FastAPI + SQLite session tracking, temporary photo storage, basic seed/visitor matching, a durable generation queue and a Raspberry Pi CLI with optional webcam capture. Two image providers exist: `mflux-flux2` runs **FLUX.2 klein 4B** locally (see `docs/HARDWARE.md`), and `mock`, the default in `.env.example`, is **not AI**: it needs `PHOTOBOX_DEVELOPER_MODE=true`, is visibly labelled and exists for development only. Identity retention on real photos has not been evaluated yet, so do not treat the current output as final.
 
