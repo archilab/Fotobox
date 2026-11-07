@@ -71,6 +71,14 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
         )""",
         "CREATE INDEX generation_jobs_waiting ON generation_jobs(status, next_attempt_at)",
     ),
+    # 5: pairing a box with a short code (ADR-021).
+    (
+        """CREATE TABLE device_pairings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, device_id TEXT NOT NULL, code_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL, expires_at TEXT NOT NULL, used_at TEXT,
+            wrong_guesses INTEGER NOT NULL DEFAULT 0
+        )""",
+    ),
 )
 
 

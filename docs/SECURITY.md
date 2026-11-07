@@ -26,6 +26,8 @@ No way around authentication was found: missing, wrong and non-bearer tokens, `/
 
 **Kiosk (ADR-020):** the withdrawal code appears on the box's screen, where bystanders may see it. The kiosk runs as the Pi's `admin` account on tty1, in place of the login prompt.
 
+**Setup menu and pairing (ADR-021):** `POST /api/v1/pair` is public. A 6-digit code is only safe because it expires after 5 minutes, works once, ends after 5 wrong guesses and is rate limited. A polkit rule lets the Pi's `admin` account change WiFi settings. Anyone who opens the menu before a PIN is set chooses the PIN.
+
 ## Before any deployment beyond the trusted test LAN
 
 - encryption through NetBird, Tailscale or TLS; scoped short-lived credentials

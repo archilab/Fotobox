@@ -61,6 +61,15 @@ flowchart LR
 | **Withdrawal code** | Shown with the strip and then on its own. The operator can use it to delete the visitor's images at any time. |
 | **German and English** | All kiosk screens are bilingual. |
 
+### Setup on the box
+| Feature | Details |
+|---|---|
+| **Setup menu** | Configure WiFi, the server address, pairing and the camera with the box's keyboard, with no SSH. |
+| **Opening it** | M during the first 10 seconds after start, Ctrl+Alt+S on the start screen, or automatically when the box cannot work. |
+| **PIN** | Protects the menu from visitors; set on first use. |
+| **Pairing code** | Link a box to the server with a 6-digit code instead of copying a token. |
+| **Status at a glance** | The menu shows whether network, server, pairing and consent notice are OK. |
+
 ### The strips
 | Feature | Details |
 |---|---|
@@ -196,25 +205,13 @@ Then on the Pi:
 cd ~/photobox && python3 -m venv .venv && .venv/bin/pip install -e '.[client-camera]'
 ```
 
-### 2. Store the device token
+### 2. Allow the setup menu to manage WiFi
 ```bash
-install -m 600 /dev/null ~/.photobox.token && nano ~/.photobox.token
+sudo cp ~/photobox/deploy/pi/50-photobox-network.rules /etc/polkit-1/rules.d/
 ```
-Paste the token from server step 7 and save.
+This polkit rule lets only the user `admin` change WiFi through NetworkManager. Edit the user name in the file if yours differs.
 
-### 3. Find the camera
-```bash
-.venv/bin/python -m photobox_client.cli camera-list
-```
-Use the stable `.../by-id/...-video-index0` name, which stays the same after a reboot, unlike `/dev/video0`. To check it without uploading anything:
-```bash
-.venv/bin/python -m photobox_client.cli camera-probe --camera /dev/v4l/by-id/YOUR-CAMERA-video-index0
-```
-
-### 4. Configure and start the kiosk
-```bash
-printf 'PHOTOBOX_SERVER=http://MAC_LAN_IP:8000\nPHOTOBOX_CAMERA=/dev/v4l/by-id/YOUR-CAMERA-video-index0\n' > ~/.photobox-kiosk.env && chmod 600 ~/.photobox-kiosk.env
-```
+### 3. Install and start the kiosk
 ```bash
 sudo cp ~/photobox/deploy/pi/photobox-kiosk.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now photobox-kiosk
 ```
@@ -225,9 +222,24 @@ To get the login prompt back:
 sudo systemctl disable --now photobox-kiosk && sudo systemctl start getty@tty1
 ```
 
+### 4. Set it up with the box's keyboard
+On first start the box has no settings yet, so the setup menu opens by itself:
+1. **Choose a PIN** of 4 to 8 digits. It protects the menu from visitors.
+2. **1 WiFi:** pick a network and type its password, or skip this if the Pi uses a cable.
+3. **2 Server address:** type the Mac's address, such as `192.168.1.24`. `http://` and the port `:8000` are added.
+4. **3 Pair with server:** on the Mac, in `~/photobox-server`, run
+   ```bash
+   .venv/bin/python -m photobox_server.admin device pair pi-01
+   ```
+   and type the 6-digit code it shows. The code works once and for 5 minutes.
+5. **4 Camera:** pick the camera. A test picture appears on the screen for 5 seconds; it is not stored.
+6. **5 Test everything**, then **6 Start photo booth**.
+
+Later, open the menu with **Ctrl+Alt+S** on the start screen, or press **M** during the first 10 seconds after a restart. Menu keys: digits choose, ENTER confirms, ESC goes back, BACKSPACE deletes.
+
 ### 5. Try it without a person
 ```bash
-.venv/bin/python -m photobox_client.kiosk --server http://MAC_LAN_IP:8000 --token-file ~/.photobox.token --test-image /path/to/fictional.png --once
+.venv/bin/python -m photobox_client.kiosk --test-image /path/to/fictional.png --once
 ```
 "TEST MODE - no camera" is shown on every screen.
 
@@ -271,7 +283,9 @@ Run these on the Mac in `~/photobox-server`. None of them can be reached over th
 | Delete a visitor's images (they give you their code) | `.venv/bin/python -m photobox_server.admin withdraw`, then type the code when asked |
 | Delete by session ID instead | `.venv/bin/python -m photobox_server.admin withdraw --session SESSION_ID` |
 | List, add or remove seed images | `... admin seed list`, `... admin seed add FILE --rights-reference REF --attest-rights`, `... admin seed remove SEED_ID` |
+| Pair a photo booth (shows a 6-digit code) | `... admin device pair NAME` |
 | Register, list or revoke photo booths | `... admin device add NAME`, `... admin device list`, `... admin device revoke NAME` |
+| Change the box's WiFi, server or camera | Ctrl+Alt+S on the box's start screen, then the PIN |
 | View the audit trail | `... admin audit --limit 50` |
 | Run cleanup now | `... admin cleanup` |
 | Stop or start the server | `launchctl bootout gui/$(id -u)/com.photobox.server`, or step 8 again |
@@ -308,7 +322,7 @@ Server settings go in `~/photobox-server/.env`. Variables set in the shell take 
 | `PHOTOBOX_THERMAL_BRIGHTNESS` / `_CONTRAST` | `1.1` / `1.3` | Thermal profile adjustments. |
 | `PHOTOBOX_INTERFACE` / `PHOTOBOX_PORT` | `en0` / `8000` | Used by `scripts/run_server.sh`. |
 
-Kiosk settings on the Pi are in `~/.photobox-kiosk.env` (`PHOTOBOX_SERVER`, `PHOTOBOX_CAMERA`). Further options such as `--width`, `--height`, `--rotate`, `--wait-seconds`, `--strip-seconds` (default 20) and `--no-display` can be added to `ExecStart` in the service file.
+Kiosk settings on the Pi are in `~/.photobox-kiosk.env` (`PHOTOBOX_SERVER`, `PHOTOBOX_CAMERA`), written by the setup menu; the token is in `~/.photobox.token` and the PIN hash in `~/.photobox-setup.json`. To reset a forgotten PIN, delete that file over SSH; the next menu visit asks for a new one. Further options such as `--width`, `--height`, `--rotate`, `--wait-seconds`, `--strip-seconds` (default 20) and `--no-display` can be added to `ExecStart` in the service file.
 
 ---
 
@@ -332,6 +346,10 @@ sudo systemctl restart photobox-kiosk
 | Symptom | Cause and fix |
 |---|---|
 | **Pi screen looks empty** | On a 4K screen the console text is tiny and sits in a corner that TVs often cut off. The kiosk service sets a large font; restart it with `sudo systemctl restart photobox-kiosk`. Also check the monitor's input. |
+| **The setup menu opens by itself** | The box found a problem, shown at the top: no network, no server address, server unreachable or not paired. Fix it in the menu. |
+| **Ctrl+Alt+S does nothing** | It works only on the start screen. Restart the box and press M during the first 10 seconds instead. |
+| **WiFi: "could not save the network"** | The polkit rule is missing; see client step 2. |
+| **Forgotten PIN** | Over SSH: `rm ~/.photobox-setup.json`, then open the menu and choose a new PIN. |
 | **Kiosk says "not ready"** | The server is not reachable, or the consent notice is missing or still has `TODO-OPERATOR`. Check the notice and run the health check. |
 | **The strip is not shown, only the code** | The kiosk could not open the framebuffer (`/dev/fb0`) or load the strip. Check that the kiosk's user is in the `video` group; the code is still shown. |
 | **Kiosk says "Could not reach the server"** | The network failed, or no counterpart is available: import a seed image. |

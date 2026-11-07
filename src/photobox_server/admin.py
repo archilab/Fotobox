@@ -6,6 +6,7 @@ from pathlib import Path
 from .auth import create_device, revoke_device
 from .config import load_env_file
 from .core import cleanup_expired, db_connect
+from .pairing import VALID_MINUTES, start_pairing
 from .pool import import_seed, remove_seed
 from .withdrawal import session_for_code, withdraw_session
 
@@ -18,6 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     actions.add_parser("add", help="register a device and print its token once").add_argument("device_id")
     actions.add_parser("revoke", help="revoke a device's token").add_argument("device_id")
     actions.add_parser("list", help="list devices (tokens are not shown)")
+    actions.add_parser("pair", help="show a code that pairs a box as this device").add_argument("device_id")
     commands.add_parser("cleanup", help="delete expired portraits, their strips and untracked files now")
     seed = commands.add_parser("seed", help="manage rights-cleared seed images")
     seed_actions = seed.add_subparsers(dest="action", required=True)
@@ -54,6 +56,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Expired portraits deleted: {result.portraits}")
             print(f"Strips deleted: {result.strips}")
             print(f"Untracked files deleted: {result.untracked_files}")
+        elif args.action == "pair":
+            try:
+                code = start_pairing(db, args.device_id)
+            except ValueError as exc:
+                print(f"Error: {exc}", file=sys.stderr)
+                return 1
+            print(f"Pairing code for {args.device_id}, valid for {VALID_MINUTES} minutes and usable once:")
+            print(f"    {code[:3]} {code[3:]}")
+            print("Enter it in the box's setup menu under 'Pair with server'. Any earlier code no longer works.")
         elif args.action == "add":
             try:
                 token = create_device(db, args.device_id)

@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from . import audit, throttle
 from .auth import authenticate
 from .consent_notice import NoticeError, load_notice
+from .pairing import complete_pairing
 from .config import get_cleanup_interval, get_frame_count, get_provider, load_env_file
 from .core import cleanup_expired, db_connect, now_iso, save_portrait, storage_root, strip_images_active, validate_image
 from .jobs import Worker, cancel_for_session, cleanup_job_folders, enqueue, job_for_session, recover_after_restart, wake
@@ -27,7 +28,9 @@ from .strip import apply_profile, validate_settings
 from .sessions import AWAITING_CONSENT, AWAITING_PORTRAIT, COMPLETE, FAILED, PROCESSING, QUEUED, UPLOADED, transition
 from .withdrawal import new_code
 
-PUBLIC_PATHS = frozenset({"/api/v1/health"})
+# Pairing must work before a box has a token; it is limited separately (see pair_device).
+PUBLIC_PATHS = frozenset({"/api/v1/health", "/api/v1/pair"})
+PAIR_ATTEMPTS_PER_MINUTE = 10
 CONSENT_POLICY_VERSION = "dev-attestation-1"
 SESSION_PORTRAIT_HOURS = 1
 IDEMPOTENCY_KEY_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,128}")
@@ -104,6 +107,10 @@ async def require_device_token(request: Request, call_next):
     return await call_next(request)
 
 
+class PairRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=12)
+
+
 class ConsentRequest(BaseModel):
     processing: bool
     pool: bool = False
@@ -121,6 +128,20 @@ def idempotency_key(request: Request) -> str | None:
     if key is not None and not IDEMPOTENCY_KEY_PATTERN.fullmatch(key):
         raise HTTPException(400, "Idempotency-Key must be 1-128 letters, digits, '-' or '_'")
     return key
+
+
+@app.post("/api/v1/pair")
+def pair_device(body: PairRequest, request: Request):
+    """Exchange a pairing code shown by `admin device pair` for this box's token."""
+    client = request.client.host if request.client else "unknown"
+    if throttle.retry_after("pair:" + client, limit=PAIR_ATTEMPTS_PER_MINUTE) is not None:
+        raise HTTPException(429, "too many pairing attempts")
+    with db_connect() as db:
+        paired = complete_pairing(db, body.code.strip())
+    if paired is None:
+        raise HTTPException(403, "invalid or expired pairing code")
+    device_id, token = paired
+    return {"device_id": device_id, "token": token}
 
 
 @app.get("/api/v1/consent-notice")

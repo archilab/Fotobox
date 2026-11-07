@@ -3,11 +3,12 @@
 All endpoints start `/api/v1`. JSON responses. **Never expose publicly.**
 
 ## Authentication
-Every path except `/api/v1/health` requires `Authorization: Bearer <device token>` and returns `401` otherwise. Tokens are created on the server with `python -m photobox_server.admin device add <id>`. A session belongs to the device that created it; other devices get `404`, as for an unknown session. Traffic is not encrypted on a plain LAN (ADR-010).
+Every path except `/api/v1/health` and `/api/v1/pair` requires `Authorization: Bearer <device token>` and returns `401` otherwise. Tokens are created on the server with `python -m photobox_server.admin device add <id>`. A session belongs to the device that created it; other devices get `404`, as for an unknown session. Traffic is not encrypted on a plain LAN (ADR-010).
 
 | Method | Route | Request / Result |
 |---|---|---|
 | GET | `/health` | `{status,provider,production_ready}` (no token needed) |
+| POST | `/pair` | `{code}` -> `{device_id,token}`; **no token needed**; `403` for a wrong, used or expired code, `429` after 10 attempts per minute (ADR-021) |
 | GET | `/consent-notice` | `{version,text}` for the box's screen; `503` if no completed notice is configured (ADR-020) |
 | POST | `/sessions` | no body -> `{id,status}`; `box_id` is the authenticated device; `201`, or `200` when repeated with the same key |
 | POST | `/sessions/{id}/consent` | `{processing:true,pool:false,documented_externally:true,evidence_ref?}` (test-only attestation); `evidence_ref` is at most 64 characters of letters, digits and `._:-`, and must not contain personal data. Returns `{status,pool_consent,withdrawal_code}`; the code appears once and is `null` on a repeat. With `method: "participant_screen"` and the shown `notice_version`, the participant's on-screen confirmation replaces the operator attestation; pool use is refused, and an outdated version returns `409` |

@@ -14,10 +14,10 @@ def limit_per_minute() -> int:
     return int(os.getenv("PHOTOBOX_MAX_UPLOADS_PER_MINUTE", "30"))
 
 
-def retry_after(device_id: str) -> int | None:
-    """Record an upload attempt. Returns None if allowed, otherwise the seconds to wait."""
+def retry_after(device_id: str, limit: int | None = None) -> int | None:
+    """Record an attempt. Returns None if allowed, otherwise the seconds to wait."""
     now = time.monotonic()
-    limit = limit_per_minute()
+    limit = limit_per_minute() if limit is None else limit
     with _lock:
         attempts = _uploads[device_id]
         while attempts and attempts[0] <= now - WINDOW_SECONDS:

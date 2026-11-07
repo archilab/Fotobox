@@ -73,6 +73,7 @@
 ## Brought forward from phase 2 (ADR-020)
 - [x] Keyboard kiosk on the Pi's screen: on-screen consent notice, confirmation, countdown, generation timer, withdrawal code
 - [x] Finished strip shown on the screen for 20 s while no printer is connected
+- [x] Setup menu on the box: WiFi, server address, pairing with a code, camera, PIN (ADR-021)
 - [ ] Print instead of showing when a printer is connected (needs the printer's model, connection and paper width)
 - [ ] Accessibility (larger text, languages, refusal path reviewed), legal review of the notice
 

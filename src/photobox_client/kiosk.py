@@ -6,7 +6,10 @@ is generated, a timer runs on screen. At the end the finished strip is shown on 
 seconds with the withdrawal code beside it, and then the code alone. Printing is not implemented yet:
 it needs the printer's specifications (docs/MILESTONES.md), so for now the strip is always shown.
 
-    python -m photobox_client.kiosk --server http://MAC:8000 --token-file ~/.photobox.token --camera NAME
+    python -m photobox_client.kiosk
+
+Server address and camera come from ~/.photobox-kiosk.env, written by the setup menu (setup_menu.py),
+which opens on Ctrl+Alt+S, on M during the first seconds after start, or by itself if the box cannot work.
 
 Keys pressed before a question appears are discarded, so a double press can never count as consent.
 """
@@ -28,7 +31,9 @@ from .camera import CameraError, CaptureSettings, capture_jpeg
 from .display import FramebufferDisplay, result_screen
 from .cli import idempotency_header, post_with_retry, read_token
 
-ENTER, ESC = "enter", "esc"
+ENTER, ESC, BACKSPACE, SETUP = "enter", "esc", "backspace", "setup"
+# Ctrl+Alt+S, as the console sends it with Alt as an ESC prefix or as the eighth bit, and Ctrl+S alone.
+SETUP_SEQUENCES = (b"\x1b\x13", b"\x93", b"\x13")
 NOTICE_TIMEOUT_SECONDS = 90
 RESULT_SECONDS = 60
 STRIP_SECONDS = 20
@@ -48,6 +53,7 @@ class Screen(Protocol):
 class Keys(Protocol):
     def flush(self) -> None: ...
     def wait(self, accepted: set[str], timeout: float | None) -> str | None: ...
+    def read_key(self, timeout: float | None) -> str | None: ...
 
 
 class TerminalScreen:
@@ -67,45 +73,73 @@ class TerminalScreen:
         self.stream.flush()
 
 
+def parse_keys(data: bytes) -> list[str]:
+    """Turn one read from the terminal into keys: ENTER, ESC, BACKSPACE, SETUP, or a printable character.
+
+    A lone ESC is the Escape key; ESC followed by more bytes is an arrow or function key and is ignored.
+    Fast typing can arrive in one read, so every byte is looked at.
+    """
+    if data == b"\x1b":
+        return [ESC]
+    if data in SETUP_SEQUENCES:
+        return [SETUP]
+    if data.startswith(b"\x1b"):
+        return []
+    keys = []
+    for byte in data:
+        if byte in (0x0D, 0x0A):
+            keys.append(ENTER)
+        elif byte in (0x7F, 0x08):
+            keys.append(BACKSPACE)
+        elif byte in (0x13, 0x93):
+            keys.append(SETUP)
+        elif 0x20 <= byte < 0x7F:
+            keys.append(chr(byte))
+    return keys
+
+
 class TerminalKeys:
     """Reads single key presses from a terminal in raw mode."""
 
     def __init__(self, fd: int) -> None:
         self.fd = fd
+        self.pending: list[str] = []
 
     def __enter__(self):
         self.saved = termios.tcgetattr(self.fd)
         tty.setcbreak(self.fd)
+        attributes = termios.tcgetattr(self.fd)
+        # Without this, Ctrl+S would pause the screen (XOFF) instead of reaching the kiosk.
+        attributes[0] &= ~(termios.IXON | termios.IXOFF)
+        termios.tcsetattr(self.fd, termios.TCSANOW, attributes)
         return self
 
     def __exit__(self, *_exc) -> None:
         termios.tcsetattr(self.fd, termios.TCSADRAIN, self.saved)
 
     def flush(self) -> None:
+        self.pending.clear()
         termios.tcflush(self.fd, termios.TCIFLUSH)
 
     def _read(self, timeout: float | None) -> bytes:
         ready, _, _ = select.select([self.fd], [], [], timeout)
         return os.read(self.fd, 32) if ready else b""
 
+    def read_key(self, timeout: float | None) -> str | None:
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while not self.pending:
+            remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
+            if remaining == 0.0:
+                return None
+            self.pending.extend(parse_keys(self._read(remaining)))
+        return self.pending.pop(0)
+
     def wait(self, accepted: set[str], timeout: float | None) -> str | None:
         deadline = None if timeout is None else time.monotonic() + timeout
         while True:
             remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
-            if remaining == 0.0:
-                return None
-            data = self._read(remaining)
-            if not data:
-                continue
-            # A lone ESC is the Escape key; ESC followed by more bytes is an arrow or function key.
-            # Fast typing can arrive in one read, so other input is searched for an ENTER.
-            if data == b"\x1b":
-                key = ESC
-            elif not data.startswith(b"\x1b") and (b"\r" in data or b"\n" in data):
-                key = ENTER
-            else:
-                continue
-            if key in accepted:
+            key = self.read_key(remaining)
+            if key is None or key in accepted:
                 return key
 
 
@@ -170,7 +204,8 @@ class Kiosk:
 
     def run_once(self) -> str:
         """One participant from start to finish. Returns how it ended."""
-        self.ask("FOTOBOX\n\nDruecke ENTER zum Starten.\nPress ENTER to start.", {ENTER}, None)
+        if self.ask("FOTOBOX\n\nDruecke ENTER zum Starten.\nPress ENTER to start.", {ENTER, SETUP}, None) == SETUP:
+            return "setup"
         try:
             version, text = self.api.notice()
         except httpx.HTTPError:
@@ -235,11 +270,22 @@ class Kiosk:
         return True
 
 
+BOOT_SETUP_SECONDS = 10
+NOT_READY_RETRY_SECONDS = 30
+
+
 def main(argv: list[str] | None = None) -> None:
+    from .network import Wifi
+    from .settings import Pin, Settings
+    from .setup_menu import SetupMenu, blocking_problem, diagnose
+
+    home = Path.home()
     parser = argparse.ArgumentParser(description="Photo booth keyboard kiosk")
-    parser.add_argument("--server", required=True)
-    parser.add_argument("--token-file", type=Path, required=True)
-    parser.add_argument("--camera", default="0")
+    parser.add_argument("--config", type=Path, default=home / ".photobox-kiosk.env", help="Server address and camera, written by the setup menu")
+    parser.add_argument("--token-file", type=Path, default=home / ".photobox.token")
+    parser.add_argument("--pin-file", type=Path, default=home / ".photobox-setup.json")
+    parser.add_argument("--server", help="Use this server instead of the one in --config")
+    parser.add_argument("--camera", help="Use this camera instead of the one in --config")
     parser.add_argument("--width", type=int, default=1920)
     parser.add_argument("--height", type=int, default=1080)
     parser.add_argument("--rotate", type=int, default=0)
@@ -249,20 +295,48 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--strip-seconds", type=int, default=STRIP_SECONDS, help="How long the finished strip is shown (default: 20)")
     parser.add_argument("--no-display", action="store_true", help="Do not show the strip on the screen")
     args = parser.parse_args(argv)
-    token = read_token(args.token_file)
-    if token is None:
-        parser.error("the token file is empty")
-    if args.test_image:
-        camera = lambda: args.test_image.read_bytes()
-    else:
-        settings = CaptureSettings(width=args.width, height=args.height, rotation=args.rotate)
-        camera = lambda: capture_jpeg(args.camera, settings)
-    with httpx.Client(base_url=args.server, timeout=60, headers={"Authorization": f"Bearer {token}"}) as client, TerminalKeys(sys.stdin.fileno()) as keys:
-        display = None if args.no_display else FramebufferDisplay.open()
-        kiosk = Kiosk(Api(client), camera, TerminalScreen(), keys, wait_seconds=args.wait_seconds,
-                      test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds)
+
+    def current() -> tuple[Settings, str | None]:
+        settings = Settings.load(args.config)
+        settings.server = args.server or settings.server
+        settings.camera = args.camera or settings.camera
+        try:
+            token = read_token(args.token_file)
+        except OSError:
+            token = None
+        return settings, token
+
+    screen, wifi = TerminalScreen(), Wifi()
+    display = None if args.no_display else FramebufferDisplay.open()
+    with TerminalKeys(sys.stdin.fileno()) as keys:
+        menu = SetupMenu(screen, keys, settings_path=args.config, token_path=args.token_file, pin=Pin(args.pin_file), wifi=wifi, display=display)
+        keys.flush()
+        screen.show(f"FOTOBOX\n\nStarting ...\n\nM = Einrichtung / setup  ({BOOT_SETUP_SECONDS} s)")
+        if keys.wait({"m", "M", SETUP}, BOOT_SETUP_SECONDS):
+            menu.run()
         while True:
-            kiosk.run_once()
+            settings, token = current()
+            problem = blocking_problem(diagnose(settings, token, wifi, httpx.Client))
+            if problem:
+                menu.run(reason=f"The photo booth cannot start. {problem}")
+                settings, token = current()
+                problem = blocking_problem(diagnose(settings, token, wifi, httpx.Client))
+                if problem:
+                    keys.flush()
+                    screen.show(f"FOTOBOX\n\nNicht bereit / Not ready\n{problem}\n\nCtrl+Alt+S = Einrichtung / setup")
+                    if keys.wait({SETUP}, NOT_READY_RETRY_SECONDS) == SETUP:
+                        menu.run()
+                    continue
+            if args.test_image:
+                camera = lambda: args.test_image.read_bytes()
+            else:
+                capture = CaptureSettings(width=args.width, height=args.height, rotation=args.rotate)
+                camera = lambda: capture_jpeg(settings.camera, capture)
+            with httpx.Client(base_url=settings.server, timeout=60, headers={"Authorization": f"Bearer {token}"}) as client:
+                kiosk = Kiosk(Api(client), camera, screen, keys, wait_seconds=args.wait_seconds,
+                              test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds)
+                if kiosk.run_once() == "setup":
+                    menu.run()
             if args.once:
                 return
 
