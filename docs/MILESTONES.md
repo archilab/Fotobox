@@ -11,10 +11,10 @@
 
 ## Early AI test — alongside M1 (see ADR-008)
 - [x] Benchmark tool and model shortlist, in `benchmarks/ai_feasibility/`, outside the application code and its dependencies
-- [ ] Approve each model's source, size and license before download
-- [ ] Run mflux on both candidates, then add ComfyUI for comparison
-- [ ] Use only synthetic or expressly authorized portraits, kept out of Git
-- [ ] Record measured results; never estimate or fabricate them
+- [x] Approve each model's source, size and license before download
+- [ ] Run mflux on both candidates, then add ComfyUI for comparison (FLUX.2 klein 4B ran on fictional faces; Qwen-Image-Edit-2511 has only run on shapes)
+- [x] Use only synthetic or expressly authorized portraits, kept out of Git
+- [x] Record measured results; never estimate or fabricate them (see `benchmarks/ai_feasibility/README.md`; continues with each new run)
 **Acceptance:** written results and a go/no-go decision, reviewed before M2 starts.
 
 ## M1 — Raspberry Pi camera and networking
@@ -22,9 +22,9 @@
 - [x] Camera probing (formats, frame size, FPS, optional focus/exposure)
 - [x] Retry and proper resource cleanup; practical JPEG quality/rotation tests
 - [x] Add per-device authentication **before remotely binding**
-- [ ] Test connectivity from the real Pi to the Mac on the trusted LAN (ADR-010)
-- [ ] Run `scripts/m1_acceptance.sh` on the Pi; code so far is tested with simulated cameras only
-**Acceptance:** 20 consecutive CLI captures with correct orientation; invalid camera returns clear error; authenticated Pi→Mac upload succeeds.
+- [x] Test connectivity from the real Pi to the Mac on the trusted LAN (ADR-010)
+- [x] Run `scripts/m1_acceptance.sh` on the Pi: passed 2026-11-07 (see `docs/HARDWARE.md`)
+**Acceptance:** 20 consecutive CLI captures with correct orientation; invalid camera returns clear error; authenticated Pi→Mac upload succeeds. **Met for a scene without people, at the default 640×480.** Repeated camera reconnection is still untested, and the ADR-010 review is still outstanding.
 
 ## M2 — Session persistence and upload hardening
 - [ ] Define explicit session state transition table and concurrent access strategy

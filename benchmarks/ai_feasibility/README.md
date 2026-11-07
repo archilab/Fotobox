@@ -2,7 +2,7 @@
 
 **Question:** can a local model put two real people into one scene, across 3–4 frames, keeping both recognizable and without swapping them?
 
-This folder stands alone: nothing here is imported by the application, and its dependencies stay out of `pyproject.toml`. **Both candidates have run once on synthetic shapes (see Smoke test). They have not been tried on faces, so the question above is still open.**
+This folder stands alone: nothing here is imported by the application, and its dependencies stay out of `pyproject.toml`. **Both candidates have run once on synthetic shapes (see Smoke test), and FLUX.2 klein 4B has run on two fictional faces. Real photos are untested, so the question above is still open.**
 
 ## Candidates
 
@@ -78,6 +78,32 @@ This shows that the tools, flags and memory work. It says nothing about identity
 | Output, judged by eye | Both figures present, colors partly mixed: both circles red, one body blue | Both figures present, colors kept apart |
 
 One image per model can't rank them. The color mixing in the FLUX.2 output is only a reason to check for merged faces closely in the real run.
+
+## First face run: FLUX.2 klein 4B (2026-11-07)
+
+Inputs were two fictional portraits generated locally with the same model: an older woman and a younger man who look very different. The run made 8 images (4 scenes, 2 seeds) with the commands in `config.example.json` on the same MacBook.
+
+- **Reliability:** 8 of 8 runs finished.
+- **Time:** 41–47 s per image, median 45.33 s, with the model reloaded for each image.
+- **Memory:** peak MLX 10.30 GB; system 14 → 37 GiB.
+- **First look, not yet scored:** no swapped or merged faces in the 8 images. Clothing and glasses vary slightly between scenes.
+
+This is an easy case, so it can't support a "go". The two people are easy to tell apart, and the model is reproducing faces it generated itself.
+
+## Second face run: similar people, FLUX.2 klein 4B (2026-11-07)
+
+Inputs were two fictional white men of the same age, with the same hair, stubble and grey t-shirt, who differ mainly in face shape (narrow and round). Settings and machine were unchanged.
+
+- **Reliability:** 8 of 8 runs finished.
+- **Time:** 37.5–44.3 s per image, median 40.5 s.
+- **Memory:** peak MLX 10.30 GB; system 14 → 37 GiB.
+- **First look, not yet scored:**
+  - No swapped or fully merged faces. The narrow-faced man is always on the left and the round-faced man on the right.
+  - The two faces drift toward each other: the round face gets narrower, and the pair looks more alike than the references. This would likely count against recognizability when scored.
+  - The freckles are mostly lost.
+  - `kitchen__seed22` appears to show an extra hand, and sleeve length changes between scenes.
+
+The faces are still self-generated, so real webcam photos remain untested, and so does Qwen on faces.
 
 ## What the measurements mean
 

@@ -26,6 +26,14 @@ PHOTOBOX_DEVICE_TOKEN="$(cat ~/.photobox.token)" scripts/m1_acceptance.sh http:/
 ```
 Moving to NetBird or Tailscale later changes only the server address on both machines.
 
+### Tested setup (2026-11-07)
+`scripts/m1_acceptance.sh` passed once, with 20 of 20 uploads, on this setup:
+- Raspberry Pi 5 (4GB), Debian 13 (trixie), 64-bit, Python 3.13.5, OpenCV 5.0.0
+- Logitech BRIO over USB at its stable `video-index0` name, default 640×480, `--rotate 0`
+- MacBook server on its LAN address, with a scene containing no people
+
+The uploaded JPEGs had no EXIF data, and the device token did not appear in the server log or database. In that test image the camera focused on a cable in the foreground, so check focus and resolution before relying on image quality. The BRIO also accepts 1280×720 and 1920×1080, but captures at those sizes have not been tested.
+
 ## MacBook Pro M3, 64GB (development host, current)
 - Runs the API during development on the same LAN as the Pi. AI timings and memory limits measured here do not carry over to the Mac Studio and must be measured again there.
 
