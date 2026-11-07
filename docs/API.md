@@ -11,8 +11,9 @@ Every path except `/api/v1/health` requires `Authorization: Bearer <device token
 | POST | `/sessions` | no body -> `{id,status}`; `box_id` is the authenticated device; `201`, or `200` when repeated with the same key |
 | POST | `/sessions/{id}/consent` | `{processing:true,pool:false,documented_externally:true,evidence_ref?}` (test-only attestation); `evidence_ref` is at most 64 characters of letters, digits and `._:-`, and must not contain personal data. Returns `{status,pool_consent,withdrawal_code}`; the code appears once and is `null` on a repeat |
 | POST | `/sessions/{id}/portrait` | multipart `image` -> `{portrait_id,status}`; limits below |
-| POST | `/sessions/{id}/process` | no body -> `{status,mode,result_url}`; synchronous mock; can be repeated after `failed` |
-| GET | `/sessions/{id}` | `{id,box_id,status,error,has_result}` |
+| POST | `/sessions/{id}/process` | no body -> `202 {status,job_id,mode,status_url,result_url}` queues generation, for every provider; can be requested again after `failed`; `200` if already complete |
+| POST | `/sessions/{id}/cancel` | no body -> `{status,cancelled}`; stops waiting or running generation and keeps the portrait |
+| GET | `/sessions/{id}` | `{id,box_id,status,error,has_result,job}`; `job` is `null` or `{status,frames_done,frames_total,attempts,provider}`. Poll this for progress |
 | GET | `/sessions/{id}/result` | image/png (demo only); `404` once an image in the strip has expired, been withdrawn or been removed |
 
 Device and seed management, withdrawal, the audit trail and on-demand cleanup are local commands, not HTTP endpoints: `python -m photobox_server.admin --help`. The server also runs cleanup automatically.
@@ -21,7 +22,7 @@ Device and seed management, withdrawal, the audit trail and on-demand cleanup ar
 Requests can be repeated safely after a lost connection. Each one does its work only once:
 - `POST /sessions` and `POST /portrait` accept an `Idempotency-Key` header of 1-128 letters, digits, `-` or `_`; an invalid one returns `400`. Session keys are scoped to the device, upload keys to the session.
 - A repeated upload with the same key and image returns the original answer. The same key with a different image returns `409`, as does any second upload without the original key. Uploads count toward the limit even when repeated.
-- A repeated `consent` with identical values and a repeated `process` on a complete session return success. Anything that would change consent returns `409`.
+- A repeated `consent` with identical values succeeds. A repeated `process` returns the same job while it is queued or running, and success once it is complete. Anything that would change consent returns `409`.
 
 ## Upload limits
 | Limit | Default | Otherwise |
@@ -33,10 +34,9 @@ Requests can be repeated safely after a lost connection. Each one does its work 
 | Uploads per device, `PHOTOBOX_MAX_UPLOADS_PER_MINUTE` | 30 | `429` with `Retry-After` |
 
 ## Future design (not implemented)
-- `POST /sessions/{id}/process`: idempotent enqueue, return 202 + job ID
-- `GET /jobs/{id}`, authenticated WebSocket box updates, short-lived scoped credentials
-- `DELETE /consents/{withdrawal_token}` / revocation and deletion
-- durable job worker with retry, image/object access control, lifecycle management
+- authenticated WebSocket box updates, short-lived scoped credentials
+- self-service withdrawal
+- image/object access control
 - multi-box live matching, printer protocol, touchscreen flow
 
 ## Example requests

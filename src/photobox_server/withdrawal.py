@@ -6,6 +6,7 @@ import sqlite3
 from typing import NamedTuple
 from . import audit
 from .core import delete_portrait, now_iso, purge_stale_strips
+from .jobs import cancel_for_session, discard_frames_using
 from .sessions import WITHDRAWN
 
 
@@ -36,7 +37,7 @@ def withdraw_session(db: sqlite3.Connection, session_id: str) -> WithdrawalResul
     """Withdraw all consent for a session and delete its images and every strip containing them.
 
     The consent records stay, marked withdrawn, as the record of what happened. Safe to repeat.
-    A render already in progress cannot complete afterwards: its state change to complete fails.
+    Generation in progress stops, and cannot complete afterwards: its state change to complete fails.
     """
     row = db.execute("SELECT status FROM sessions WHERE id = ?", (session_id,)).fetchone()
     if row is None:
@@ -44,7 +45,9 @@ def withdraw_session(db: sqlite3.Connection, session_id: str) -> WithdrawalResul
     already = row["status"] == WITHDRAWN
     db.execute("UPDATE sessions SET status = ? WHERE id = ?", (WITHDRAWN, session_id))
     db.execute("UPDATE consent_records SET withdrawn_at = ? WHERE session_id = ? AND withdrawn_at IS NULL", (now_iso(), session_id))
+    cancel_for_session(db, session_id, "consent withdrawn")
     portraits = db.execute("SELECT id, path FROM portraits WHERE session_id = ?", (session_id,)).fetchall()
+    discard_frames_using(db, [portrait["id"] for portrait in portraits])
     for portrait in portraits:
         delete_portrait(db, portrait, "withdrawn", session_id)
     strips = purge_stale_strips(db)

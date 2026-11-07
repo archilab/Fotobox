@@ -9,8 +9,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import pytest
 from PIL import Image
+from conftest import process
 from photobox_client import cli
-from photobox_server import admin
+from photobox_server import admin, jobs
 from photobox_server import app as app_module
 from photobox_server.core import cleanup_expired, db_connect, storage_root
 from photobox_server.pool import import_seed, remove_seed, select_match
@@ -45,10 +46,6 @@ def uploaded(client, pool=False):
     sid, code = consent(client, pool)
     assert client.post(f"/api/v1/sessions/{sid}/portrait", files={"image": ("x.jpg", jpeg(), "image/jpeg")}).status_code == 200
     return sid, code
-
-
-def process(client, sid):
-    return client.post(f"/api/v1/sessions/{sid}/process")
 
 
 def files(folder):
@@ -214,12 +211,18 @@ def test_no_image_is_ever_excluded_by_heavy_use(client):
 def test_use_is_counted_only_after_success(client, monkeypatch):
     seed = add_seed()
     sid, _ = uploaded(client)
-    with monkeypatch.context() as patch:
-        patch.setattr(app_module, "render_mock_strip", lambda *_: (_ for _ in ()).throw(ValueError("broken")))
-        assert process(client, sid).status_code == 500
+    monkeypatch.setenv("PHOTOBOX_GENERATION_MAX_ATTEMPTS", "1")
+
+    class Broken:
+        name, strip_footer = "broken", "BROKEN"
+
+        def generate_frame(self, request, should_cancel):
+            raise jobs.GenerationError("broken")
+
+    assert process(client, sid, Broken()).status_code == 202
     with db_connect() as db:
         assert db.execute("SELECT use_count FROM seeds WHERE id=?", (seed,)).fetchone()[0] == 0
-    assert process(client, sid).status_code == 200
+    assert process(client, sid).status_code == 202
     with db_connect() as db:
         assert db.execute("SELECT use_count FROM seeds WHERE id=?", (seed,)).fetchone()[0] == 1
 
@@ -283,7 +286,7 @@ def test_admin_seed_add_reports_an_unreadable_image(anonymous_client, tmp_path, 
 def test_removing_a_seed_deletes_strips_containing_it(client):
     seed = add_seed()
     sid, _ = uploaded(client)
-    assert process(client, sid).status_code == 200
+    assert process(client, sid).status_code == 202
     assert client.get(f"/api/v1/sessions/{sid}/result").status_code == 200
     with db_connect() as db:
         assert remove_seed(db, seed) is True
@@ -321,7 +324,7 @@ def test_withdrawal_deletes_images_and_keeps_the_record(client):
 def test_withdrawal_deletes_other_sessions_strips_that_contain_the_image(client):
     donor, code = uploaded(client, pool=True)
     other, _ = uploaded(client)
-    assert process(client, other).status_code == 200
+    assert process(client, other).status_code == 202
     assert client.get(f"/api/v1/sessions/{other}/result").status_code == 200
     with db_connect() as db:
         assert withdraw_session(db, session_for_code(db, code)).strips == 1
@@ -356,20 +359,19 @@ def test_withdrawn_session_accepts_nothing_more(client, stage):
     assert client.get(f"/api/v1/sessions/{sid}").json()["status"] == "withdrawn"
 
 
-def test_withdrawal_during_a_render_leaves_no_strip(client, monkeypatch):
+def test_withdrawal_during_generation_leaves_no_strip_or_frames(client):
+    from photobox_server.providers.mock import MockProvider
     add_seed()
     sid, _ = uploaded(client)
-    original = app_module.render_mock_strip
 
-    def withdraw_midway(*args):
-        with db_connect() as db:
-            withdraw_session(db, sid)
-        return original(*args)
+    class WithdrawMidway(MockProvider):
+        def generate_frame(self, request, should_cancel):
+            with db_connect() as db:
+                withdraw_session(db, sid)
+            return super().generate_frame(request, should_cancel)
 
-    with monkeypatch.context() as patch:
-        patch.setattr(app_module, "render_mock_strip", withdraw_midway)
-        assert process(client, sid).status_code == 409
-    assert files("generated") == []
+    assert process(client, sid, WithdrawMidway()).status_code == 202
+    assert files("generated") == [] and files("jobs") == []
     assert client.get(f"/api/v1/sessions/{sid}").json()["status"] == "withdrawn"
 
 

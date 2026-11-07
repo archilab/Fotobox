@@ -1,16 +1,17 @@
 """M2: session states, idempotency, atomic writes, upload limits, consent records, restart. Synthetic images only."""
 import io
 import sqlite3
-import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
+from conftest import process
 from photobox_client import cli
 from photobox_server import app as app_module
-from photobox_server import core
+from photobox_server import core, jobs
 from photobox_server.app import app
 from photobox_server.auth import create_device
 from photobox_server.core import db_connect, storage_root
@@ -63,10 +64,14 @@ def test_every_listed_transition_is_the_documented_one():
     assert TRANSITIONS == {
         ("awaiting_consent", "awaiting_portrait"),
         ("awaiting_portrait", "uploaded"),
-        ("uploaded", "processing"),
+        ("uploaded", "queued"),
+        ("queued", "processing"),
         ("processing", "complete"),
         ("processing", "failed"),
-        ("failed", "processing"),
+        ("processing", "queued"),
+        ("failed", "queued"),
+        ("queued", "uploaded"),
+        ("processing", "uploaded"),
     }
 
 
@@ -103,23 +108,15 @@ def test_concurrent_uploads_store_exactly_one_portrait(client):
     assert count("portraits") == 1 and len(portrait_files()) == 1
 
 
-def test_concurrent_processing_renders_once(client, monkeypatch):
+def test_concurrent_processing_queues_one_job(client):
     add_seed()
     sid = new_session(client)
     upload(client, sid)
-    renders = []
-    original = app_module.render_mock_strip
-    barrier = threading.Event()
-
-    def slow_render(*args):
-        renders.append(1)
-        barrier.wait(0.3)
-        return original(*args)
-
-    monkeypatch.setattr(app_module, "render_mock_strip", slow_render)
     with ThreadPoolExecutor(6) as pool:
-        codes = list(pool.map(lambda _: client.post(f"/api/v1/sessions/{sid}/process").status_code, range(6)))
-    assert len(renders) == 1 and codes.count(200) >= 1 and set(codes) <= {200, 409}
+        responses = list(pool.map(lambda _: client.post(f"/api/v1/sessions/{sid}/process"), range(6)))
+    assert {r.status_code for r in responses} == {202}
+    assert len({r.json()["job_id"] for r in responses}) == 1 and count("generation_jobs") == 1
+    assert jobs.run_pending() == 1
     assert status_of(client, sid) == "complete"
 
 
@@ -192,13 +189,14 @@ def test_upload_key_of_another_device_reveals_nothing(client):
     assert response.status_code == 404
 
 
-def test_repeated_processing_does_not_render_again(client, monkeypatch):
+def test_repeated_processing_does_not_generate_again(client):
     add_seed()
     sid = new_session(client)
     upload(client, sid)
-    first = client.post(f"/api/v1/sessions/{sid}/process")
-    monkeypatch.setattr(app_module, "render_mock_strip", lambda *_: pytest.fail("rendered twice"))
-    assert client.post(f"/api/v1/sessions/{sid}/process").json() == first.json()
+    first = process(client, sid)
+    again = client.post(f"/api/v1/sessions/{sid}/process")
+    assert again.status_code == 200 and again.json()["job_id"] == first.json()["job_id"]
+    assert jobs.run_pending() == 0
 
 
 def test_repeated_consent_succeeds_and_records_once(client):
@@ -267,15 +265,22 @@ def test_process_without_match_changes_nothing(client):
     assert status_of(client, sid) == "uploaded"
 
 
-def test_failed_render_can_be_retried(client, monkeypatch):
+def test_failed_generation_can_be_requested_again(client, monkeypatch):
     add_seed()
     sid = new_session(client)
     upload(client, sid)
-    with monkeypatch.context() as patch:
-        patch.setattr(app_module, "render_mock_strip", lambda *_: (_ for _ in ()).throw(ValueError("broken")))
-        assert client.post(f"/api/v1/sessions/{sid}/process").status_code == 500
-    assert client.get(f"/api/v1/sessions/{sid}").json()["error"] == "render failed"
-    assert client.post(f"/api/v1/sessions/{sid}/process").status_code == 200
+    monkeypatch.setenv("PHOTOBOX_GENERATION_MAX_ATTEMPTS", "1")
+
+    class Broken:
+        name, strip_footer = "broken", "BROKEN"
+
+        def generate_frame(self, request, should_cancel):
+            raise jobs.GenerationError("broken")
+
+    assert process(client, sid, Broken()).status_code == 202
+    state = client.get(f"/api/v1/sessions/{sid}").json()
+    assert state["status"] == "failed" and state["error"] == "broken"
+    assert process(client, sid).status_code == 202
     state = client.get(f"/api/v1/sessions/{sid}").json()
     assert state["status"] == "complete" and state["error"] is None
 
@@ -461,6 +466,14 @@ def test_database_from_a_newer_version_is_refused(tmp_path, monkeypatch):
 
 # Restart
 
+def wait_for(client, sid, status):
+    for _ in range(200):
+        if status_of(client, sid) == status:
+            return
+        time.sleep(0.02)
+    pytest.fail(f"session never became {status}: {status_of(client, sid)}")
+
+
 def test_restart_keeps_uploaded_state_and_processing_continues(client, tmp_path, monkeypatch):
     add_seed()
     monkeypatch.chdir(tmp_path)
@@ -470,24 +483,24 @@ def test_restart_keeps_uploaded_state_and_processing_continues(client, tmp_path,
     with TestClient(app, headers={"Authorization": token_header}) as restarted:
         assert status_of(restarted, sid) == "uploaded"
         assert upload(restarted, sid, key="u1").json()["portrait_id"] == portrait
-        assert restarted.post(f"/api/v1/sessions/{sid}/process").status_code == 200
+        assert restarted.post(f"/api/v1/sessions/{sid}/process").status_code == 202
+        wait_for(restarted, sid, "complete")
     with TestClient(app, headers={"Authorization": token_header}) as restarted:
         assert restarted.get(f"/api/v1/sessions/{sid}/result").status_code == 200
 
 
-def test_session_interrupted_while_processing_can_be_retried_after_restart(client, tmp_path, monkeypatch):
+def test_session_interrupted_while_processing_continues_after_restart(client, tmp_path, monkeypatch):
     add_seed()
     monkeypatch.chdir(tmp_path)
     token_header = client.headers["Authorization"]
     sid = new_session(client)
     upload(client, sid)
+    client.post(f"/api/v1/sessions/{sid}/process")
     with db_connect() as db:
-        transition(db, sid, "uploaded", "processing")
-    assert client.post(f"/api/v1/sessions/{sid}/process").status_code == 409
+        transition(db, sid, "queued", "processing")
+        db.execute("UPDATE generation_jobs SET status='running',run_id='gone',attempts=1")
     with TestClient(app, headers={"Authorization": token_header}) as restarted:
-        state = restarted.get(f"/api/v1/sessions/{sid}").json()
-        assert state["status"] == "failed" and state["error"] == "interrupted by restart"
-        assert restarted.post(f"/api/v1/sessions/{sid}/process").status_code == 200
+        wait_for(restarted, sid, "complete")
 
 
 # Client

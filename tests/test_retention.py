@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
+from conftest import process
 from photobox_server import admin
 from photobox_server import app as app_module
 from photobox_server.app import app
@@ -42,7 +43,7 @@ def completed_session(client):
     add_seed()
     sid = new_session(client)
     assert upload(client, sid).status_code == 200
-    assert client.post(f"/api/v1/sessions/{sid}/process").status_code == 200
+    assert process(client, sid).status_code == 202
     return sid
 
 
@@ -91,7 +92,7 @@ def test_strip_is_deleted_when_its_pool_match_expires(client):
         pool_id = db.execute("SELECT id FROM portraits WHERE session_id=? AND pool_eligible=1", (donor,)).fetchone()[0]
     sid = new_session(client)
     upload(client, sid)
-    assert client.post(f"/api/v1/sessions/{sid}/process").status_code == 200
+    assert process(client, sid).status_code == 202
     with db_connect() as db:
         assert db.execute("SELECT match_portrait_id FROM sessions WHERE id=?", (sid,)).fetchone()[0] == pool_id
     expire_portraits(pool_id)

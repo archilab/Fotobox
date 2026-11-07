@@ -35,12 +35,13 @@ Moving to NetBird or Tailscale later changes only the server address on both mac
 The uploaded JPEGs had no EXIF data, and the device token did not appear in the server log or database. In that test image the camera focused on a cable in the foreground, so check focus and resolution before relying on image quality. The BRIO also accepts 1280×720 and 1920×1080, but captures at those sizes have not been tested.
 
 ## MacBook Pro M3, 64GB (development host, current)
+- For real generation, install mflux with `uv tool install mflux` and set `PHOTOBOX_PROVIDER=mflux-flux2`. If the server does not find it, set `PHOTOBOX_MFLUX_COMMAND` to its full path, usually `~/.local/bin/mflux-generate-flux2-edit`. The server runs mflux offline, so the model must already be downloaded (about 15 GB) by one run of mflux with network access. Measured on this machine: about 40-47 s per frame and about 10.3 GB peak MLX memory, so about 3 minutes per 4-frame strip.
 - Runs the API during development on the same LAN as the Pi. AI timings and memory limits measured here do not carry over to the Mac Studio and must be measured again there.
 
 ## Mac Studio M3 Ultra, 256GB (target host, later)
-- Central FastAPI host and future local AI image-generation worker
+- Central FastAPI host and local AI image-generation worker
 - Use loopback for local demo; private authenticated network before remote Pi use
-- AI model/provider NOT yet selected; do not assume CoreML/MLX/ComfyUI support for arbitrary image models without checking compatibility.
+- FLUX.2 klein 4B through mflux is selected (ADR-014), but has not run on this machine yet.
 
 ## Future (excluded)
 - touchscreen, thermoprinter, additional Raspberry Pis and synchronized matchmaking

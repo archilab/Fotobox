@@ -12,13 +12,14 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
-from PIL import Image
 from . import audit, throttle
 from .auth import authenticate
-from .config import get_cleanup_interval, get_provider, load_env_file
-from .core import cleanup_expired, db_connect, now_iso, save_portrait, strip_images_active, validate_image, render_mock_strip, storage_root, write_private_image
-from .pool import record_use, select_match
-from .sessions import AWAITING_CONSENT, AWAITING_PORTRAIT, COMPLETE, FAILED, PROCESSING, UPLOADED, recover_interrupted, transition
+from .config import get_cleanup_interval, get_frame_count, get_provider, load_env_file
+from .core import cleanup_expired, db_connect, now_iso, save_portrait, storage_root, strip_images_active, validate_image
+from .jobs import Worker, cancel_for_session, cleanup_job_folders, enqueue, job_for_session, recover_after_restart, wake
+from .pool import select_match
+from .providers import create_provider
+from .sessions import AWAITING_CONSENT, AWAITING_PORTRAIT, COMPLETE, FAILED, PROCESSING, QUEUED, UPLOADED, transition
 from .withdrawal import new_code
 
 PUBLIC_PATHS = frozenset({"/api/v1/health"})
@@ -37,6 +38,7 @@ def upload_limit() -> int:
 def run_cleanup() -> None:
     with db_connect() as db:
         cleanup_expired(db)
+        cleanup_job_folders(db)
 
 
 async def cleanup_loop(interval: int) -> None:
@@ -52,14 +54,18 @@ async def cleanup_loop(interval: int) -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     load_env_file()
-    get_provider()
+    provider = create_provider(get_provider())
+    get_frame_count()
     interval = get_cleanup_interval()
     with db_connect() as db:
-        interrupted = recover_interrupted(db)
+        interrupted = recover_after_restart(db)
     if interrupted:
-        logger.warning("sessions interrupted by the last shutdown: %d", interrupted)
+        logger.warning("jobs interrupted by the last shutdown: %d", interrupted)
+    worker = Worker(provider)
+    worker.start()
     cleanup_task = asyncio.create_task(cleanup_loop(interval))
     yield
+    worker.stop()
     cleanup_task.cancel()
     with suppress(asyncio.CancelledError):
         await cleanup_task
@@ -239,53 +245,61 @@ def upload_portrait(session_id: str, request: Request, image: UploadFile = File(
     return {"portrait_id": photo_id, "status": UPLOADED}
 
 
-@app.post("/api/v1/sessions/{session_id}/process")
-def process_session(session_id: str, request: Request):
-    # Synchronous development mock ONLY; AI milestone replaces this with a durable queued worker.
-    result_url = f"/api/v1/sessions/{session_id}/result"
+def accepted(session_id: str, status: str, job_id: str) -> dict:
+    return {"status": status, "job_id": job_id, "mode": get_provider(), "status_url": f"/api/v1/sessions/{session_id}", "result_url": f"/api/v1/sessions/{session_id}/result"}
+
+
+@app.post("/api/v1/sessions/{session_id}/process", status_code=202)
+def process_session(session_id: str, request: Request, response: Response):
+    """Queue generation, whichever provider is configured. Poll the session for progress."""
     with db_connect() as db:
         s = get_session(db, session_id, request.state.device_id)
-        if s["status"] == COMPLETE and s["output_path"]:
-            return {"status": COMPLETE, "mode": "mock", "result_url": result_url}
-        # Only one request can win this transition, so a session is never rendered twice at once.
-        if s["status"] not in (UPLOADED, FAILED) or not transition(db, session_id, s["status"], PROCESSING):
-            raise HTTPException(409, "session must be uploaded")
-        own = db.execute("SELECT * FROM portraits WHERE id=?", (s["portrait_id"],)).fetchone()
-        if own is None:
-            raise HTTPException(409, "portrait has expired")
-        matched = select_match(db, session_id)
-        if matched is None:
-            raise HTTPException(409, "no eligible match: add a rights-cleared seed portrait")
-        match_id, match_path = matched
-        db.execute("UPDATE sessions SET match_portrait_id=?, error=NULL WHERE id=?", (match_id, session_id))
-    try:
-        with Image.open(own["path"]) as a, Image.open(match_path) as b:
-            frame_count = int(os.getenv("PHOTOBOX_NUM_FRAMES", "4"))
-            result = render_mock_strip(a, b, frame_count)
-            dest = storage_root()/"generated"/f"{session_id}.png"
-            write_private_image(result, dest, "PNG")
-        with db_connect() as db:
-            completed = transition(db, session_id, PROCESSING, COMPLETE)
-            if completed:
-                record_use(db, match_id, session_id)
-                db.execute("UPDATE sessions SET output_path=?,finished_at=? WHERE id=?", (str(dest), now_iso(), session_id))
-    except Exception:
-        with db_connect() as db:
-            if transition(db, session_id, PROCESSING, FAILED):
-                db.execute("UPDATE sessions SET error='render failed' WHERE id=?", (session_id,))
-        raise HTTPException(500, "render failed")
-    if not completed:
-        # Consent was withdrawn during the render, so this strip must not survive.
-        dest.unlink(missing_ok=True)
-        raise HTTPException(409, "session was withdrawn")
-    return {"status": COMPLETE, "mode": "mock", "result_url": result_url}
+        status = s["status"]
+        if status in (UPLOADED, FAILED):
+            own = db.execute("SELECT 1 FROM portraits WHERE id=?", (s["portrait_id"],)).fetchone()
+            if own is None:
+                raise HTTPException(409, "portrait has expired")
+            if select_match(db, session_id) is None:
+                raise HTTPException(409, "no eligible match: add a rights-cleared seed portrait")
+            # Only one request can win this, so a session is never queued twice.
+            job_id = enqueue(db, session_id, status)
+            if job_id is not None:
+                wake()
+                return accepted(session_id, QUEUED, job_id)
+            status = get_session(db, session_id, request.state.device_id)["status"]
+        job = job_for_session(db, session_id)
+        if status in (QUEUED, PROCESSING) and job is not None:
+            return accepted(session_id, status, job["id"])
+        if status == COMPLETE and s["output_path"] and job is not None:
+            response.status_code = 200
+            return accepted(session_id, COMPLETE, job["id"])
+        raise HTTPException(409, "session must be uploaded")
+
+
+@app.post("/api/v1/sessions/{session_id}/cancel")
+def cancel_session(session_id: str, request: Request):
+    """Stop waiting or running generation. The portrait stays, so the session can be processed again."""
+    with db_connect() as db:
+        s = get_session(db, session_id, request.state.device_id)
+        if s["status"] in (QUEUED, PROCESSING) and transition(db, session_id, s["status"], UPLOADED):
+            cancel_for_session(db, session_id, "requested by device")
+            return {"status": UPLOADED, "cancelled": True}
+        current = get_session(db, session_id, request.state.device_id)["status"]
+        if current == UPLOADED:
+            return {"status": UPLOADED, "cancelled": False}
+        raise HTTPException(409, "nothing to cancel in current state")
 
 
 @app.get("/api/v1/sessions/{session_id}")
 def session_status(session_id: str, request: Request):
     with db_connect() as db:
         s = get_session(db, session_id, request.state.device_id)
-        return {"id": s["id"], "box_id": s["box_id"], "status": s["status"], "error": s["error"], "has_result": bool(s["output_path"])}
+        job = job_for_session(db, session_id)
+        progress = None if job is None else {
+            "status": job["status"], "frames_done": job["frames_done"], "frames_total": job["frames_total"],
+            "attempts": job["attempts"], "provider": job["provider"],
+        }
+        return {"id": s["id"], "box_id": s["box_id"], "status": s["status"], "error": s["error"], "has_result": bool(s["output_path"]), "job": progress}
 
 
 @app.get("/api/v1/sessions/{session_id}/result")

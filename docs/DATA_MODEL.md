@@ -4,6 +4,7 @@
 `sessions(id UUID PK, box_id, status, created_at, finished_at, error, portrait_id, match_portrait_id, output_path, create_key, withdrawal_hash)`: unique on `(box_id, create_key)`; `match_portrait_id` is a pool portrait id or `seed:<seed id>`
 `portraits(id UUID PK, session_id, path, pool_eligible, created_at, expires_at, use_count, upload_key, upload_sha256)`: one row per file; pool consent adds a second row with `pool_eligible=1`
 `seeds(id UUID PK, path, rights_ref, imported_at, removed_at, use_count)`
+`generation_jobs(id UUID PK, session_id UNIQUE, provider, prompt_version, status, run_id, attempts, seed, frames_done, frames_total, next_attempt_at, error, metrics, created_at, started_at, finished_at)`: `metrics` holds seconds and peak memory per frame, never image data; a session has one job, reused if requested again
 `audit_events(id PK, occurred_at, event, session_id, portrait_id, device_id, detail)`: opaque ids only, never images, names, codes or paths
 `devices(id PK, token_hash UNIQUE, created_at, revoked_at)`: `sessions.box_id` holds the authenticated device id
 `consent_records(id PK, session_id, purpose, policy_version, granted_at, withdrawn_at, provenance, evidence_ref)`: one record per session and purpose (`processing`, `pool`)
@@ -15,7 +16,6 @@ The schema is versioned with `PRAGMA user_version`. `photobox_server/schema.py` 
 ## Planned normalized schema
 - `photoboxes(id, name, location_code, last_seen, capabilities)`
 - `matches(id, portrait_a_id, portrait_b_id, type, created_at)`
-- `generation_jobs(id, match_id, provider, prompt_version, status, retries, result_key)`
 - `print_jobs` not until phase 3
 
 All timestamps UTC, IDs opaque, no person-name or biometric template fields.

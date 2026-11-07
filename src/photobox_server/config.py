@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# Providers are added here only once a real adapter exists (milestone M4).
-IMPLEMENTED_PROVIDERS = frozenset({"mock"})
+# Providers are added here only once a real adapter exists.
+IMPLEMENTED_PROVIDERS = frozenset({"mock", "mflux-flux2"})
 
 
 class ConfigError(RuntimeError):
@@ -30,16 +30,30 @@ def load_env_file(path: Path = Path(".env")) -> None:
         os.environ.setdefault(key, value)
 
 
+def int_setting(name: str, default: int, minimum: int, maximum: int) -> int:
+    """Read a whole-number setting, refusing a value outside its allowed range."""
+    raw = os.getenv(name, str(default))
+    try:
+        value = int(raw)
+    except ValueError:
+        value = minimum - 1
+    if not minimum <= value <= maximum:
+        raise ConfigError(f"{name}={raw!r} must be a whole number from {minimum} to {maximum}")
+    return value
+
+
+def get_frame_count() -> int:
+    frames = int_setting("PHOTOBOX_NUM_FRAMES", 4, 3, 4)
+    return frames
+
+
+def developer_mode() -> bool:
+    return os.getenv("PHOTOBOX_DEVELOPER_MODE", "").strip().lower() in {"1", "true", "yes"}
+
+
 def get_cleanup_interval() -> int:
     """Return the seconds between automatic cleanup runs."""
-    raw = os.getenv("PHOTOBOX_CLEANUP_INTERVAL_SECONDS", "300")
-    try:
-        seconds = int(raw)
-    except ValueError:
-        seconds = 0
-    if not 1 <= seconds <= 86400:
-        raise ConfigError(f"PHOTOBOX_CLEANUP_INTERVAL_SECONDS={raw!r} must be a whole number from 1 to 86400")
-    return seconds
+    return int_setting("PHOTOBOX_CLEANUP_INTERVAL_SECONDS", 300, 1, 86400)
 
 
 def get_provider() -> str:
@@ -47,4 +61,6 @@ def get_provider() -> str:
     provider = os.getenv("PHOTOBOX_PROVIDER", "mock")
     if provider not in IMPLEMENTED_PROVIDERS:
         raise ConfigError(f"PHOTOBOX_PROVIDER={provider!r} is not implemented; available: {sorted(IMPLEMENTED_PROVIDERS)}")
+    if provider == "mock" and not developer_mode():
+        raise ConfigError("PHOTOBOX_PROVIDER=mock is not AI and needs PHOTOBOX_DEVELOPER_MODE=true")
     return provider

@@ -105,6 +105,10 @@ Inputs were two fictional white men of the same age, with the same hair, stubble
 
 The faces are still self-generated, so real webcam photos remain untested, and so does Qwen on faces.
 
+## In the application (2026-11-07)
+
+Through the server, from the Pi over the LAN, with the second pair of fictional faces: a 4-frame strip took 170 s overall, with frames at 40-43 s and 10.3 GB peak MLX memory. See ADR-017. This measures the pipeline, not identity retention.
+
 ## What the measurements mean
 
 - **Time and memory are for this machine.** Results on the MacBook do not predict the Mac Studio, so timings are measured again after the port.

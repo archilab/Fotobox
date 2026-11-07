@@ -11,7 +11,8 @@ import httpx
 from .camera import ROTATIONS, CameraError, CaptureSettings, capture_jpeg, list_stable_paths, probe_camera
 
 TOKEN_ENV = "PHOTOBOX_DEVICE_TOKEN"
-COMMANDS_NEEDING_TOKEN = {"capture", "status", "result"}
+COMMANDS_NEEDING_TOKEN = {"capture", "status", "result", "cancel"}
+POLL_SECONDS = 2.0
 NETWORK_ATTEMPTS = 3
 RETRY_DELAY_SECONDS = 1.0
 
@@ -48,6 +49,30 @@ def post_with_retry(client: httpx.Client, url: str, **kwargs) -> httpx.Response:
             print(f"Connection problem ({type(exc).__name__}), retrying {attempt}/{NETWORK_ATTEMPTS - 1}", file=sys.stderr)
             time.sleep(RETRY_DELAY_SECONDS * attempt)
     raise AssertionError("unreachable")
+
+
+def wait_for_result(client: httpx.Client, session_id: str, wait_seconds: int) -> dict:
+    """Follow a queued session until it finishes, showing progress when it changes."""
+    deadline = time.monotonic() + wait_seconds
+    shown = None
+    while True:
+        response = client.get(f"/api/v1/sessions/{session_id}")
+        response.raise_for_status()
+        state = response.json()
+        job = state.get("job") or {}
+        progress = (state["status"], job.get("frames_done"), job.get("frames_total"), job.get("attempts"))
+        if progress != shown:
+            shown = progress
+            print(f"{state['status']}: frame {job.get('frames_done', 0)}/{job.get('frames_total', '?')}, attempt {job.get('attempts', 0)}")
+        if state["status"] == "complete":
+            return state
+        if state["status"] in {"failed", "withdrawn", "uploaded"}:
+            print(f"Error: generation ended as {state['status']}: {state.get('error') or 'no details'}", file=sys.stderr)
+            raise SystemExit(1)
+        if time.monotonic() >= deadline:
+            print(f"Error: still {state['status']} after {wait_seconds} s. It continues on the server; check with: status {session_id}", file=sys.stderr)
+            raise SystemExit(1)
+        time.sleep(POLL_SECONDS)
 
 
 def idempotency_header() -> dict[str, str]:
@@ -112,7 +137,9 @@ def main(argv: list[str] | None = None) -> None:
     cap.add_argument("--pool-consent", action="store_true", help="Only when separate, documented pool authorization exists")
     cap.add_argument("--consent-reference", help="Reference to the outside consent document, such as a form number. Never personal data.")
     cap.add_argument("--no-process", action="store_true")
+    cap.add_argument("--wait-seconds", type=int, default=1800, help="How long to wait for the strip (default: 1800)")
     st = sub.add_parser("status"); st.add_argument("session_id")
+    can = sub.add_parser("cancel", help="Stop generation; the portrait stays"); can.add_argument("session_id")
     res = sub.add_parser("result"); res.add_argument("session_id"); res.add_argument("--output", type=Path, default=Path("photostrip.png"))
     args = parser.parse_args(argv)
     if args.cmd == "capture" and not args.attest_documented_consent:
@@ -136,6 +163,8 @@ def main(argv: list[str] | None = None) -> None:
                 response = client.get("/api/v1/health")
             elif args.cmd == "status":
                 response = client.get(f"/api/v1/sessions/{args.session_id}")
+            elif args.cmd == "cancel":
+                response = post_with_retry(client, f"/api/v1/sessions/{args.session_id}/cancel")
             elif args.cmd == "result":
                 response = client.get(f"/api/v1/sessions/{args.session_id}/result")
                 response.raise_for_status()
@@ -162,6 +191,10 @@ def main(argv: list[str] | None = None) -> None:
                     print("Uploaded; processing skipped.")
                     return
                 response = post_with_retry(client, f"/api/v1/sessions/{sid}/process")
+                response.raise_for_status()
+                print(json.dumps(wait_for_result(client, sid, args.wait_seconds)))
+                print(f"Get the strip with: result {sid}")
+                return
             response.raise_for_status()
             print(response.json())
     except CameraError as exc:

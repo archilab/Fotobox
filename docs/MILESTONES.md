@@ -38,16 +38,17 @@
 - [x] Make seed import admin-only; validity checks, weighted random fairness
 - [x] Separate temporary session images from reusable pool files
 - [x] Automatic periodic deletion and background cleanup of images and output, done early (ADR-013)
-- [ ] Cleanup of temp jobs, once a queue exists (moves to M4)
+- [x] Cleanup of temp jobs, done in M4
 - [x] Private revocation workflow for future public users: a code for the participant, carried out by the operator (ADR-016)
 **Acceptance:** expired/revoked never match; synthetic test images purge; pool-empty with no seed yields clear error. **Met on 2026-11-07: by automated tests, plus pool matching, withdrawal by code and seed fallback from the real Pi with synthetic files.** The camera was not used in this run.
 
 ## M4 — AI provider abstraction
-- [ ] `ImageGenerationProvider` interface (input two portraits, prompt config, frame count, output images, metrics)
-- [ ] Durable queue, worker, progress/status, timeouts, cancellation and bounded retries; cleanup of temp jobs; withdrawal must stop queued and running jobs
-- [ ] FLUX.2 klein 4B adapter through mflux (ADR-014); measure speed and identity retention with test portraits, including real webcam photos with documented consent
-- [ ] Deterministic mock fallback ONLY in developer mode, visibly labelled
-**Acceptance:** provider swap does not change API; job survives service restart; real model creates two-person scene without identity swap on an agreed evaluation set.
+- [x] `ImageGenerationProvider` interface (input two portraits, prompt config, frame count, output images, metrics)
+- [x] Durable queue, worker, progress/status, timeouts, cancellation and bounded retries; cleanup of temp jobs; withdrawal stops queued and running jobs
+- [x] FLUX.2 klein 4B adapter through mflux (ADR-014); speed measured with fictional portraits
+- [ ] Measure identity retention on an agreed evaluation set, including real webcam photos with documented consent
+- [x] Deterministic mock ONLY in developer mode, visibly labelled, and never used as an automatic fallback
+**Acceptance:** provider swap does not change API; job survives service restart; real model creates two-person scene without identity swap on an agreed evaluation set. **Partly met on 2026-11-07, from the real Pi with real FLUX.2 and fictional portraits: provider swap (tests), restart mid-job and cancellation passed. The agreed evaluation set does not exist yet, so M4 stays open.**
 
 ## M5 — Photostrip composition and quality
 - [ ] 3/4 separate frames from image provider, optional contact-sheet crop

@@ -22,6 +22,8 @@ No way around authentication was found: missing, wrong and non-bearer tokens, `/
 | 4 | The pixel limit is not enforced as written. Pillow only warns up to twice the limit, so images up to 40 megapixels pass, not 20. | 30MP accepted, 49MP rejected | `core.py` `validate_image` |
 | 5 | Portraits and tokens cross the LAN unencrypted. This is the accepted ADR-010 risk. | Plain HTTP | Replace with NetBird or Tailscale |
 
+**Image model (ADR-017):** mflux runs as a separate process with arguments passed directly rather than through a shell, in offline mode, and its log is discarded. Only metrics and generic errors are stored. It runs under the server's account, so it can read everything the server can.
+
 ## Before any deployment beyond the trusted test LAN
 
 - encryption through NetBird, Tailscale or TLS; scoped short-lived credentials

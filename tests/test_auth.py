@@ -2,6 +2,7 @@ import io
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
+from conftest import process
 from photobox_server import admin
 from photobox_server.app import app
 from photobox_server.auth import create_device, hash_token, revoke_device
@@ -30,7 +31,7 @@ def completed_session(client):
     sid = client.post("/api/v1/sessions").json()["id"]
     client.post(f"/api/v1/sessions/{sid}/consent", json={"processing": True, "documented_externally": True})
     client.post(f"/api/v1/sessions/{sid}/portrait", files={"image": ("t.jpg", synthetic_jpeg(), "image/jpeg")})
-    assert client.post(f"/api/v1/sessions/{sid}/process").status_code == 200
+    assert process(client, sid).status_code == 202
     return sid
 
 

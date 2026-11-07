@@ -48,6 +48,12 @@ def test_unimplemented_provider_is_rejected(monkeypatch, provider):
         get_provider()
 
 
+def test_mock_requires_developer_mode(monkeypatch):
+    monkeypatch.delenv("PHOTOBOX_DEVELOPER_MODE")
+    with pytest.raises(ConfigError, match="not AI"):
+        get_provider()
+
+
 def test_server_refuses_to_start_with_unimplemented_provider(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("PHOTOBOX_STORAGE_DIR", str(tmp_path / "data"))

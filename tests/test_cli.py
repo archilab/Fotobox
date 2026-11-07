@@ -19,6 +19,8 @@ def api(monkeypatch):
             return httpx.Response(201, json={"id": SESSION_ID, "status": "awaiting_consent"})
         if request.url.path.endswith("/denied"):
             return httpx.Response(401, json={"detail": "valid device token required"})
+        if request.method == "GET" and request.url.path == f"/api/v1/sessions/{SESSION_ID}":
+            return httpx.Response(200, json={"id": SESSION_ID, "status": "complete", "error": None, "has_result": True, "job": {"frames_done": 4, "frames_total": 4, "attempts": 1}})
         return httpx.Response(200, json={"status": "ok"})
 
     real_client = httpx.Client
@@ -69,7 +71,7 @@ def test_capture_with_attestation_sends_consent_and_keeps_pool_separate(api, syn
 
 def test_every_capture_request_carries_the_token(api, synthetic_file, capsys):
     cli.main(["capture", "--file", str(synthetic_file), "--attest-documented-consent"])
-    assert len(api) == 4
+    assert len(api) == 5  # session, consent, upload, process, status
     assert all(r.headers["Authorization"] == f"Bearer {TOKEN}" for r in api)
     captured = capsys.readouterr()
     assert TOKEN not in captured.out + captured.err

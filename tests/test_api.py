@@ -1,5 +1,6 @@
 import io
 from PIL import Image
+from conftest import process
 from photobox_server.core import db_connect
 from photobox_server.pool import import_seed
 
@@ -17,8 +18,8 @@ def test_flow(client):
     assert client.post(f'/api/v1/sessions/{s}/consent',json={'processing':True,'pool':True,'documented_externally':True}).status_code==200
     up=client.post(f'/api/v1/sessions/{s}/portrait',files={'image':('test.jpg',img_bytes(),'image/jpeg')})
     assert up.status_code==200
-    result=client.post(f'/api/v1/sessions/{s}/process')
-    assert result.status_code==200, result.text
+    result=process(client,s)
+    assert result.status_code==202, result.text
     assert client.get(f'/api/v1/sessions/{s}').json()['status']=='complete'
     img=client.get(f'/api/v1/sessions/{s}/result')
     assert img.status_code==200 and img.headers['content-type']=='image/png'

@@ -59,6 +59,18 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
         "ALTER TABLE sessions ADD COLUMN withdrawal_hash TEXT",
         "CREATE UNIQUE INDEX sessions_withdrawal_hash ON sessions(withdrawal_hash) WHERE withdrawal_hash IS NOT NULL",
     ),
+    # 4: M4. Durable generation jobs.
+    (
+        """CREATE TABLE generation_jobs (
+            id TEXT PRIMARY KEY, session_id TEXT NOT NULL UNIQUE, provider TEXT NOT NULL,
+            prompt_version TEXT NOT NULL, status TEXT NOT NULL, run_id TEXT,
+            attempts INTEGER NOT NULL DEFAULT 0, seed INTEGER NOT NULL,
+            frames_done INTEGER NOT NULL DEFAULT 0, frames_total INTEGER NOT NULL,
+            next_attempt_at TEXT NOT NULL, error TEXT, metrics TEXT,
+            created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT
+        )""",
+        "CREATE INDEX generation_jobs_waiting ON generation_jobs(status, next_attempt_at)",
+    ),
 )
 
 

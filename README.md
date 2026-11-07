@@ -3,7 +3,7 @@
 **Phase 1 only:** 1 Raspberry Pi + standard UVC USB webcam; Mac Studio hosts API and (later) image-generation worker. **No touchscreen and no printer** in MVP. CLI-operated tests. Final deliverable: vertical PNG photo strip of 3–4 AI-generated frames combining 2 portraits. Multi-box, consent touchscreen and thermal printing are future phases.
 
 ## Current implementation status
-The included code is a **runnable vertical slice**, not a finished AI system: FastAPI + SQLite session tracking, temporary photo storage, basic seed/visitor matching, synthetic **MOCK** strip rendering and a Raspberry Pi CLI with optional webcam capture. **No real AI model is installed or wired**. The mock is visibly labelled and uses source portraits for development only. Do not mistake it for the final art output.
+The included code is a **runnable vertical slice**, not a finished AI system: FastAPI + SQLite session tracking, temporary photo storage, basic seed/visitor matching, a durable generation queue and a Raspberry Pi CLI with optional webcam capture. Two image providers exist: `mflux-flux2` runs **FLUX.2 klein 4B** locally (see `docs/HARDWARE.md`), and `mock`, the default in `.env.example`, is **not AI**: it needs `PHOTOBOX_DEVELOPER_MODE=true`, is visibly labelled and exists for development only. Identity retention on real photos has not been evaluated yet, so do not treat the current output as final.
 
 ## Quick start (macOS / Linux, Python 3.11+)
 ```bash
@@ -24,7 +24,7 @@ python -m photobox_client.cli --server http://127.0.0.1:8000 status SESSION_ID
 python -m photobox_client.cli --server http://127.0.0.1:8000 result SESSION_ID --output result.png
 pytest -q
 ```
-If no seed portrait exists the capture will fail with a useful error. **Before first run**, import an explicitly licensed/consented portrait with `python -m photobox_server.admin seed add FILE --rights-reference REF --attest-rights`. Files placed directly in the seed folder are ignored. Alternately run `python scripts/create_synthetic_seed.py` to import an *illustrative non-person* test image. `capture` prints a one-time withdrawal code for the participant; `python -m photobox_server.admin withdraw` deletes that person's images and every strip containing them on the server. `capture` refuses to run without `--attest-documented-consent`, which the operator may pass only for synthetic images or when a documented consent procedure took place outside this MVP interface. That flag and `--pool-consent` are developer-only assertions, **not proof of informed consent**.
+If no seed portrait exists the capture will fail with a useful error. **Before first run**, import an explicitly licensed/consented portrait with `python -m photobox_server.admin seed add FILE --rights-reference REF --attest-rights`. Files placed directly in the seed folder are ignored. Alternately run `python scripts/create_synthetic_seed.py` to import an *illustrative non-person* test image. `capture` waits for the strip while the server generates it in the background, and prints a one-time withdrawal code for the participant; `python -m photobox_server.admin withdraw` deletes that person's images and every strip containing them on the server. `capture` refuses to run without `--attest-documented-consent`, which the operator may pass only for synthetic images or when a documented consent procedure took place outside this MVP interface. That flag and `--pool-consent` are developer-only assertions, **not proof of informed consent**.
 
 The server reads `.env` from the folder it starts in; variables already set in the shell take precedence. See `.env.example` for the available settings. An unimplemented `PHOTOBOX_PROVIDER` stops the server at startup.
 
@@ -46,7 +46,7 @@ From repo root run `claude`. The root `CLAUDE.md` project instructions are inclu
 
 ## Architecture
 - `src/photobox_client`: CLI, webcam capture, HTTP client.
-- `src/photobox_server`: FastAPI, SQLite, files, matching, mock worker, output.
+- `src/photobox_server`: FastAPI, SQLite, files, matching, generation jobs, image providers, output.
 - `docs`: contracts, architecture decisions, privacy and milestone acceptance tests.
 - `tests`: API and image renderer checks.
 

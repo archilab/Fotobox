@@ -5,6 +5,7 @@ import sqlite3
 AWAITING_CONSENT = "awaiting_consent"
 AWAITING_PORTRAIT = "awaiting_portrait"
 UPLOADED = "uploaded"
+QUEUED = "queued"
 PROCESSING = "processing"
 COMPLETE = "complete"
 FAILED = "failed"
@@ -14,10 +15,14 @@ WITHDRAWN = "withdrawn"
 TRANSITIONS: frozenset[tuple[str, str]] = frozenset({
     (AWAITING_CONSENT, AWAITING_PORTRAIT),
     (AWAITING_PORTRAIT, UPLOADED),
-    (UPLOADED, PROCESSING),
+    (UPLOADED, QUEUED),
+    (QUEUED, PROCESSING),
     (PROCESSING, COMPLETE),
     (PROCESSING, FAILED),
-    (FAILED, PROCESSING),
+    (PROCESSING, QUEUED),  # retry, or requeued after a restart
+    (FAILED, QUEUED),
+    (QUEUED, UPLOADED),  # cancelled
+    (PROCESSING, UPLOADED),  # cancelled
 })
 
 
@@ -32,12 +37,3 @@ def transition(db: sqlite3.Connection, session_id: str, source: str, target: str
         raise ValueError(f"transition {source} -> {target} is not allowed")
     cursor = db.execute("UPDATE sessions SET status=? WHERE id=? AND status=?", (target, session_id, source))
     return cursor.rowcount == 1
-
-
-def recover_interrupted(db: sqlite3.Connection) -> int:
-    """At startup nothing can still be running, so a session left in `processing` was interrupted.
-
-    It can be processed again. This assumes one server process, which the docs require.
-    """
-    cursor = db.execute("UPDATE sessions SET status=?, error='interrupted by restart' WHERE status=?", (FAILED, PROCESSING))
-    return cursor.rowcount
