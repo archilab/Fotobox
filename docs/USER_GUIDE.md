@@ -57,7 +57,8 @@ flowchart LR
 | **Consent on screen** | The operator's notice is shown before any photo is taken. Waiting 90 s or pressing ESC cancels without a photo. |
 | **Countdown** | A large 3-2-1 before the photo is taken. |
 | **Progress timer** | Elapsed time and "frame x of 4" while the strip is generated. |
-| **Withdrawal code** | Shown at the end. The operator can use it to delete the visitor's images at any time. |
+| **The finished strip** | Shown on the screen for 20 seconds, as large as fits, with the withdrawal code beside it. |
+| **Withdrawal code** | Shown with the strip and then on its own. The operator can use it to delete the visitor's images at any time. |
 | **German and English** | All kiosk screens are bilingual. |
 
 ### The strips
@@ -241,7 +242,8 @@ sudo systemctl disable --now photobox-kiosk && sudo systemctl start getty@tty1
 | **Consent notice** | Read it, then press ENTER to agree or ESC to cancel. After 90 s without an answer, it cancels. |
 | **3 – 2 – 1** | Look at the camera. |
 | **Your photo strip is being made** | Wait about 3 minutes. A timer and "frame x of 4" show progress. |
-| **Done! Your withdrawal code** | Note the code; it is shown for 60 s or until ENTER. |
+| **Your strip** | The finished strip appears for 20 seconds, with the withdrawal code beside it. |
+| **Done! Your withdrawal code** | Note the code; it stays for 60 s or until ENTER. |
 
 Keys pressed before a screen appears are ignored, so pressing ENTER twice quickly can never count as consent.
 
@@ -306,7 +308,7 @@ Server settings go in `~/photobox-server/.env`. Variables set in the shell take 
 | `PHOTOBOX_THERMAL_BRIGHTNESS` / `_CONTRAST` | `1.1` / `1.3` | Thermal profile adjustments. |
 | `PHOTOBOX_INTERFACE` / `PHOTOBOX_PORT` | `en0` / `8000` | Used by `scripts/run_server.sh`. |
 
-Kiosk settings on the Pi are in `~/.photobox-kiosk.env` (`PHOTOBOX_SERVER`, `PHOTOBOX_CAMERA`). Further options such as `--width`, `--height`, `--rotate` and `--wait-seconds` can be added to `ExecStart` in the service file.
+Kiosk settings on the Pi are in `~/.photobox-kiosk.env` (`PHOTOBOX_SERVER`, `PHOTOBOX_CAMERA`). Further options such as `--width`, `--height`, `--rotate`, `--wait-seconds`, `--strip-seconds` (default 20) and `--no-display` can be added to `ExecStart` in the service file.
 
 ---
 
@@ -331,6 +333,7 @@ sudo systemctl restart photobox-kiosk
 |---|---|
 | **Pi screen looks empty** | On a 4K screen the console text is tiny and sits in a corner that TVs often cut off. The kiosk service sets a large font; restart it with `sudo systemctl restart photobox-kiosk`. Also check the monitor's input. |
 | **Kiosk says "not ready"** | The server is not reachable, or the consent notice is missing or still has `TODO-OPERATOR`. Check the notice and run the health check. |
+| **The strip is not shown, only the code** | The kiosk could not open the framebuffer (`/dev/fb0`) or load the strip. Check that the kiosk's user is in the `video` group; the code is still shown. |
 | **Kiosk says "Could not reach the server"** | The network failed, or no counterpart is available: import a seed image. |
 | **Server log: "Operation not permitted"** | The service points into `~/Documents`. Install it from a folder outside it, as in server step 1. |
 | **`Bootstrap failed: 5`** | The service is already loaded. Run `launchctl bootout gui/$(id -u)/com.photobox.server` first, or ignore it if the server already runs. |
@@ -351,6 +354,7 @@ sudo systemctl restart photobox-kiosk
 - **Withdrawal codes** are shown on screen, where bystanders may see them.
 - **Identity retention** was scored at 4.6 out of 5 on an evaluation set with fictional faces and one real person. That was for the earlier scene prompts; the current micro-stories have not been scored, and two real visitors together are untested.
 - **Backups:** deletion cannot reach copies in backups, so keep `storage/` excluded from Time Machine.
-- **Not yet available:** printing, a touchscreen, several photo booths and self-service withdrawal.
+- **Printing** is not implemented yet: it needs the printer's model, connection and paper width. Until then the strip is always shown on the screen.
+- **Not yet available:** a touchscreen, several photo booths and self-service withdrawal.
 
 For the technical background, see [ARCHITECTURE.md](ARCHITECTURE.md), [API.md](API.md), [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md) and the decisions in [DECISIONS.md](DECISIONS.md).

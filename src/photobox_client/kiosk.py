@@ -2,7 +2,9 @@
 
 ENTER starts and shows the server's consent notice. A second ENTER confirms it, and only then is
 consent recorded and the photo taken, after a countdown. ESC cancels at the notice. While the strip
-is generated, a timer runs on screen, and at the end the participant sees their withdrawal code.
+is generated, a timer runs on screen. At the end the finished strip is shown on the screen for 20
+seconds with the withdrawal code beside it, and then the code alone. Printing is not implemented yet:
+it needs the printer's specifications (docs/MILESTONES.md), so for now the strip is always shown.
 
     python -m photobox_client.kiosk --server http://MAC:8000 --token-file ~/.photobox.token --camera NAME
 
@@ -23,11 +25,13 @@ from pathlib import Path
 from typing import Protocol
 import httpx
 from .camera import CameraError, CaptureSettings, capture_jpeg
+from .display import FramebufferDisplay, result_screen
 from .cli import idempotency_header, post_with_retry, read_token
 
 ENTER, ESC = "enter", "esc"
 NOTICE_TIMEOUT_SECONDS = 90
 RESULT_SECONDS = 60
+STRIP_SECONDS = 20
 MESSAGE_SECONDS = 10
 COUNTDOWN = (3, 2, 1)
 BIG_DIGITS = {
@@ -52,13 +56,14 @@ class TerminalScreen:
 
     def show(self, text: str) -> None:
         columns, rows = shutil.get_terminal_size((80, 24))
-        # Keep clear of the edges, which many TVs cut off, and limit line length for reading.
+        # Hide the cursor, which would blink on top of an image, and keep clear of the edges, which
+        # many TVs cut off. Line length is limited for reading.
         left, top = " " * max(2, columns // 12), max(1, rows // 10)
         width = max(30, min(columns - 2 * len(left), 90))
         lines = []
         for line in text.splitlines() or [""]:
             lines.extend(textwrap.wrap(line, width) or [""])
-        self.stream.write("\x1b[2J\x1b[H" + "\n" * top + "\n".join(left + line for line in lines) + "\n")
+        self.stream.write("\x1b[?25l\x1b[2J\x1b[H" + "\n" * top + "\n".join(left + line for line in lines) + "\n")
         self.stream.flush()
 
 
@@ -130,6 +135,11 @@ class Api:
         response = post_with_retry(self.client, f"/api/v1/sessions/{session_id}/process")
         response.raise_for_status()
 
+    def strip(self, session_id: str) -> bytes:
+        response = self.client.get(f"/api/v1/sessions/{session_id}/result")
+        response.raise_for_status()
+        return response.content
+
     def status(self, session_id: str) -> dict:
         response = self.client.get(f"/api/v1/sessions/{session_id}")
         response.raise_for_status()
@@ -143,8 +153,10 @@ def big(number: int) -> str:
 class Kiosk:
     def __init__(self, api: Api, camera: Callable[[], bytes], screen: Screen, keys: Keys, *,
                  wait_seconds: int = 1800, sleep: Callable[[float], None] = time.sleep,
-                 clock: Callable[[], float] = time.monotonic, test_mode: bool = False) -> None:
+                 clock: Callable[[], float] = time.monotonic, test_mode: bool = False,
+                 display: FramebufferDisplay | None = None, strip_seconds: int = STRIP_SECONDS) -> None:
         self.api, self.camera, self.screen, self.keys = api, camera, screen, keys
+        self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
         self.banner = "TEST MODE - no camera\n\n" if test_mode else ""
 
@@ -203,10 +215,24 @@ class Kiosk:
                 f"        {elapsed // 60:02d}:{elapsed % 60:02d}\n\n        {frames}"
             )
             self.sleep(1)
+        self.show_strip(session_id, code)
         withdraw = (f"Dein Widerrufscode / Your withdrawal code:\n\n        {code}\n\nNotiere ihn, um deine Bilder loeschen zu lassen.\nWrite it down to have your images deleted."
                     if code else "Zum Loeschen deiner Bilder wende dich an die Betreuung.\nTo have your images deleted, ask the staff.")
         self.ask(f"Fertig! Done!\n\n{withdraw}\n\nENTER", {ENTER}, RESULT_SECONDS)
         return "complete"
+
+
+    def show_strip(self, session_id: str, code: str | None) -> bool:
+        """Show the finished strip on the screen. Returns False if it could not be shown."""
+        if self.display is None:
+            return False
+        try:
+            image = result_screen(self.api.strip(session_id), code, self.display.size)
+            self.display.show(image)
+        except (httpx.HTTPError, OSError, ValueError):
+            return False
+        self.sleep(self.strip_seconds)
+        return True
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -220,6 +246,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--wait-seconds", type=int, default=1800)
     parser.add_argument("--test-image", type=Path, help="Use this file instead of the camera, for tests without people")
     parser.add_argument("--once", action="store_true", help="Serve one participant, then exit")
+    parser.add_argument("--strip-seconds", type=int, default=STRIP_SECONDS, help="How long the finished strip is shown (default: 20)")
+    parser.add_argument("--no-display", action="store_true", help="Do not show the strip on the screen")
     args = parser.parse_args(argv)
     token = read_token(args.token_file)
     if token is None:
@@ -230,7 +258,9 @@ def main(argv: list[str] | None = None) -> None:
         settings = CaptureSettings(width=args.width, height=args.height, rotation=args.rotate)
         camera = lambda: capture_jpeg(args.camera, settings)
     with httpx.Client(base_url=args.server, timeout=60, headers={"Authorization": f"Bearer {token}"}) as client, TerminalKeys(sys.stdin.fileno()) as keys:
-        kiosk = Kiosk(Api(client), camera, TerminalScreen(), keys, wait_seconds=args.wait_seconds, test_mode=bool(args.test_image))
+        display = None if args.no_display else FramebufferDisplay.open()
+        kiosk = Kiosk(Api(client), camera, TerminalScreen(), keys, wait_seconds=args.wait_seconds,
+                      test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds)
         while True:
             kiosk.run_once()
             if args.once:

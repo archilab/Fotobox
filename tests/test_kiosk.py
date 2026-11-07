@@ -313,15 +313,80 @@ def test_terminal_screen_clears_and_wraps():
     out = io.StringIO()
     TerminalScreen(out).show("word " * 60)
     text = out.getvalue()
-    assert text.startswith("\x1b[2J\x1b[H") and text.count("\n") > 2
+    assert text.startswith("\x1b[?25l\x1b[2J\x1b[H") and text.count("\n") > 2
 
 
 def test_terminal_screen_keeps_clear_of_the_edges_on_a_large_console(monkeypatch):
     monkeypatch.setattr(kiosk_module.shutil, "get_terminal_size", lambda _default: os.terminal_size((240, 67)))
     out = io.StringIO()
     TerminalScreen(out).show("FOTOBOX\n" + "word " * 60)
-    lines = out.getvalue().removeprefix("\x1b[2J\x1b[H").split("\n")
+    lines = out.getvalue().removeprefix("\x1b[?25l\x1b[2J\x1b[H").split("\n")
     assert lines[:6] == [""] * 6
     text_lines = [line for line in lines if line.strip()]
     assert all(line.startswith(" " * 20) for line in text_lines)
     assert max(len(line) for line in text_lines) <= 20 + 90
+
+
+# The finished strip on the screen
+
+class FakeDisplay:
+    size = (1920, 1080)
+
+    def __init__(self):
+        self.shown = []
+
+    def show(self, image):
+        self.shown.append(image)
+
+
+def png(size=(560, 1703)):
+    out = io.BytesIO()
+    Image.linear_gradient("L").resize(size).convert("RGB").save(out, "PNG")
+    return out.getvalue()
+
+
+class StripApi(FakeApi):
+    def __init__(self, strip=None, **kwargs):
+        super().__init__(**kwargs)
+        self.strip_png = strip
+
+    def strip(self, sid):
+        self.calls.append(("strip", sid))
+        if self.strip_png is None:
+            raise httpx.ConnectError("down")
+        return self.strip_png
+
+
+def test_finished_strip_is_shown_for_twenty_seconds_before_the_code_screen():
+    display = FakeDisplay()
+    pauses = []
+    api = StripApi(strip=png())
+    screen = FakeScreen()
+    kiosk = Kiosk(api, lambda: b"jpeg", screen, FakeKeys(ENTER, ENTER, ENTER), sleep=pauses.append, clock=iter(range(10_000)).__next__, display=display)
+    assert kiosk.run_once() == "complete"
+    assert ("strip", "sid") in api.calls and len(display.shown) == 1
+    assert display.shown[0].size == (1920, 1080)
+    assert 20 in pauses
+    assert "CODE-1" in screen.shown[-1]
+
+
+def test_without_a_display_the_flow_still_ends_with_the_code():
+    api = StripApi(strip=png())
+    kiosk, screen = make(api, FakeKeys(ENTER, ENTER, ENTER))
+    assert kiosk.run_once() == "complete"
+    assert ("strip", "sid") not in api.calls and "CODE-1" in screen.shown[-1]
+
+
+@pytest.mark.parametrize("strip", [None, b"not an image"])
+def test_a_strip_that_cannot_be_shown_is_skipped(strip):
+    display = FakeDisplay()
+    kiosk, screen = make(StripApi(strip=strip), FakeKeys(ENTER, ENTER, ENTER), display=display)
+    assert kiosk.run_once() == "complete"
+    assert display.shown == [] and "CODE-1" in screen.shown[-1]
+
+
+def test_strip_time_can_be_configured():
+    pauses = []
+    kiosk = Kiosk(StripApi(strip=png()), lambda: b"jpeg", FakeScreen(), FakeKeys(ENTER, ENTER, ENTER), sleep=pauses.append, clock=iter(range(10_000)).__next__, display=FakeDisplay(), strip_seconds=7)
+    kiosk.run_once()
+    assert 7 in pauses and 20 not in pauses
