@@ -230,23 +230,18 @@ def run(api, *answers):
     return kiosk.run_once(), screen.shown
 
 
-def test_kiosk_asks_the_pool_question_separately_and_records_yes():
+def test_one_enter_agrees_to_the_photo_and_the_pool_on_one_screen():
     api = FakeApi()
-    ending, shown = run(api, ENTER, ENTER, ENTER, ENTER)
+    ending, shown = run(api, ENTER, ENTER, ENTER)
     assert ending == "complete" and api.started == [FakeApi.POOL]
-    assert shown.index("NOTICE") < shown.index("POOL QUESTION")
+    question = next(text for text in shown if "NOTICE" in text)
+    assert "POOL QUESTION" in question and "Foto und Pool" in question and "45 Sekunden" in question
     assert "bis 09.11. 13:00 im Pool" in shown[-1] and "until 09.11. 13:00" in shown[-1]
 
 
-def test_kiosk_takes_the_photo_without_pool_on_escape():
+def test_no_answer_takes_no_photo_and_records_nothing():
     api = FakeApi()
-    ending, shown = run(api, ENTER, ENTER, ESC, ENTER)
-    assert ending == "complete" and api.started == [None] and "Pool" not in shown[-1]
-
-
-def test_kiosk_takes_no_photo_when_the_pool_question_goes_unanswered():
-    api = FakeApi()
-    ending, _ = run(api, ENTER, ENTER, None)
+    ending, _ = run(api, ENTER, None)
     assert ending == "declined" and api.started == []
 
 

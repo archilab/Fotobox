@@ -208,12 +208,12 @@ def test_notice_timeout_counts_as_no():
     keys = FakeKeys(ENTER, None)
     kiosk, screen = make(api, keys, camera=lambda: pytest.fail("photo taken"))
     assert kiosk.run_once() == "declined"
-    assert keys.questions[1] == ({ENTER, ESC}, kiosk_module.NOTICE_TIMEOUT_SECONDS)
+    assert keys.questions[1] == ({ENTER}, kiosk_module.CONSENT_SECONDS)
     assert "No photo was taken" in screen.shown[-1]
 
 
 def test_pending_presses_are_discarded_before_every_question():
-    keys = FakeKeys(ENTER, ENTER, ENTER)
+    keys = FakeKeys(ENTER, ENTER)
     kiosk, _ = make(FakeApi(), keys)
     kiosk.run_once()
     assert keys.flushes == len(keys.questions) == 3
@@ -395,3 +395,45 @@ def test_strip_time_can_be_configured():
     kiosk = Kiosk(StripApi(strip=png()), lambda: b"jpeg", FakeScreen(), FakeKeys(ENTER, ENTER, ENTER), sleep=pauses.append, clock=iter(range(10_000)).__next__, display=FakeDisplay(), strip_seconds=7)
     kiosk.run_once()
     assert 7 in pauses and 20 not in pauses
+
+
+# The withdrawal code on a public screen
+
+def finishing(answers):
+    api = FakeApi(states=("complete",))
+    keys = FakeKeys(ENTER, ENTER, *answers)
+    kiosk, screen = make(api, keys)
+    assert kiosk.run_once() == "complete"
+    return keys.questions[2:], screen
+
+
+def test_the_code_stays_for_ten_seconds_without_a_key():
+    questions, screen = finishing([None])
+    assert questions == [({ENTER}, 10)] and "CODE-1" in screen.shown[-1]
+
+
+def test_enter_gives_the_visitor_more_time():
+    questions, _ = finishing([ENTER, ENTER, None])
+    assert questions == [({ENTER}, 10)] * 3
+
+
+def test_the_code_never_stays_longer_than_a_minute():
+    questions, _ = finishing([ENTER] * 20)
+    assert len(questions) == 6  # ten seconds, then five more of them
+
+
+def test_the_strip_screen_does_not_show_the_code():
+    from photobox_client import views
+    assert views.strip("strip/1", None)["code"] is None
+    api = StripApi(png(), states=("complete",))
+    display = FakeDisplay()
+    keys = FakeKeys(ENTER, ENTER, None)
+    kiosk, _ = make(api, keys, display=display)
+    captured = {}
+    original = kiosk_module.result_screen
+    kiosk_module.result_screen = lambda strip, code, size: captured.setdefault("code", code) or original(strip, None, size)
+    try:
+        kiosk.run_once()
+    finally:
+        kiosk_module.result_screen = original
+    assert captured == {"code": None}

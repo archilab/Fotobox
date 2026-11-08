@@ -84,17 +84,17 @@ def visit(*keys, test_mode=False, api=None):
 
 
 def test_a_whole_visit_is_described_by_states_the_browser_can_draw():
-    ending, states = visit(ENTER, ENTER, ENTER, ENTER)
+    ending, states = visit(ENTER, ENTER)
     assert ending == "complete"
     names = [s["screen"] for s in states]
-    assert names == ["start", "consent", "pool", "countdown", "countdown", "countdown", "flash", "making", "live_moment", "making", "done"]
+    assert names == ["start", "consent", "countdown", "countdown", "countdown", "flash", "making", "making", "live_moment", "making", "done"]
     assert set(names) <= UI_VIEWS
     json.dumps(states)  # they travel to the browser as JSON
     assert all(s["plain"] for s in states) and all("test_mode" in s for s in states)
 
 
 def test_every_state_builder_names_a_real_view():
-    built = [views.start(None, "p"), views.consent("t"), views.pool(POOL), views.message("a\nb"), views.countdown(3, "p"), views.flash(),
+    built = [views.start(None, "p"), views.consent("t"), views.consent("t", POOL), views.message("a\nb"), views.countdown(3, "p"), views.flash(),
              views.making(5, {}, None, "p"), views.live_moment(None, "p"), views.done(None, None, "p"), views.listening(3, 8, "p"), views.converting("p")]
     assert {s["screen"] for s in built} <= UI_VIEWS
 
@@ -111,12 +111,12 @@ def test_start_works_without_the_server():
 
 
 def test_the_box_name_stays_on_every_screen():
-    _, states = visit(ENTER, ENTER, ENTER, ENTER)
+    _, states = visit(ENTER, ENTER)
     assert {s["label"] for s in states} == {"BERLIN"}
 
 
 def test_test_mode_is_on_every_screen():
-    _, states = visit(ENTER, ENTER, ENTER, ENTER, test_mode=True)
+    _, states = visit(ENTER, ENTER, test_mode=True)
     assert all(s["test_mode"] and s["plain"].startswith("TEST MODE") for s in states)
 
 
@@ -176,3 +176,31 @@ def test_the_voice_screens_are_states_too():
     PushToTalk(Mic(), Transcriber(), Keys(), screen, lambda: True).talk()
     names = [s["screen"] for s in screen.states]
     assert names[0] == "listening" and screen.states[0]["limit"] == MAX_SECONDS and names[-2:] == ["converting", "message"]
+
+
+def test_the_one_question_combines_notice_and_pool_with_only_enter():
+    state = views.consent("NOTICE\n\nENTER = old / old\nESC   = Abbrechen / Cancel", {"text": "POOL\n\nESC = Nein / No", "until_text": "09.11. 17:42"}, 45)
+    assert state["text"] == "NOTICE\n\nPOOL\n\nENTER = Ich stimme zu: Foto und Pool / I agree: photo and pool"
+    assert state["until"] == "09.11. 17:42" and state["seconds"] == 45 and "ESC" not in state["text"]
+
+
+def test_without_a_pool_enter_only_means_the_photo():
+    state = views.consent("NOTICE", None, 45)
+    assert state["text"] == "NOTICE\n\nENTER = Ich stimme zu, Foto machen / I agree, take the photo" and state["until"] is None
+
+
+def test_the_screen_stays_white_until_the_photo_has_been_taken():
+    screen = ViewScreen()
+    seen_at_capture = []
+
+    def camera():
+        seen_at_capture.append(screen.states[-1]["screen"])
+        return b"jpeg"
+
+    clock = iter(range(1000))
+    Kiosk(Api(), camera, screen, Keys(ENTER, ENTER, ENTER), sleep=lambda _s: None, clock=lambda: next(clock)).run_once()
+    assert seen_at_capture == ["flash"]
+    names = [s["screen"] for s in screen.states]
+    assert names[names.index("flash") + 1] == "making"  # dark again as soon as it is taken
+    source = (Path(__file__).parent.parent / "src/photobox_client/ui/screens.js").read_text(encoding="utf-8")
+    assert 'screen("countdown light"' in source and 'flash: () => screen("light")' in source

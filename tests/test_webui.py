@@ -10,6 +10,12 @@ from photobox_client.kiosk import ENTER, ESC, Kiosk
 from photobox_client.webui import MAX_PENDING_KEYS, WebUI
 
 
+@pytest.fixture(autouse=True)
+def short_code_time(monkeypatch):
+    from photobox_client import kiosk as kiosk_module
+    monkeypatch.setattr(kiosk_module, "CODE_SECONDS", 0.05)
+
+
 @pytest.fixture
 def ui():
     server = WebUI().start()
@@ -219,19 +225,22 @@ def test_a_whole_visit_through_the_browser_screen(ui):
 
     ui.view = recording
     kiosk = Kiosk(Api(png()), lambda: b"jpeg", ui, ui, sleep=lambda _s: time.sleep(0.01))
-    visitor(ui, ENTER, ENTER, ENTER, screens=["start", "consent", "done"])
+    visitor(ui, ENTER, ENTER, screens=["start", "consent"])
     assert kiosk.run_once() == "complete"
-    assert shown == ["start", "consent", "countdown", "countdown", "countdown", "flash", "strip", "done"]
+    assert shown == ["start", "consent", "countdown", "countdown", "countdown", "flash", "making", "strip", "done"]
     assert ui.image is None  # gone once it has left the screen
 
 
-def test_cancelling_through_the_browser_screen(ui):
+def test_escape_does_nothing_and_time_running_out_cancels(ui, monkeypatch):
+    from photobox_client import kiosk as kiosk_module
+    monkeypatch.setattr(kiosk_module, "CONSENT_SECONDS", 0.3)
     kiosk = Kiosk(Api(png()), lambda: b"jpeg", ui, ui, sleep=lambda _s: None)
-    visitor(ui, ENTER, ESC, ENTER, screens=["start", "consent", "message"])
+    visitor(ui, ENTER, ESC, screens=["start", "consent"])
     assert kiosk.run_once() == "declined"
+    assert ui.state["screen"] == "message"
 
 
 def test_a_damaged_strip_is_skipped_and_the_visit_ends_normally(ui):
     kiosk = Kiosk(Api(b"broken"), lambda: b"jpeg", ui, ui, sleep=lambda _s: None)
-    visitor(ui, ENTER, ENTER, ENTER, screens=["start", "consent", "done"])
+    visitor(ui, ENTER, ENTER, screens=["start", "consent"])
     assert kiosk.run_once() == "complete"

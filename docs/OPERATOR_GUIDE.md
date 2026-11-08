@@ -22,12 +22,11 @@ How to run the Fotobox day to day. To install it, see [INSTALL.md](../INSTALL.md
 | Screen | What the visitor does |
 |---|---|
 | **FOTOBOX – Press ENTER to start** | Presses ENTER. Above it, one line tells what is happening at the other booths, such as "Someone is taking a photo in Hall B", refreshed every 3 seconds (see *Booth names* below). |
-| **Consent notice** | Reads it, then presses ENTER to agree or ESC to cancel. After 90 seconds without an answer, it cancels. |
-| **Pool question** (only if you set one up) | A second, separate question: may the photo be combined with other visitors' photos until a stated time? ENTER = yes, ESC = no, and the photo is taken either way. No answer for 90 seconds cancels, with no photo. |
-| **3 – 2 – 1** | Looks at the camera. |
+| **Consent notice** | Reads it and presses ENTER to agree, within 45 seconds; a countdown shows the time left. If you set up a pool question, it is on the same screen, and ENTER agrees to the photo and the pool together. Doing nothing cancels, with no photo. If the text needs two pages, ENTER works once the last page has been shown. |
+| **3 – 2 – 1** | Looks at the camera. From here until the photo is taken, the screen stays white as extra light. |
 | **Your photo strip is being made** | Waits about three minutes. A timer and "frame x of 4" show progress. |
-| **The strip** | Sees the finished strip for 20 seconds, with their deletion code beside it. |
-| **Done! Your withdrawal code** | Notes the code; it stays for 60 seconds or until ENTER. If the photo went into the pool, the screen says until when, and that the code deletes it there too. |
+| **The strip** | Sees the finished strip for 20 seconds. |
+| **Done! Your withdrawal code** | Notes the code, which stays for 10 seconds with a countdown. ENTER gives another 10 seconds, up to a minute in all, because the code is on a public screen. If the photo went into the pool, the screen says until when, and that the code deletes it there too. |
 
 Keys pressed before a screen appears are ignored, so pressing ENTER twice quickly can never count as agreeing. No photo is taken before the visitor agrees.
 
@@ -45,7 +44,7 @@ Open **<http://127.0.0.1:8001>** in a browser **on the Mac** and log in. It cann
 | **Queue** | Follow each strip frame by frame, see errors, and cancel a strip that is waiting or being made. The photo stays, so the booth can try again. |
 | **Strips** | See all stored strips, in color, grayscale or a black-and-white printer look, and how many minutes until each is deleted. Delete a visitor's pictures here; see [below](#deleting-a-visitors-pictures). |
 | **Consent notice** | Edit the text visitors agree to, with a preview of how it looks on the booth. |
-| **Pool** | Edit the pool question (or leave it empty, and the booths never ask), and see the photos in the pool with the time each has left. No pictures are shown. "Remove from pool" takes one out, together with every other visitor's strip that shows that person. |
+| **Pool** | Edit the pool text shown on the consent screen (or stop it, and the booths take photos only), and see the photos in the pool with the time each has left. No pictures are shown. "Remove from pool" takes one out, together with every other visitor's strip that shows that person. |
 | **Stories** | Turn stories on or off, edit, add or delete them; see [below](#changing-the-stories). |
 | **Prompts** | Advanced: the background colors, the text that describes every scene, and the list of positions people can take. |
 | **Seeds** | Add or remove counterpart pictures. Tick the box confirming you may use the picture, and enter a short reference such as `FICTIONAL-AI` or a licence number. |
@@ -160,7 +159,7 @@ Without a pool, every visitor is paired with one of your seed pictures. With a p
 **To switch it on**, write the pool question on the dashboard's **Pool** page, or copy `pool-notice.example.txt` to `pool-notice.txt` in `~/photobox-server` and complete it. The text must contain `{until}`, where the booth fills in the end time, and may contain `{hours}`. The booths ask from their next visitor on. **To switch it off**, press **Stop asking the pool question** on the Pool page, and delete `pool-notice.txt` if you created one. Photos already in the pool stay until their time; remove them one by one if needed.
 
 Rules the server enforces:
-- The question comes after the consent notice, never instead of it, and saying no changes nothing else.
+- The pool text appears on the same screen as the consent notice, and one ENTER agrees to both (ADR-030). While a pool question is set, nobody can take a photo without joining the pool. Have this reviewed before public use, and make sure your consent notice doesn't contradict it.
 - The photo leaves the pool at the time the visitor was shown, or earlier, never later.
 - The withdrawal code deletes it from the pool too, and every strip it was used in.
 - A visitor's photo is never paired with itself.
@@ -238,12 +237,12 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 | `PHOTOBOX_GENERATION_MAX_ATTEMPTS` | `3` | Tries per strip. |
 | `PHOTOBOX_GENERATION_RETRY_DELAY_SECONDS` | `30` | Pause before trying again. |
 | `PHOTOBOX_CLEANUP_INTERVAL_SECONDS` | `300` | How often expired pictures are deleted. |
-| `PHOTOBOX_POOL_HOURS` | `24` | How long a photo stays in the pool after the visitor agrees (1 to 720). The pool question shows the exact end time, and the photo is deleted then at the latest. |
+| `PHOTOBOX_POOL_HOURS` | `24` | How long a photo stays in the pool after the visitor agrees (1 to 720). The consent screen shows the exact end time, and the photo is deleted then at the latest. |
 | `PHOTOBOX_LIVE_MATCHING` | off | `true` pairs visitors at different booths live. Only with a notice that says so. |
 | `PHOTOBOX_MESSAGING` | off | `true` lets live pairs send each other short voice messages as text. Only with a notice that says so. |
 | `PHOTOBOX_LIVE_WAIT_SECONDS` | `20` | How long a booth waits for someone at another booth (5 to 60). |
 | `PHOTOBOX_LIVE_MAX_WAIT_SECONDS` | `60` | The longest wait while a visitor at another booth has already agreed (20 to 120). |
-| `PHOTOBOX_POOL_NOTICE_FILE` | `pool-notice.txt` | The pool question used until you save one in the dashboard. Without one, the booths do not ask. |
+| `PHOTOBOX_POOL_NOTICE_FILE` | `pool-notice.txt` | The pool text used until you save one in the dashboard. Without one, the booths take photos only. |
 | `PHOTOBOX_PRESENCE_RECENT_SECONDS` | `180` | How long a photo counts as "just taken" on other booths (30 to 1800). |
 | `PHOTOBOX_PUBLIC_ACTIVITY_DETAIL` | `coarse` | `coarse` shows no times; `detailed` adds how long ago. |
 | `PHOTOBOX_STORAGE_DIR` | `./storage` | Where photos, strips and the database are kept. |

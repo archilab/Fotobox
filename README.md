@@ -11,10 +11,10 @@ Everything happens on your own devices. A Raspberry Pi with a webcam, screen and
 ## How a visit works
 
 1. **Start.** The visitor presses ENTER on the photo booth's keyboard.
-2. **Agree.** A short notice explains what happens with the photo. The visitor presses ENTER again to agree, or ESC to leave. No photo is taken without this.
+2. **Agree.** A short notice explains what happens with the photo. The visitor presses ENTER again to agree, within 45 seconds; doing nothing cancels. No photo is taken without this.
 3. **Smile.** A 3-2-1 countdown, then the webcam takes the photo.
 4. **Wait.** About three minutes. A timer shows the progress.
-5. **Watch.** The finished strip appears on the screen for 20 seconds, with a personal deletion code next to it.
+5. **Watch.** The finished strip appears on the screen for 20 seconds, followed by a personal deletion code for 10 seconds. ENTER gives more time.
 6. **Gone.** One hour later the photo and the strip are deleted automatically. With the code, the visitor can have them deleted sooner.
 
 ```mermaid
@@ -35,13 +35,13 @@ The stories are written to be friendly between strangers: nothing romantic, no w
 
 | | |
 |---|---|
-| **Simple for visitors** | Only ENTER and ESC; screens in German and English. |
+| **Simple for visitors** | Only ENTER; a clean black and white screen in German and English that turns white to light the photo. |
 | **Consent first** | Your consent notice is shown before every photo, and each agreement is recorded together with the exact text that was shown. |
 | **Private by design** | Everything stays on your network, photos are deleted after an hour, and no face recognition is used. |
 | **Deletion on request** | Each visitor gets a code, and one command deletes their pictures everywhere. |
 | **Dashboard for you** | A web page on the Mac showing the booth, the queue and the strips, where you can also edit the consent notice and the stories. |
 | **Setup at the booth** | WiFi, server and camera are set up with the booth's own keyboard, protected by a PIN. |
-| **Meet earlier visitors** | Optionally, visitors can agree, as a separate question, that their photo is combined with other visitors' photos for 24 hours. The end time is shown, and the photo is deleted then. |
+| **Meet earlier visitors** | Optionally, the photo is also combined with other visitors' photos for 24 hours. This is stated on the consent screen with the end time, and the one ENTER covers it. The photo is deleted at that time. Have this reviewed before public use. |
 | **Live encounters** | With two booths, visitors photographed at about the same time share one strip, and both get it. |
 | **Booths that know about each other** | Each booth's start screen tells what is happening at the others, such as "Someone is taking a photo in Hall B", only ever from what really happened. |
 | **Runs on its own** | Everything starts automatically after a restart, and unfinished strips continue. |

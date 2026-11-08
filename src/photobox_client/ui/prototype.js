@@ -23,9 +23,9 @@ Darf dein Foto 24 Stunden lang mit Fotos anderer Besucherinnen und Besucher komb
 - Andere bekommen dann einen KI-Fotostreifen, auf dem du zu sehen bist.
 - Dein Foto selbst wird niemandem gezeigt.
 - Mit deinem Widerrufscode kannst du es vorher löschen lassen.
-- Freiwillig: Deinen eigenen Streifen bekommst du auch ohne Pool.
+- Mit ENTER stimmst du Foto und Pool gemeinsam zu.
 
-May your photo be combined with other visitors' photos for 24 hours? Others then get an AI photo strip showing you. Your own strip does not depend on it.
+May your photo be combined with other visitors' photos for 24 hours? Others then get an AI photo strip showing you. ENTER agrees to the photo and the pool together.
 
 ENTER = Ja, in den Pool / Yes, add it to the pool
 ESC = Nein, nur mein Streifen / No, just my strip`;
@@ -41,8 +41,7 @@ ESC = Nein, nur mein Streifen / No, just my strip`;
       camera_note: { de: "Die Kamera erkennt, ob jemand da ist. Kein Bild wird gespeichert oder gesendet.", en: "The camera detects whether someone is here. No image is stored or sent." } },
     { screen: "start", label: LABEL, badge: { kind: "live", de: "LIVE", en: "LIVE" }, hero: { de: "Jemand in Essen wartet auf ein gemeinsames Foto.", en: "Someone in Essen is waiting for a shared photo." }, support: { de: "Mach jetzt deins und ihr landet auf einem Streifen.", en: "Take yours now to join them." },
       tiles: [{ kind: "live", label: "Essen", status: "● LIVE" }, { kind: "recent", label: "London", status: "◔ GERADE EBEN" }, { kind: "online", label: "Wien", status: "○ ONLINE" }] },
-    { screen: "consent", label: LABEL, text: CONSENT },
-    { screen: "pool", label: LABEL, text: POOL, until: "09.11. 17:42" },
+    { screen: "consent", label: LABEL, text: CONSENT.split("ENTER =")[0] + POOL.split("ENTER =")[0] + "ENTER = Ich stimme zu: Foto und Pool / I agree: photo and pool", until: "09.11. 17:42", seconds: 45 },
     { screen: "countdown", number: 3 },
     { screen: "flash" },
     { screen: "making", label: LABEL, clock: "00:14", frames: { done: 0, total: 4 }, encounter: { kind: "searching", de: "Wir suchen jemanden an einer anderen Fotobox", en: "Looking for someone at another photo booth", seconds: 14 } },
@@ -52,7 +51,7 @@ ESC = Nein, nur mein Streifen / No, just my strip`;
     { screen: "converting" },
     { screen: "making", label: LABEL, clock: "02:51", frames: { done: 3, total: 4 }, encounter: { kind: "other", de: "Dein Foto trifft jemanden, der vorhin hier war.", en: "Your photo meets someone who was here earlier." } },
     { screen: "strip", image: STRIP, code: CODE },
-    { screen: "done", label: LABEL, code: CODE, pool: "09.11. 17:42" },
+    { screen: "done", label: LABEL, code: CODE, pool: "09.11. 17:42", seconds: 10 },
     { screen: "message", label: LABEL, de: "Abgebrochen. Es wurde kein Foto gemacht.", en: "Cancelled. No photo was taken.", key: true },
     { screen: "menu", text: "  OK  Network: FRITZ!Box 7590\n  OK  Server: 192.168.1.24:8000\n  OK  Pairing: paired\n  OK  Consent notice: ready\n\n  1  WiFi\n  2  Server address\n  3  Pair with server\n  4  Camera\n  5  Test everything\n  6  Start photo booth\n  7  Microphone (optional)\n\nESC = back" },
   ];

@@ -2,7 +2,7 @@
 {% block title %}Pool{% endblock %}
 {% block content %}
 <h1>Pool</h1>
-<p class="muted">After the consent notice, the box can ask a second, separate question: may the photo be combined with other visitors' photos for {{ hours }} hours? Only photos whose visitor said yes are here, each until the exact time the visitor was shown. Other visitors then get a strip with that person in it. Pictures of people are not shown on this page.</p>
+<p class="muted">This text appears on the same screen as the consent notice, with the end time. One ENTER agrees to the photo and to {{ hours }} hours in the pool, so nobody can take a photo without joining the pool while a text is set (ADR-030). Have that reviewed before public use. Other visitors get a strip with that person in it. Pictures of people are not shown on this page.</p>
 
 <h2>Photos in the pool</h2>
 <div class="panel">
@@ -33,7 +33,7 @@
   <form method="post" action="/pool">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <label for="text">Text{% if version %} <span class="muted mono">({{ version }}, active)</span>{% endif %}</label>
-    <p class="muted">Write <span class="mono">{until}</span> where the box shows the end time (required) and <span class="mono">{hours}</span> for the number of hours ({{ hours }}, set by <span class="mono">PHOTOBOX_POOL_HOURS</span>). End with what ENTER and ESC do.</p>
+    <p class="muted">Write <span class="mono">{until}</span> where the box shows the end time (required) and <span class="mono">{hours}</span> for the number of hours ({{ hours }}, set by <span class="mono">PHOTOBOX_POOL_HOURS</span>). Say that ENTER agrees to this too; the box adds the key instructions itself.</p>
     <textarea class="tall" id="text" name="text">{{ text or '' }}</textarea>
     <p><button>Save as new version and activate</button></p>
   </form>

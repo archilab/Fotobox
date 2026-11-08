@@ -6,7 +6,7 @@
 2. Implement milestones in order. Avoid speculative features or unapproved dependencies. Maintain small testable increments; run `pytest -q` after each.
 3. Preserve boundaries: client hardware vs API vs matching vs AI provider vs strip renderer; never embed a specific AI model into FastAPI route handlers.
 4. Deliver complete working code, migrations/config/docs/tests with every feature. Do not leave silent placeholders. Mark nonimplemented features explicitly and do not claim they work.
-5. Treat portraits as sensitive personal data. Never commit image data, credentials or `.env`; minimize metadata; do not log image bytes or identifying content. Pool use requires separate recorded authorization, not merely taking a photo.
+5. Treat portraits as sensitive personal data. Never commit image data, credentials or `.env`; minimize metadata; do not log image bytes or identifying content. Pool use requires its own recorded authorization, not merely taking a photo; at the kiosk it is given with the same key press as the photo, on a screen that says so (ADR-030).
 6. Test scenarios must use synthetic images or expressly authorized test images. Never bypass permission gates. Seed images must be rights-cleared.
 7. Current `MOCK` image generator is not AI; replace via provider adapter only after benchmark. Output must carry a mock watermark until replaced.
 8. Local demo endpoints are NOT safe for public exposure. Do not enable 0.0.0.0 remote/public access without authentication/TLS and review.

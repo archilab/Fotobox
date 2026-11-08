@@ -128,6 +128,21 @@
     return node;
   }
 
+  // Only a display: the kiosk itself decides when the time is up.
+  function addTimeLeft(node, seconds) {
+    if (!seconds) return;
+    const left = el("span", "time-left");
+    const ends = performance.now() + seconds * 1000;
+    let shown = false;
+    const tick = () => {
+      left.textContent = `Noch ${Math.max(0, Math.ceil((ends - performance.now()) / 1000))} s`;
+      shown = shown || left.isConnected;
+      if (!shown || left.isConnected) setTimeout(tick, 250);  // stops once the screen has been replaced
+    };
+    tick();
+    node.querySelector(".bottom").append(left);
+  }
+
   function encounter(state) {
     const e = state.encounter;
     if (!e) return null;
@@ -159,14 +174,17 @@
       el("div", "actions", action("ENTER", "Zum Starten drücken", "Press to start")),
       s.camera_note && el("div", "camera-note", s.camera_note.de, el("br"), el("span", "en", s.camera_note.en))),
 
-    consent: (s) => noticeScreen(s),
+    consent: (s) => {
+      const node = noticeScreen(s, s.until && el("div", "until", s.until, el("small", "", "Danach wird dein Foto gelöscht / Your photo is deleted after that")));
+      addTimeLeft(node, s.seconds);
+      return node;
+    },
 
-    pool: (s) => noticeScreen(s, el("div", "until", s.until, el("small", "", "Danach wird dein Foto gelöscht / Your photo is deleted after that"))),
-
-    countdown: (s) => screen("countdown", el("div", "number", s.number),
+    // White from here until the photo has been taken: the screen is extra light for the camera.
+    countdown: (s) => screen("countdown light", el("div", "number", s.number),
       el("p", "lead", "Schau in die Kamera"), el("p", "lead-en en", "Look at the camera")),
 
-    flash: () => screen("", el("div", "flash")),
+    flash: () => screen("light"),
 
     making: (s) => {
       const left = el("div", "");
@@ -207,13 +225,18 @@
         el("p", "info", "Write it down to have your images deleted.")) : el("div")));
     },
 
-    done: (s) => screen("center", top(s.label),
-      el("div", "done-word", "Fertig!"),
-      s.code && el("p", "code-label", "Dein Widerrufscode"), s.code && el("p", "lead-en en", "Your withdrawal code"),
-      s.code && el("p", "code", s.code),
-      !s.code && el("p", "info", "Zum Löschen deiner Bilder wende dich an die Betreuung. / To have your images deleted, ask the staff."),
-      s.pool && el("p", "info", `Dein Foto bleibt bis ${s.pool} im Pool. Der Code löscht es auch dort. / Your photo stays in the pool until ${s.pool}. The code deletes it there too.`),
-      el("div", "bottom", el("div", "actions", action("ENTER", "Beenden", "Finish")), null)),
+    done: (s) => {
+      const node = screen("center", top(s.label),
+        el("div", "done-word", "Fertig!"),
+        s.code && el("p", "code-label", "Dein Widerrufscode"), s.code && el("p", "lead-en en", "Your withdrawal code"),
+        s.code && el("p", "code", s.code),
+        s.code && el("p", "info", "Notiere ihn, um deine Bilder löschen zu lassen. / Write it down to have your images deleted."),
+        !s.code && el("p", "info", "Zum Löschen deiner Bilder wende dich an die Betreuung. / To have your images deleted, ask the staff."),
+        s.pool && el("p", "info", `Dein Foto bleibt bis ${s.pool} im Pool. Der Code löscht es auch dort. / Your photo stays in the pool until ${s.pool}. The code deletes it there too.`),
+        el("div", "bottom", el("div", "actions", action("ENTER", "Mehr Zeit", "More time")), null));
+      addTimeLeft(node, s.seconds);
+      return node;
+    },
 
     message: (s) => screen("center", top(s.label),
       el("h1", "hero", s.de), el("p", "hero-en en", s.en),

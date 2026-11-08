@@ -243,7 +243,7 @@ def test_it_runs_only_on_the_start_screen_and_is_off_before_the_photo():
         log.append("photo")
         return b"jpeg"
 
-    kiosk = Kiosk(Api(log), camera, Screen(), Keys(ENTER, ENTER, ENTER), sleep=lambda _s: None, detector=Recording(log))
+    kiosk = Kiosk(Api(log), camera, Screen(), Keys(ENTER, ENTER, None), sleep=lambda _s: None, detector=Recording(log))
     assert kiosk.run_once() == "complete"
     assert log == ["resume", "pause", "notice", "consent", "photo"]
 

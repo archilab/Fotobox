@@ -5,6 +5,7 @@ other fields are its content, with real umlauts. `plain` is the same screen as c
 kiosk keeps working as the fallback when no browser is available. Nothing here decides what happens next.
 """
 from __future__ import annotations
+import re
 
 ICONS = {"live": "●", "nearby": "◐", "recent": "◔", "online": "○", "offline": "×"}
 LIVE_KEYS = {"live_match", "partner_waiting", "remote_active"}
@@ -56,12 +57,26 @@ def start(snapshot: dict | None, plain: str, max_tiles: int = 3, *, detecting: b
     return state
 
 
-def consent(text: str) -> dict:
-    return {"screen": "consent", "text": text, "plain": text}
+KEY_LINE = re.compile(r"^\s*(ENTER|ESC)\s*=", re.IGNORECASE)
+AGREE = "ENTER = Ich stimme zu, Foto machen / I agree, take the photo"
+AGREE_WITH_POOL = "ENTER = Ich stimme zu: Foto und Pool / I agree: photo and pool"
 
 
-def pool(question: dict) -> dict:
-    return {"screen": "pool", "text": question["text"], "until": question["until_text"], "plain": question["text"]}
+def _without_key_lines(text: str) -> str:
+    return "\n".join(line for line in text.splitlines() if not KEY_LINE.match(line)).strip()
+
+
+def consent(text: str, pool_question: dict | None = None, seconds: int = 45) -> dict:
+    """The one question a visitor answers, with one key: the notice and, if offered, the pool (ADR-030).
+
+    The operator's own lines about keys are replaced, because only ENTER counts and doing nothing cancels.
+    """
+    body = _without_key_lines(text)
+    if pool_question is not None:
+        body = f"{body}\n\n{_without_key_lines(pool_question['text'])}"
+    combined = f"{body}\n\n{AGREE_WITH_POOL if pool_question is not None else AGREE}"
+    return {"screen": "consent", "text": combined, "until": pool_question["until_text"] if pool_question is not None else None, "seconds": seconds,
+            "plain": f"{combined}\n\nOhne ENTER endet dies nach {seconds} Sekunden. / Without ENTER this ends after {seconds} seconds."}
 
 
 def message(text: str, *, key: bool = False) -> dict:
@@ -117,8 +132,8 @@ def strip(image: str, code: str | None) -> dict:
     return {"screen": "strip", "image": image, "code": code, "plain": ""}
 
 
-def done(code: str | None, pool_until: str | None, plain: str) -> dict:
-    return {"screen": "done", "code": code, "pool": pool_until, "plain": plain}
+def done(code: str | None, pool_until: str | None, plain: str, seconds: int = 10) -> dict:
+    return {"screen": "done", "code": code, "pool": pool_until, "seconds": seconds, "plain": plain}
 
 
 def listening(seconds: int, limit: int, plain: str) -> dict:

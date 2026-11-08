@@ -7,12 +7,9 @@ Besucherinnen und Besucher kombiniert werden?
 - Dein Foto selbst wird niemandem gezeigt und bleibt auf diesem Server.
 - Um {until} Uhr wird es automatisch geloescht, mit deinem Widerrufscode
   auch schon vorher. Dann werden auch die Streifen anderer mit dir geloescht.
-- Freiwillig: Deinen eigenen Streifen bekommst du auch ohne Pool.
+- Mit ENTER stimmst du Foto und Pool gemeinsam zu. Ohne ENTER entsteht kein Foto.
 
 May your photo be combined with other visitors' photos for {hours} hours,
 until {until}? Others then get an AI photo strip showing you. Your photo is
 never shown to anyone and is deleted automatically at {until}, or earlier
-with your withdrawal code. Your own strip does not depend on it.
-
-ENTER = Ja, in den Pool / Yes, add it to the pool
-ESC   = Nein, nur mein Streifen / No, just my strip
+with your withdrawal code. ENTER agrees to the photo and the pool together.

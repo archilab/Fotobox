@@ -72,13 +72,15 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 .pages.nudge { animation: nudge .5s ease-in-out 2; }
 @keyframes nudge { 50% { transform: translateY(-14px); } }
 .action.locked { opacity: .3; }
+.time-left { font-size: 52px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: 48px; }
 
 /* Countdown */
 .countdown { align-items: center; justify-content: center; text-align: center; }
 .number { font-size: 660px; line-height: .9; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; animation: pop .9s ease-out both; }
 @keyframes pop { from { transform: scale(1.18); opacity: 0; } 25% { opacity: 1; } to { transform: scale(1); } }
-.flash { position: absolute; inset: 0; background: #fff; animation: flash .55s ease-out both; }
-@keyframes flash { from { opacity: 1; } to { opacity: 0; } }
+/* The screen as a light: steady white, with no fade that could leave the camera in the dark */
+.screen.light { background: #fff; color: #000; animation: none; }
+.screen.light .en { color: #555; }
 
 /* Making the strip */
 .making { display: grid; grid-template-columns: 1fr 1200px; gap: 88px; height: 100%; align-items: center; }
@@ -123,4 +125,4 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 
 .test-mode { position: absolute; right: var(--margin); bottom: 52px; font-size: 24px; font-weight: 700; letter-spacing: .14em; color: var(--bg); background: var(--fg); padding: 6px 16px; border-radius: 6px; }
 
-@media (prefers-reduced-motion: reduce) { .screen, .number, .live-word, .dot { animation: none; } .flash { animation-duration: .01s; } }
+@media (prefers-reduced-motion: reduce) { .screen, .number, .live-word, .dot { animation: none; } }

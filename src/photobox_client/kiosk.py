@@ -1,9 +1,10 @@
 """Keyboard kiosk for the box's screen (ADR-020).
 
-ENTER starts and shows the server's consent notice. A second ENTER confirms it, and only then is
-consent recorded and the photo taken, after a countdown. ESC cancels at the notice. While the strip
+ENTER starts and shows the server's consent notice, with the pool question if one is offered. A second
+ENTER confirms both, and only then is consent recorded and the photo taken, after a countdown. Doing nothing
+for 45 seconds cancels. While the strip
 is generated, a timer runs on screen. At the end the finished strip is shown on the screen for 20
-seconds with the withdrawal code beside it, and then the code alone. Printing is not implemented yet:
+seconds, and then the withdrawal code for 10 seconds; ENTER gives more time, up to a minute. Printing is not implemented yet:
 it needs the printer's specifications (docs/MILESTONES.md), so for now the strip is always shown.
 
     python -m photobox_client.kiosk
@@ -39,8 +40,9 @@ from .live_feed import PersonReporter, PresenceFeed
 ENTER, ESC, BACKSPACE, SETUP = "enter", "esc", "backspace", "setup"
 # Ctrl+Alt+S, as the console sends it with Alt as an ESC prefix or as the eighth bit, and Ctrl+S alone.
 SETUP_SEQUENCES = (b"\x1b\x13", b"\x93", b"\x13")
-NOTICE_TIMEOUT_SECONDS = 90
-RESULT_SECONDS = 60
+CONSENT_SECONDS = 45
+CODE_SECONDS = 10
+CODE_MORE_TIMES = 5  # each ENTER gives another CODE_SECONDS: at most a minute on screen
 STRIP_SECONDS = 20
 LIVE_MOMENT_SECONDS = 3
 MESSAGE_SECONDS = 10
@@ -387,16 +389,10 @@ class Kiosk:
         except httpx.HTTPError:
             self.message("Die Fotobox ist gerade nicht bereit.\nThe photo booth is not ready right now.")
             return "not ready"
-        if self.ask(views.consent(text), {ENTER, ESC}, NOTICE_TIMEOUT_SECONDS) != ENTER:
+        # One question and one key, for the photo and the pool together; doing nothing cancels (ADR-030).
+        if self.ask(views.consent(text, pool, CONSENT_SECONDS), {ENTER}, CONSENT_SECONDS) != ENTER:
             self.message(CANCELLED)
             return "declined"
-        if pool is not None:
-            # A separate question, so one key press never covers two purposes (ADR-024).
-            answer = self.ask(views.pool(pool), {ENTER, ESC}, NOTICE_TIMEOUT_SECONDS)
-            if answer is None:
-                self.message(CANCELLED)
-                return "declined"
-            pool = pool if answer == ENTER else None
         self.pooled_until = pool["until_text"] if pool else None
         try:
             session_id, code = self.api.start(version, pool)
@@ -406,6 +402,8 @@ class Kiosk:
                 self.sleep(1)
             self.present(views.flash())
             jpeg = self.camera()
+            # The picture is taken, so the screen need not light the room any longer.
+            self.present(views.making(0, {}, None, "Foto aufgenommen.\nPhoto taken."))
             self.api.upload_and_process(session_id, jpeg)
         except CameraError:
             self.report("idle", "camera failed")
@@ -461,7 +459,11 @@ class Kiosk:
         if self.pooled_until:
             withdraw += (f"\n\nDein Foto bleibt bis {self.pooled_until} im Pool. Der Code loescht es auch dort."
                          f"\nYour photo stays in the pool until {self.pooled_until}. The code deletes it there too.")
-        self.ask(views.done(code, self.pooled_until, f"Fertig! Done!\n\n{withdraw}\n\nENTER"), {ENTER}, RESULT_SECONDS)
+        # The code is on a public screen: briefly, and longer only if the visitor asks (at most a minute).
+        for _ in range(1 + CODE_MORE_TIMES):
+            state = views.done(code, self.pooled_until, f"Fertig! Done!\n\n{withdraw}\n\nENTER = mehr Zeit / more time", CODE_SECONDS)
+            if self.ask(state, {ENTER}, CODE_SECONDS) != ENTER:
+                break
         return "complete"
 
 
@@ -474,9 +476,9 @@ class Kiosk:
         try:
             strip = self.api.strip(session_id)
             if put_image is not None:
-                self.present(views.strip(put_image(strip), code))
+                self.present(views.strip(put_image(strip), None))
             else:
-                self.display.show(result_screen(strip, code, self.display.size))
+                self.display.show(result_screen(strip, None, self.display.size))
         except (httpx.HTTPError, OSError, ValueError):
             return False
         self.sleep(self.strip_seconds)
