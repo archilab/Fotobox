@@ -51,14 +51,28 @@ The screen is a browser since ADR-028: `deploy/pi/run-kiosk.sh` starts the kiosk
 
 The uploaded JPEGs had no EXIF data, and the device token did not appear in the server log or database. In that test image the camera focused on a cable in the foreground, so check focus and resolution before relying on image quality. The BRIO also accepts 1280×720 and 1920×1080, but captures at those sizes have not been tested.
 
-## MacBook Pro M3, 64GB (development host, current)
+## MacBook Pro M3, 64GB (development host)
 - For real generation, install the server with `pip install -e '.[server-ai]'` and mflux with `uv tool install mflux` and set `PHOTOBOX_PROVIDER=mflux-flux2`. If the server does not find it, set `PHOTOBOX_MFLUX_COMMAND` to its full path, usually `~/.local/bin/mflux-generate-flux2-edit`. The server runs mflux offline, so the model must already be downloaded (about 15 GB) by one run of mflux with network access. Measured on this machine: about 40-47 s per frame and about 10.3 GB peak MLX memory, so about 3 minutes per 4-frame strip. Exclude the server's storage folder and evaluation results from Time Machine before using real portraits.
 - Runs the API during development on the same LAN as the Pi. AI timings and memory limits measured here do not carry over to the Mac Studio and must be measured again there.
 
-## Mac Studio M3 Ultra, 256GB (target host, later)
+## Mac Studio M3 Ultra, 256GB (server for the booth since 2026-11-08)
 - Central FastAPI host and local AI image-generation worker
 - Use loopback for local demo; private authenticated network before remote Pi use
-- FLUX.2 klein 4B through mflux is selected (ADR-014), but has not run on this machine yet.
+- FLUX.2 klein 4B through mflux is selected (ADR-014) and runs on this machine; see the setup below.
+
+### Setting up the Mac Studio
+Measured on 2026-11-08 on the Mac Studio (M3 Ultra, 256 GB) with the same code, configuration only: all tests pass, and `scripts/benchmark_provider.py` made 4 FLUX.2 frames in 79 s (19.8 s per frame, 10.3 GB peak memory), with drawn test faces. A real strip on the MacBook Pro took about 270 s. Quality was not compared.
+
+1. Copy the code to `~/photobox-server`, as in `docs/DEVELOPMENT.md`.
+2. Create the environment with Python 3.13 and `.[dev,server-ai]`, and install the image tool with `uv tool install --python 3.12 mflux==0.24.0`.
+3. Copy the model folder `~/.cache/huggingface/hub/models--black-forest-labs--FLUX.2-klein-4B` from a machine that has it, following links (`rsync -aL`, about 30 GB), or download it there.
+4. In `.env`, set `PHOTOBOX_PROVIDER=mflux-flux2`, `PHOTOBOX_DEVELOPER_MODE=false` and `PHOTOBOX_MFLUX_COMMAND` to the full path. The Studio is on WiFi (`en1`), so also set `PHOTOBOX_INTERFACE=en1`, or use Ethernet.
+5. Install the launchd services as for the MacBook. launchd cannot read `~/Documents`, so keep the copy in `~/photobox-server`.
+6. Move what the operator made with `scripts/content_transfer.py export FOLDER` on the old server and `import FOLDER` on the new one, each run in the server's folder. It copies seed images, notices, prompt sets and blocked words. It never copies visitors' photos, strips, sessions, consent records, the audit trail or devices, so keep the old server running until its pool photos have expired, because earlier withdrawal codes work only there.
+
+A complete strip through the API on the Studio, with a drawn test face and FLUX.2, took 78 s on 2026-11-08. A drawn face says nothing about image quality with real photos. One real visit at the booth the same day took 87 s of generation, over WiFi, with one attempt and no errors.
+
+Before relying on the Studio unattended, connect Ethernet with an address reserved in the router, then set `PHOTOBOX_INTERFACE=en0`, restart the server and enter the new address in the booth's setup menu. Turn on restart after power failure (`sudo pmset -a autorestart 1`) and automatic login, because the services start only after login.
 
 ## Future (excluded)
 - touchscreen, thermoprinter, additional Raspberry Pis and synchronized matchmaking

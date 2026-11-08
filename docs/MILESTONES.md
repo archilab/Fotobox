@@ -59,8 +59,8 @@
 **Acceptance:** 3/4 frames and expected geometry; print-ready PNG; failures don't create corrupt results. **Met on 2026-11-07 by automated tests, plus a real FLUX.2 strip from the Pi in all three profiles.** "Print-ready" means a valid PNG in each profile. It has not been printed, because the printer belongs to a later phase.
 
 ## Mac Studio port — before M6
-- [ ] Move the server to the Mac Studio using configuration only; write a setup guide
-- [ ] Run `pytest -q` there with actual dependencies; repeat the AI benchmark
+- [x] Server installs and runs on the Mac Studio using configuration only; setup guide in `docs/HARDWARE.md`. The booth has run against it since 2026-11-08, and one real visit produced a strip. Still open for unattended running: Ethernet with a reserved address (it is on WiFi), restart after power failure and automatic login
+- [x] `pytest -q` passes there with actual dependencies; AI benchmark repeated on 2026-11-08: 19.8 s per frame
 **Acceptance:** tests pass on the Mac Studio and its AI timings are recorded.
 
 ## M6 — End-to-end MVP acceptance
