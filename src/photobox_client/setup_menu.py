@@ -188,7 +188,7 @@ class SetupMenu:
 
     def setup_server(self) -> None:
         settings = Settings.load(self.settings_path)
-        entered = self.read_text("Server address, for example 192.168.1.24", initial=settings.server.removeprefix("http://").removesuffix(":8000"))
+        entered = self.read_text("Server address, for example 192.168.1.24", initial=settings.server.removeprefix("http://").removesuffix(":8880"))
         if entered is None:
             return
         try:
@@ -288,6 +288,11 @@ class SetupMenu:
         lines = "\n".join(f"  {'OK ' if c.ok else '-- '} {c.name}: {c.detail}" for c in checks)
         verdict = "Everything works." if all(c.ok for c in checks) else "Not everything works yet."
         self.message(f"{lines}\n\n{verdict}")
+
+
+def requires_setup(checks: list[Check]) -> bool:
+    """Whether a person has to set something up. A network or server that is away may simply come back."""
+    return any(c.essential and not c.ok and (c.name == "Pairing" or c.detail == "no address set") for c in checks)
 
 
 def blocking_problem(checks: list[Check]) -> str | None:

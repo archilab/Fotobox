@@ -474,7 +474,7 @@ def dash(anonymous_client):
     from photobox_server import dashboard
     from photobox_server.dashboard.security import Sessions, set_password
     dashboard.app.state.sessions = Sessions()
-    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8001", follow_redirects=False)
+    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8881", follow_redirects=False)
     with db_connect() as db:
         set_password(db, "correct horse battery")
     browser.post("/login", data={"password": "correct horse battery"})
@@ -483,7 +483,7 @@ def dash(anonymous_client):
 
 def test_preview_needs_a_login(client):
     from photobox_server import dashboard
-    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8001", follow_redirects=False)
+    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8881", follow_redirects=False)
     assert browser.get("/presence").status_code == 303
     assert browser.get("/presence/stream?box=pi-01&once=1").status_code == 303
 

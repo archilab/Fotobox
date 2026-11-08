@@ -204,7 +204,7 @@ def test_limits_come_from_settings(monkeypatch):
 def dash(anonymous_client):
     dashboard.app.state.sessions = Sessions()
     dashboard.app.state.encounter = Encounter()
-    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8001", follow_redirects=False)
+    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8881", follow_redirects=False)
     with db_connect() as db:
         set_password(db, "correct horse battery")
     browser.post("/login", data={"password": "correct horse battery"})

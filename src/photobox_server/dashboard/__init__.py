@@ -1,6 +1,6 @@
 """Operator dashboard, reachable only from the Mac itself (ADR-022).
 
-    python -m uvicorn photobox_server.dashboard:app --host 127.0.0.1 --port 8001
+    python -m uvicorn photobox_server.dashboard:app --host 127.0.0.1 --port 8881
 
 Shows the boxes, the queue and the stored strips, and edits the consent notice, the stories and prompts,
 seed images and box pairing. It shares the database with the photo booth server but never runs jobs.
@@ -126,12 +126,66 @@ def logout(request: Request):
 def device_rows(db) -> list[dict]:
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=ONLINE_SECONDS)).isoformat()
     rows = db.execute(
-        """SELECT d.id, d.created_at, d.revoked_at, d.public_label, s.state, s.detail, s.reported_at FROM devices d
+        """SELECT d.id, d.created_at, d.revoked_at, d.public_label, s.state, s.detail, s.reported_at, s.health FROM devices d
            LEFT JOIN device_status s ON s.device_id = d.id ORDER BY d.id"""
     ).fetchall()
     from ..presence import activity_by_box
     activity = activity_by_box(db)
-    return [dict(row) | {"online": bool(row["reported_at"] and row["reported_at"] > cutoff and not row["revoked_at"]), "activity": activity.get(row["id"], "")} for row in rows]
+    result = []
+    for row in rows:
+        online = bool(row["reported_at"] and row["reported_at"] > cutoff and not row["revoked_at"])
+        health = json.loads(row["health"]) if row["health"] else {}
+        result.append(dict(row) | {"online": online, "activity": activity.get(row["id"], ""), "health": health, "health_text": health_text(health),
+                                   "problems": box_problems(row, online, health)})
+    return result
+
+
+TEMPERATURE_WARNING_C = 80
+DISK_WARNING_MB = 1024
+MEMORY_WARNING_MB = 300
+OFFLINE_WARNING_SECONDS = 300
+
+
+def health_text(health: dict) -> str:
+    parts = []
+    if health.get("temperature_c") is not None:
+        parts.append(f"{health['temperature_c']:.0f} °C")
+    if health.get("disk_free_mb") is not None:
+        parts.append(f"{health['disk_free_mb'] / 1024:.0f} GB free")
+    if health.get("memory_available_mb") is not None:
+        parts.append(f"{health['memory_available_mb'] / 1024:.1f} GB memory")
+    if health.get("uptime_seconds") is not None:
+        parts.append(f"up {health['uptime_seconds'] // 86400} d {health['uptime_seconds'] % 86400 // 3600} h")
+    return " · ".join(parts)
+
+
+def box_problems(row, online: bool, health: dict) -> list[str]:
+    """What an operator should know about a box. Shown on the overview."""
+    if row["revoked_at"]:
+        return []
+    if not row["reported_at"]:
+        return ["has never reported"]
+    if not online:
+        silent = (datetime.now(timezone.utc) - datetime.fromisoformat(row["reported_at"])).total_seconds()
+        return [f"offline for {int(silent // 60)} minutes"] if silent >= OFFLINE_WARNING_SECONDS else []
+    problems = []
+    if row["state"] == "not ready":
+        problems.append(f"not ready: {row['detail'] or 'unknown reason'}")
+    if (health.get("temperature_c") or 0) >= TEMPERATURE_WARNING_C:
+        problems.append(f"hot: {health['temperature_c']:.0f} °C")
+    if health.get("throttled"):
+        problems.append("has lacked power or overheated since it started")
+    if health.get("disk_free_mb") is not None and health["disk_free_mb"] < DISK_WARNING_MB:
+        problems.append(f"disk nearly full: {health['disk_free_mb']} MB left")
+    if health.get("memory_available_mb") is not None and health["memory_available_mb"] < MEMORY_WARNING_MB:
+        problems.append(f"memory low: {health['memory_available_mb']} MB left")
+    if health.get("screen") == "text":
+        problems.append("browser screen failed, running the text kiosk")
+    if health.get("browser_restarts"):
+        problems.append(f"browser restarted {health['browser_restarts']} times since the kiosk started")
+    if health.get("camera_failures"):
+        problems.append(f"camera failed {health['camera_failures']} times since the kiosk started")
+    return problems
 
 
 @app.get("/", response_class=HTMLResponse)

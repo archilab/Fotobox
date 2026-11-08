@@ -142,6 +142,10 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
     (
         "CREATE TABLE message_stats (day TEXT PRIMARY KEY, windows INTEGER NOT NULL DEFAULT 0, accepted INTEGER NOT NULL DEFAULT 0, blocked INTEGER NOT NULL DEFAULT 0)",
     ),
+    # 13: how a box's machine is doing (ADR-032). Figures about the hardware only.
+    (
+        "ALTER TABLE device_status ADD COLUMN health TEXT",
+    ),
 )
 
 

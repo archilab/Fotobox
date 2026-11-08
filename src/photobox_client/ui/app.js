@@ -27,6 +27,11 @@
     }).catch(() => {});  // the kiosk carries on; a lost key press is simply pressed again
   }
 
+  // A frozen page stops sending this, and the kiosk then restarts the browser.
+  setInterval(() => {
+    fetch("/alive", { method: "POST", headers: { "X-Photobox-Token": token } }).catch(() => {});
+  }, 5000);
+
   window.addEventListener("keydown", (event) => {
     event.preventDefault();  // no browser shortcut may leave the kiosk screen
     if (event.key === "ArrowDown") return window.PhotoboxScreens.page(1);

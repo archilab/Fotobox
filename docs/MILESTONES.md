@@ -109,6 +109,11 @@ Each milestone stops for the owner's review. Off by default.
 - [x] **D3** `person_nearby` on the server, sent to the other boxes in real time. Measured over HTTP on 2026-11-08: about 0.2 s; not yet on real boxes
 - [x] **D4** Start screen wording, detection area and calibration at the box, activity on the dashboard. Switched on at the Pi on 2026-11-08 and reports reached the server; not yet watched on a second real box
 
+## Unattended running (ADR-032)
+- [x] Pi: starts at boot, recovers from a frozen browser, kiosk or system, restarts nightly, reports its health to the dashboard
+- [ ] Mac: recovery after a power cut, stable address, disk guard (later phase)
+- [ ] Days of continuous running and real power cuts
+
 ## Later phases — NOT in v0.5 MVP
 - Phase 2: touchscreen and accessible consent + countdown (keyboard kiosk already exists, ADR-020)
 - Phase 3: thermoprinter + idempotent printing

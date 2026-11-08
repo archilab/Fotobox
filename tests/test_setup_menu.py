@@ -150,21 +150,21 @@ def test_terminal_reads_typed_text_key_by_key():
 
 def test_settings_round_trip_privately(tmp_path):
     path = tmp_path / "kiosk.env"
-    Settings(server="http://10.0.0.5:8000", camera="/dev/v4l/by-id/cam").save(path)
-    assert Settings.load(path) == Settings(server="http://10.0.0.5:8000", camera="/dev/v4l/by-id/cam")
+    Settings(server="http://10.0.0.5:8880", camera="/dev/v4l/by-id/cam").save(path)
+    assert Settings.load(path) == Settings(server="http://10.0.0.5:8880", camera="/dev/v4l/by-id/cam")
     assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
 
 
 def test_settings_read_the_older_hand_written_file(tmp_path):
     path = tmp_path / "kiosk.env"
-    path.write_text("# comment\nPHOTOBOX_SERVER=http://192.168.1.24:8000\nPHOTOBOX_CAMERA=/dev/video0\n")
-    assert Settings.load(path) == Settings(server="http://192.168.1.24:8000", camera="/dev/video0")
+    path.write_text("# comment\nPHOTOBOX_SERVER=http://192.168.1.24:8880\nPHOTOBOX_CAMERA=/dev/video0\n")
+    assert Settings.load(path) == Settings(server="http://192.168.1.24:8880", camera="/dev/video0")
     assert Settings.load(tmp_path / "missing") == Settings()
 
 
 @pytest.mark.parametrize("entered,expected", [
-    ("192.168.1.24", "http://192.168.1.24:8000"), ("mac.local:9000", "http://mac.local:9000"),
-    ("https://box.example:8443/", "https://box.example:8443"), (" http://10.0.0.1 ", "http://10.0.0.1:8000"),
+    ("192.168.1.24", "http://192.168.1.24:8880"), ("mac.local:9000", "http://mac.local:9000"),
+    ("https://box.example:8443/", "https://box.example:8443"), (" http://10.0.0.1 ", "http://10.0.0.1:8880"),
 ])
 def test_server_addresses_are_completed(entered, expected):
     assert normalize_server(entered) == expected
@@ -362,13 +362,13 @@ def unlocked(paths, *keys, **kwargs):
 def test_server_address_is_completed_and_saved(paths):
     m, screen = unlocked(paths, "2", "testserver", ENTER, ENTER, "6")
     m.run()
-    assert Settings.load(paths["settings_path"]).server == "http://testserver:8000"
+    assert Settings.load(paths["settings_path"]).server == "http://testserver:8880"
 
 
 def test_typing_can_be_corrected_and_cancelled(paths):
     m, _ = unlocked(paths, "2", "10.0.0.9", BACKSPACE, "8", ENTER, ENTER, "2", "ignored", ESC, "6")
     m.run()
-    assert Settings.load(paths["settings_path"]).server == "http://10.0.0.8:8000"
+    assert Settings.load(paths["settings_path"]).server == "http://10.0.0.8:8880"
 
 
 def test_pairing_from_the_menu_stores_a_working_token(paths):
@@ -470,10 +470,10 @@ def test_unreachable_server_is_reported(paths):
     def down(**_kwargs):
         def fail(request):
             raise httpx.ConnectError("down")
-        return httpx.Client(transport=httpx.MockTransport(fail), base_url="http://10.9.9.9:8000")
+        return httpx.Client(transport=httpx.MockTransport(fail), base_url="http://10.9.9.9:8880")
 
-    checks = diagnose(Settings(server="http://10.9.9.9:8000"), "t", FakeWifi(), down)
-    assert blocking_problem(checks) == "Server: http://10.9.9.9:8000 not reachable"
+    checks = diagnose(Settings(server="http://10.9.9.9:8880"), "t", FakeWifi(), down)
+    assert blocking_problem(checks) == "Server: http://10.9.9.9:8880 not reachable"
 
 
 def test_missing_notice_does_not_block_the_menu_checks(paths, monkeypatch):

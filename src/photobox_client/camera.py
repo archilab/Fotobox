@@ -1,6 +1,7 @@
 """USB webcam access through OpenCV: selection, probing and reliable single-frame capture."""
 from __future__ import annotations
 import os
+import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -82,6 +83,17 @@ def open_stream(camera: str, width: int, height: int) -> Any:
     device = _open(cv2, resolve_source(camera))
     _apply_size(cv2, device, width, height)
     return device
+
+
+def reset_usb(camera: str, runner: Any = subprocess.run, by_id_dir: Path = BY_ID_DIR) -> bool:
+    """Reset a USB camera that stopped delivering pictures, as unplugging it would. Best effort."""
+    try:
+        node = Path(resolve_source(camera, by_id_dir)).name
+        device = Path("/sys/class/video4linux") / node / "device" / ".."
+        ids = f"{(device / 'idVendor').read_text().strip()}:{(device / 'idProduct').read_text().strip()}"
+        return runner(["sudo", "-n", "usbreset", ids], capture_output=True, timeout=10).returncode == 0
+    except (OSError, ValueError, TypeError, subprocess.TimeoutExpired, CameraError):
+        return False
 
 
 def _rotate(cv2: Any, frame: Any, rotation: int) -> Any:

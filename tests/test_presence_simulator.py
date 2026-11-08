@@ -237,7 +237,7 @@ def test_scenario_d_single_pi_with_simulated_boxes(client, berlin):
 @pytest.fixture
 def dash(anonymous_client):
     dashboard.app.state.sessions = Sessions()
-    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8001", follow_redirects=False)
+    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8881", follow_redirects=False)
     with db_connect() as db:
         set_password(db, PASSWORD)
     browser.post("/login", data={"password": PASSWORD})

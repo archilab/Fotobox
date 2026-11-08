@@ -118,7 +118,7 @@ def camera_list() -> None:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Connected Photobox phase 1 CLI")
-    parser.add_argument("--server", default="http://127.0.0.1:8000")
+    parser.add_argument("--server", default="http://127.0.0.1:8880")
     parser.add_argument("--token-file", type=Path, help=f"File holding this device's token (default: ${TOKEN_ENV})")
     parser.add_argument("--timeout", type=int, default=120)
     sub = parser.add_subparsers(dest="cmd", required=True)

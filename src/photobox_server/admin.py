@@ -115,7 +115,7 @@ def set_dashboard_password() -> int:
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-    print("Dashboard password set. Open http://127.0.0.1:8001 on this Mac.")
+    print("Dashboard password set. Open http://127.0.0.1:8881 on this Mac.")
     return 0
 
 

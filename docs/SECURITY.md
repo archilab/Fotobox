@@ -1,6 +1,6 @@
 # Security boundary and hardening backlog
 
-**Demo is not production ready.** Every endpoint except `health` requires a per-device token, and sessions are only visible to the device that created them. Cleanup and device management are local commands with no HTTP endpoint. Never expose port 8000 publicly.
+**Demo is not production ready.** Every endpoint except `health` requires a per-device token, and sessions are only visible to the device that created them. Cleanup and device management are local commands with no HTTP endpoint. Never expose port 8880 publicly.
 
 **Plain LAN risk (ADR-010):** until NetBird or Tailscale is added, portraits, strips and tokens cross the LAN unencrypted, so anyone on that network may be able to read them or reuse a captured token. Use only synthetic or expressly authorized images on a trusted network. Bind to the Mac's LAN address rather than `0.0.0.0`. If a token may have been exposed, revoke it with `python -m photobox_server.admin device revoke <id>`.
 
@@ -28,7 +28,7 @@ No way around authentication was found: missing, wrong and non-bearer tokens, `/
 
 **Setup menu and pairing (ADR-021):** `POST /api/v1/pair` is public. A 6-digit code is only safe because it expires after 5 minutes, works once, ends after 5 wrong guesses and is rate limited. A polkit rule lets the Pi's `admin` account change WiFi settings. Anyone who opens the menu before a PIN is set chooses the PIN.
 
-**Dashboard (ADR-022):** only `127.0.0.1:8001`, only requests from the Mac itself under a local host name, a password, strict session cookies, form tokens and no-store headers. It shows faces and changes what boxes show, so do not expose it beyond the Mac. Anyone with an account on the Mac who knows the password can use it.
+**Dashboard (ADR-022):** only `127.0.0.1:8881`, only requests from the Mac itself under a local host name, a password, strict session cookies, form tokens and no-store headers. It shows faces and changes what boxes show, so do not expose it beyond the Mac. Anyone with an account on the Mac who knows the password can use it.
 
 ## Before any deployment beyond the trusted test LAN
 

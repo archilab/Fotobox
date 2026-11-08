@@ -1,0 +1,6 @@
+[Unit]
+Description=Restart the photo booth kiosk at night, if it is idle
+
+[Service]
+Type=oneshot
+ExecStart=/home/admin/photobox/deploy/pi/check-kiosk.sh --nightly

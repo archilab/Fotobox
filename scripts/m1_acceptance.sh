@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # M1 acceptance test. Run on the Pi with the virtualenv active.
 #
-#   PHOTOBOX_DEVICE_TOKEN=... scripts/m1_acceptance.sh http://MAC_LAN_IP:8000 CAMERA --attest-documented-consent [--rotate 90]
+#   PHOTOBOX_DEVICE_TOKEN=... scripts/m1_acceptance.sh http://MAC_LAN_IP:8880 CAMERA --attest-documented-consent [--rotate 90]
 #
 # Point the camera at a synthetic scene or an authorized subject. The script uploads 20 real
 # captures, so it needs the same operator attestation as `capture`. Orientation is checked by eye.

@@ -30,7 +30,7 @@ cp .env.example .env
 ```
 `.env.example` already sets `PHOTOBOX_PROVIDER=mock` and `PHOTOBOX_DEVELOPER_MODE=true`. Then:
 ```bash
-.venv/bin/python -m uvicorn photobox_server.app:app --host 127.0.0.1 --port 8000
+.venv/bin/python -m uvicorn photobox_server.app:app --host 127.0.0.1 --port 8880
 ```
 
 In a second terminal, add a counterpart and register a device. The token is printed once; only its hash is stored:
@@ -48,13 +48,13 @@ Useful for testing without the kiosk. The token is read from a file or `$PHOTOBO
 export PHOTOBOX_DEVICE_TOKEN=PASTE_TOKEN_HERE
 ```
 ```bash
-.venv/bin/python -m photobox_client.cli --server http://127.0.0.1:8000 capture --file path/to/synthetic.jpg --attest-documented-consent
+.venv/bin/python -m photobox_client.cli --server http://127.0.0.1:8880 capture --file path/to/synthetic.jpg --attest-documented-consent
 ```
 `capture` refuses to run without `--attest-documented-consent`. Pass it only for synthetic images or with documented consent obtained outside this tool; it is an operator assertion, **not proof of consent**. Other commands: `health`, `status`, `result --profile color|grayscale|thermal`, `cancel`, and on the Pi `camera-list`, `camera-probe` and `camera-test`.
 
 The kiosk can run against a test image instead of the camera:
 ```bash
-.venv/bin/python -m photobox_client.kiosk --server http://127.0.0.1:8000 --test-image path/to/synthetic.png --once
+.venv/bin/python -m photobox_client.kiosk --server http://127.0.0.1:8880 --test-image path/to/synthetic.png --once
 ```
 
 The person detector is tried with `python -m photobox_client.person test` on the Pi, which prints yes or no and saves nothing (ADR-029).

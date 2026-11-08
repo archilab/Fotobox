@@ -20,7 +20,7 @@ from photobox_server.pool import import_seed
 from photobox_server.prompts import PROMPT_VERSION, content_version, default_content, prompts_for, validate_content
 
 PASSWORD = "correct horse battery"
-BASE = "http://127.0.0.1:8001"
+BASE = "http://127.0.0.1:8881"
 
 
 def jpeg(color="#878787"):
@@ -69,7 +69,7 @@ def test_only_this_mac_is_answered(anonymous_client):
     assert remote.get("/login").status_code == 403
 
 
-@pytest.mark.parametrize("host", ["attacker.example", "192.168.1.24:8001", "photobox.local"])
+@pytest.mark.parametrize("host", ["attacker.example", "192.168.1.24:8881", "photobox.local"])
 def test_other_host_names_are_refused_against_dns_rebinding(anon, host):
     assert anon.get("/login", headers={"Host": host}).status_code == 403
 
@@ -126,7 +126,7 @@ def test_password_rules_and_admin_command(anonymous_client, tmp_path, monkeypatc
     assert admin.main(["dashboard", "set-password"]) == 0
     with db_connect() as db:
         stored = db.execute("SELECT hash FROM dashboard_password").fetchone()[0]
-    assert PASSWORD not in stored and "127.0.0.1:8001" in capsys.readouterr().out
+    assert PASSWORD not in stored and "127.0.0.1:8881" in capsys.readouterr().out
 
 
 def test_start_script_binds_to_this_mac_only():

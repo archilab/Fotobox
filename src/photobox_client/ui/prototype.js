@@ -53,7 +53,7 @@ ESC = Nein, nur mein Streifen / No, just my strip`;
     { screen: "strip", image: STRIP, code: CODE },
     { screen: "done", label: LABEL, code: CODE, pool: "09.11. 17:42", seconds: 10 },
     { screen: "message", label: LABEL, de: "Abgebrochen. Es wurde kein Foto gemacht.", en: "Cancelled. No photo was taken.", key: true },
-    { screen: "menu", text: "  OK  Network: FRITZ!Box 7590\n  OK  Server: 192.168.1.24:8000\n  OK  Pairing: paired\n  OK  Consent notice: ready\n\n  1  WiFi\n  2  Server address\n  3  Pair with server\n  4  Camera\n  5  Test everything\n  6  Start photo booth\n  7  Microphone (optional)\n\nESC = back" },
+    { screen: "menu", text: "  OK  Network: FRITZ!Box 7590\n  OK  Server: 192.168.1.24:8880\n  OK  Pairing: paired\n  OK  Consent notice: ready\n\n  1  WiFi\n  2  Server address\n  3  Pair with server\n  4  Camera\n  5  Test everything\n  6  Start photo booth\n  7  Microphone (optional)\n\nESC = back" },
   ];
 
   const stage = document.getElementById("stage");

@@ -49,7 +49,7 @@ Requests can be repeated safely after a lost connection. Each one does its work 
 
 ## Example requests
 ```bash
-curl http://127.0.0.1:8000/api/v1/health
-curl -X POST http://127.0.0.1:8000/api/v1/sessions -H "Authorization: Bearer $PHOTOBOX_DEVICE_TOKEN"
+curl http://127.0.0.1:8880/api/v1/health
+curl -X POST http://127.0.0.1:8880/api/v1/sessions -H "Authorization: Bearer $PHOTOBOX_DEVICE_TOKEN"
 ```
 For convenience use `python -m photobox_client.cli` rather than handcrafting upload calls.

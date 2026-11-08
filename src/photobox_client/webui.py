@@ -59,6 +59,7 @@ class WebUI:
         self.image_number = 0
         self.server: ThreadingHTTPServer | None = None
         self.connected = threading.Event()  # a browser has opened the screen
+        self.alive_at: float | None = None
 
     # Lifecycle
 
@@ -126,6 +127,10 @@ class WebUI:
             self.pending.append(key)
             self.changed.notify_all()
             return True
+
+    def alive_age(self) -> float | None:
+        """Seconds since the page last said it was running, or None if it never has."""
+        return None if self.alive_at is None else time.monotonic() - self.alive_at
 
     def flush(self) -> None:
         with self.changed:
@@ -200,6 +205,9 @@ def _handler(ui: WebUI) -> type[BaseHTTPRequestHandler]:
             parts = urlsplit(self.path)
             if not self._local_host() or not self._authorized({}):
                 return self._send(403)
+            if parts.path == "/alive":
+                ui.alive_at = time.monotonic()
+                return self._send(204)
             if parts.path != "/key":
                 return self._send(404)
             length = self.headers.get("Content-Length", "")

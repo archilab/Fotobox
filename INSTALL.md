@@ -142,7 +142,7 @@ Then start it automatically:
 ```bash
 cd ~/photobox-server && sed -e "s|REPOSITORY|$PWD|g" -e "s|HOME|$HOME|g" deploy/mac/com.photobox.dashboard.plist > ~/Library/LaunchAgents/com.photobox.dashboard.plist && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.photobox.dashboard.plist
 ```
-Open **<http://127.0.0.1:8001>** in Safari or another browser on the Mac, and log in. It only works on this Mac, on purpose.
+Open **<http://127.0.0.1:8881>** in Safari or another browser on the Mac, and log in. It only works on this Mac, on purpose.
 
 ### 1.11 Keep visitors' photos out of backups
 ```bash
@@ -152,7 +152,7 @@ Photos are deleted after an hour, but a Time Machine backup would keep a copy. T
 
 ### 1.12 Check the Mac
 ```bash
-curl -s http://$(ipconfig getifaddr en0):8000/api/v1/health
+curl -s http://$(ipconfig getifaddr en0):8880/api/v1/health
 ```
 **You should see** `{"status":"ok","provider":"mflux-flux2",…}`. ✅ The Mac is ready.
 
@@ -198,7 +198,7 @@ sudo cp ~/photobox/deploy/pi/50-photobox-network.rules /etc/polkit-1/rules.d/
 ```
 This makes the booth start on the screen at every boot, instead of the login prompt:
 ```bash
-sudo mkdir -p /etc/chromium/policies/managed && sudo cp ~/photobox/deploy/pi/chromium-policy.json /etc/chromium/policies/managed/photobox.json && sudo cp ~/photobox/deploy/pi/photobox-kiosk.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable photobox-kiosk
+sudo mkdir -p /etc/chromium/policies/managed && sudo cp ~/photobox/deploy/pi/chromium-policy.json /etc/chromium/policies/managed/photobox.json && sudo sh ~/photobox/deploy/pi/install-autonomy.sh
 ```
 Now restart the Pi:
 ```bash
@@ -215,7 +215,7 @@ After the restart, the booth's screen shows **FOTOBOX – Starting**. Because no
 1. **Choose a PIN** of 4 to 8 digits, and enter it twice. It keeps visitors out of the menu. Remember it.
 2. **2 Server address:** type the Mac's IP address from step 1.9, such as `192.168.1.24`, then ENTER.
 3. **3 Pair with server:** this links the booth to your Mac.
-   - On the Mac, open the dashboard (<http://127.0.0.1:8001>), go to **Boxes**, type the name `pi-01` and click **Show pairing code**.
+   - On the Mac, open the dashboard (<http://127.0.0.1:8881>), go to **Boxes**, type the name `pi-01` and click **Show pairing code**.
    - Type the 6-digit code at the booth and press ENTER. **You should see** "Paired as pi-01". The code works once, within 5 minutes.
 4. **4 Camera:** choose the webcam. A test picture appears for 5 seconds; it isn't stored.
 5. **5 Test everything:** every line should start with **OK**.
@@ -244,7 +244,7 @@ The WiFi was already set when you prepared the memory card. To change it later, 
 | The setup menu says **Server: not reachable** | Check the Mac's IP address (step 1.9), that the Mac is awake, and that you allowed Python's network connections. |
 | The booth says **"not ready"** | The consent notice still contains `TODO-OPERATOR` (step 1.7), or the Mac's server isn't running. |
 | **Pairing failed** | The code is older than 5 minutes, or was already used. Show a new one in the dashboard. |
-| The dashboard page doesn't open | Use exactly `http://127.0.0.1:8001`, on the Mac itself. |
+| The dashboard page doesn't open | Use exactly `http://127.0.0.1:8881`, on the Mac itself. |
 | `Bootstrap failed: 5` in the Terminal | That service is already running. Nothing to do. |
 | `Operation not permitted` in a log | The photo booth folder is inside Documents. Install it in `~/photobox-server` (step 1.3). |
 

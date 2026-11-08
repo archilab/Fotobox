@@ -218,3 +218,15 @@ Pool consent is still its own consent record, with the pool notice's version and
 
 The screen after confirmation, decided by the owner the same day: from the consent's ENTER until the camera has finished, the browser screen is steady white as extra light, with a black countdown, and it goes dark as soon as the photo is taken. The withdrawal code no longer appears beside the strip. It has its own screen for 10 seconds with a countdown, and each ENTER adds another 10 seconds, up to a minute in all, because it is on a public screen. This replaces ADR-020's 20 seconds beside the strip and 60 seconds alone; a visitor who misses the code can no longer use it.
 
+## ADR-031: Default ports 8880 and 8881
+**Decided by the project owner on 2026-11-08,** to avoid conflicts with other services: the booth server moves from 8000 to 8880, and the dashboard from 8001 to 8881. Earlier records mention the old numbers. A box stores its server address with the port, so an installed box must be changed to the new port when the server is, in the setup menu or in `~/.photobox-kiosk.env`.
+
+## ADR-032: Running the Pi unattended
+**Decided by the project owner on 2026-11-08:** the Pi first; the Mac follows in a later phase, which is still needed for full recovery from a power cut (it waits at the login screen because of FileVault). Alerts appear on the dashboard only, with no outside service or new credentials.
+
+- **Starts by itself.** The kiosk is enabled at boot, tested with a real reboot. It no longer opens the PIN-protected setup menu just because the network or server is away, since nobody may be there: it shows "not ready" and tries again every 30 s. The menu opens by itself only when a person must act (no server address, not paired).
+- **Heals itself.** The Pi's hardware watchdog reboots a frozen system (15 s). The kiosk writes a heartbeat to memory, and a timer restarts it after 180 s of silence, forcibly, because a stuck process may ignore a polite stop; the setup menu keeps the heartbeat going while someone uses it. The page reports it is alive every 5 s, and a page silent for 30 s gets its browser restarted. A camera that fails is reset over USB. At 04:30 the kiosk restarts if it is at the start screen.
+- **Tells you.** Each status report carries machine figures only: temperature, power trouble, free disk and memory, uptime, screen mode, browser restarts and camera failures. The dashboard's overview lists anything needing attention, including a box silent for 5 minutes.
+
+Tested on the real Pi: reboot, a frozen page, a frozen kiosk process. Not tested: a real power cut, a USB reset of a truly stuck camera, the hardware watchdog actually firing, and days of continuous running. `deploy/pi/install-autonomy.sh` installs all of it.
+

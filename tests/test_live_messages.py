@@ -262,7 +262,7 @@ def test_message_text_is_never_stored_and_not_in_the_logs(pair, caplog):  # 12
 @pytest.fixture
 def dash(anonymous_client):
     dashboard.app.state.sessions = Sessions()
-    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8001", follow_redirects=False)
+    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8881", follow_redirects=False)
     with db_connect() as db:
         set_password(db, "correct horse battery")
     browser.post("/login", data={"password": "correct horse battery"})

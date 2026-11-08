@@ -36,11 +36,11 @@ Keys pressed before a screen appears are ignored, so pressing ENTER twice quickl
 
 ## The dashboard
 
-Open **<http://127.0.0.1:8001>** in a browser **on the Mac** and log in. It cannot be reached from other computers, on purpose: it shows faces and can change what the booth does.
+Open **<http://127.0.0.1:8881>** in a browser **on the Mac** and log in. It cannot be reached from other computers, on purpose: it shows faces and can change what the booth does.
 
 | Page | What you can do |
 |---|---|
-| **Overview** | See whether each booth is **online** (it reported within the last 90 seconds) and what it's doing: waiting, consent, taking a photo, making a strip, showing it, setup or not ready. "Activity" shows what other booths are told: LIVE, RECENT, or NEARBY when its camera seems to see someone. Also how many strips are waiting, free disk space, and which consent notice and stories are active. Refreshes every 10 seconds. |
+| **Overview** | See whether each booth is **online** (it reported within the last 90 seconds) and what it's doing: waiting, consent, taking a photo, making a strip, showing it, setup or not ready. "Activity" shows what other booths are told: LIVE, RECENT, or NEARBY when its camera seems to see someone. "Machine" shows temperature, free space and running time, and a **Needs attention** box lists anything wrong, such as a booth silent for 5 minutes, overheating or low on disk. Also how many strips are waiting, free disk space, and which consent notice and stories are active. Refreshes every 10 seconds. |
 | **Queue** | Follow each strip frame by frame, see errors, and cancel a strip that is waiting or being made. The photo stays, so the booth can try again. |
 | **Strips** | See all stored strips, in color, grayscale or a black-and-white printer look, and how many minutes until each is deleted. Delete a visitor's pictures here; see [below](#deleting-a-visitors-pictures). |
 | **Consent notice** | Edit the text visitors agree to, with a preview of how it looks on the booth. |
@@ -64,7 +64,7 @@ cd ~/photobox-server && .venv/bin/python -m photobox_server.admin dashboard set-
 
 ## The setup menu at the booth
 
-Open it with **Ctrl+Alt+S** on the start screen, or by pressing **M** during the first 10 seconds after the booth restarts. It also opens by itself when the booth can't work, with the reason at the top. Enter your PIN.
+Open it with **Ctrl+Alt+S** on the start screen, or by pressing **M** during the first 10 seconds after the booth restarts. It opens by itself only when the booth has no server address or is not paired. Enter your PIN.
 
 The top of the menu shows a status line for **Network**, **Server**, **Pairing** and **Consent notice**: `OK` means fine, `--` means something needs attention.
 
@@ -250,7 +250,7 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 | `PHOTOBOX_MAX_UPLOADS_PER_MINUTE` | `30` | Per booth. |
 | `PHOTOBOX_STRIP_WIDTH` | `560` | Strip width in pixels, for a printer later. |
 | `PHOTOBOX_THERMAL_BRIGHTNESS` / `_CONTRAST` | `1.1` / `1.3` | The black-and-white printer look. |
-| `PHOTOBOX_INTERFACE` / `PHOTOBOX_PORT` | `en0` / `8000` | The Mac's network connection and port. |
+| `PHOTOBOX_INTERFACE` / `PHOTOBOX_PORT` | `en0` / `8880` | The Mac's network connection and port. |
 
 ---
 
@@ -261,7 +261,8 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 |---|---|
 | **The text suddenly looks like an old computer** | The browser screen could not start, so the booth switched to its simple text screen by itself. Visits still work. Restart the booth; if it stays that way, see `sudo journalctl -b \| grep -i browser` on the Pi. |
 | **The screen looks empty** | The text may be tiny on a large screen, or in a corner the TV cuts off. Restart the booth. Check the screen's input. |
-| **The setup menu opens by itself** | The reason is at the top. Usually the Mac is off or asleep, its address changed, or the booth isn't paired. |
+| **The setup menu opens by itself** | The booth has no server address or isn't paired, so someone has to set it up. The reason is at the top. |
+| **"Not ready", and it stays that way** | The booth tries again every 30 seconds by itself. Usually the Mac is off or asleep, or its address changed. Ctrl+Alt+S opens the setup menu. |
 | **"Not ready"** | The Mac's server isn't running, or the consent notice is missing or still has `TODO-OPERATOR`. |
 | **"Could not reach the server"** | The network dropped, or there's no counterpart picture: add one under **Seeds**. |
 | **Only the code appears, not the strip** | The booth couldn't show the picture. The strip is still on the Mac. |
@@ -273,7 +274,7 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 | What you see | Cause and fix |
 |---|---|
 | **The booth worked, but after a while it can't connect** | The Mac got a new IP address. Enter the new one in the booth's setup menu, or give the Mac a fixed address in your router. |
-| **Dashboard: "only available on this Mac"** | Open exactly `http://127.0.0.1:8001` on the Mac itself. |
+| **Dashboard: "only available on this Mac"** | Open exactly `http://127.0.0.1:8881` on the Mac itself. |
 | **Dashboard says no password is set** | Run `admin dashboard set-password`. |
 | **A booth shows "offline"** | It hasn't reported for 90 seconds: it's off, has no network, or isn't paired. |
 | **`Operation not permitted` in a log** | The photo booth folder is inside Documents. It must be in `~/photobox-server`. |

@@ -29,12 +29,13 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import Protocol
 import httpx
-from .camera import CameraError, CaptureSettings, capture_jpeg
+from .camera import CameraError, CaptureSettings, capture_jpeg, reset_usb
 from .display import FramebufferDisplay, result_screen
 from .cli import idempotency_header, post_with_retry, read_token
 from . import views
 from .browser import BROWSER_FAILED, CONNECT_SECONDS, BrowserWatch
 from .conversation import Conversation, speech_talker
+from .health import Counters, Heartbeat, collect
 from .live_feed import PersonReporter, PresenceFeed
 
 ENTER, ESC, BACKSPACE, SETUP = "enter", "esc", "backspace", "setup"
@@ -289,9 +290,9 @@ class StatusReporter:
 
     INTERVAL_SECONDS = 30
 
-    def __init__(self, post: Callable[[dict], None]) -> None:
+    def __init__(self, post: Callable[[dict], None], health: Callable[[], dict] | None = None) -> None:
         import threading
-        self.post = post
+        self.post, self.health = post, health
         self.state, self.detail = "idle", None
         self.changed = threading.Event()
         self.stopped = threading.Event()
@@ -313,7 +314,10 @@ class StatusReporter:
     def _loop(self) -> None:
         while not self.stopped.is_set():
             try:
-                self.post({"state": self.state, "detail": self.detail})
+                body = {"state": self.state, "detail": self.detail}
+                if self.health is not None:
+                    body["health"] = self.health()
+                self.post(body)
             except Exception:
                 pass  # the dashboard is informational; the kiosk carries on without it
             self.changed.wait(self.INTERVAL_SECONDS)
@@ -327,7 +331,8 @@ class Kiosk:
                  display: FramebufferDisplay | None = None, strip_seconds: int = STRIP_SECONDS,
                  report: Callable[..., None] = lambda *_args: None,
                  make_conversation: Callable[[str], "Conversation"] | None = None,
-                 detector: "PersonDetector | None" = None, feed: "PresenceFeed | None" = None) -> None:
+                 detector: "PersonDetector | None" = None, feed: "PresenceFeed | None" = None,
+                 heartbeat: Callable[[], None] = lambda: None, on_camera_error: Callable[[], None] = lambda: None) -> None:
         self.api, self.camera, self.screen, self.keys, self.report = api, camera, screen, keys, report
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
@@ -335,11 +340,13 @@ class Kiosk:
         self.pooled_until: str | None = None
         self.make_conversation = make_conversation
         self.detector, self.feed = detector, feed
+        self.heartbeat, self.on_camera_error = heartbeat, on_camera_error
         self.label: str | None = None
 
     def present(self, state: dict) -> None:
         """Show a screen. Every screen carries the box's name and whether this is a test."""
         self.label = state.get("label", self.label)
+        self.heartbeat()
         views.present(self.screen, state | {"label": self.label, "test_mode": bool(self.banner), "plain": self.banner + state["plain"]})
 
     def ask(self, state: dict, accepted: set[str], timeout: float | None) -> str | None:
@@ -359,6 +366,7 @@ class Kiosk:
         shown_version = None
         try:
             while True:
+                self.heartbeat()
                 live = self.feed is not None and self.feed.connected
                 if live:
                     version, snapshot = self.feed.latest()
@@ -407,6 +415,7 @@ class Kiosk:
             self.api.upload_and_process(session_id, jpeg)
         except CameraError:
             self.report("idle", "camera failed")
+            self.on_camera_error()
             self.message("Die Kamera hat nicht funktioniert. Bitte melde dich bei der Betreuung.\nThe camera failed. Please ask the staff.")
             return "camera failed"
         except httpx.HTTPError:
@@ -494,7 +503,7 @@ NOT_READY_RETRY_SECONDS = 30
 def main(argv: list[str] | None = None) -> None:
     from .network import Wifi
     from .settings import Pin, Settings
-    from .setup_menu import SetupMenu, blocking_problem, diagnose
+    from .setup_menu import SetupMenu, blocking_problem, diagnose, requires_setup
 
     home = Path.home()
     parser = argparse.ArgumentParser(description="Photo booth keyboard kiosk")
@@ -526,6 +535,12 @@ def main(argv: list[str] | None = None) -> None:
             token = None
         return settings, token
 
+    heartbeat = Heartbeat()
+    counters = Counters()
+
+    def note_browser_restart() -> None:
+        counters.browser_restarts += 1
+
     web = None
     if args.ui == "web":
         from .webui import WebUI
@@ -538,7 +553,7 @@ def main(argv: list[str] | None = None) -> None:
             print("The browser screen could not start; using the text screen.", flush=True)
         if web is not None and args.browser:
             started = time.monotonic()
-            watch = BrowserWatch(args.browser, web.url).start()
+            watch = BrowserWatch(args.browser, web.url, alive_age=web.alive_age, on_restart=note_browser_restart).start()
             if not web.connected.wait(CONNECT_SECONDS):
                 print("The browser did not open the screen in time.", file=sys.stderr, flush=True)
                 watch.stop()
@@ -546,6 +561,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"Browser screen ready after {time.monotonic() - started:.1f} s", file=sys.stderr, flush=True)
         elif web is not None:
             print(f"Open the screen at {web.url}", flush=True)
+    counters.screen = "browser" if web is not None else "text"
     screen, wifi = web or TerminalScreen(), Wifi()
     reporter = None
 
@@ -558,30 +574,46 @@ def main(argv: list[str] | None = None) -> None:
         if settings.server and token:
             def post(body: dict, server=settings.server, token=token) -> None:
                 httpx.post(f"{server}/api/v1/devices/status", json=body, headers={"Authorization": f"Bearer {token}"}, timeout=5)
-            reporter = StatusReporter(post).start()
+            reporter = StatusReporter(post, health=lambda: collect(counters)).start()
         return reporter
     # The browser draws the strip itself, and has the screen to itself.
     display = None if args.no_display or web is not None else FramebufferDisplay.open()
+
+    def camera_trouble(camera_name: str) -> None:
+        counters.camera_failures += 1
+        reset_usb(camera_name)
+
     with (nullcontext(web) if web is not None else TerminalKeys(sys.stdin.fileno())) as keys:
         menu = SetupMenu(screen, keys, settings_path=args.config, token_path=args.token_file, pin=Pin(args.pin_file), wifi=wifi, display=display)
         keys.flush()
         screen.show(f"FOTOBOX\n\nStarting ...\n\nM = Einrichtung / setup  ({BOOT_SETUP_SECONDS} s)")
+        heartbeat.beat()
         if keys.wait({"m", "M", SETUP}, BOOT_SETUP_SECONDS):
-            menu.run()
+            heartbeat.hold(menu.run)
         while True:
+            heartbeat.beat()
             settings, token = current()
-            report = reporting(settings, token) or (lambda *_args: None)
-            problem = blocking_problem(diagnose(settings, token, wifi, httpx.Client))
+            base_report = reporting(settings, token) or (lambda *_args: None)
+
+            def report(state: str, detail: str | None = None, send=base_report) -> None:
+                heartbeat.set_state(state)
+                send(state, detail)
+
+            checks = diagnose(settings, token, wifi, httpx.Client)
+            problem = blocking_problem(checks)
             if problem:
                 report("not ready", problem[:120])
-                menu.run(reason=f"The photo booth cannot start. {problem}")
-                settings, token = current()
-                problem = blocking_problem(diagnose(settings, token, wifi, httpx.Client))
+                # Only a person can fix these. A network or server that is away may come back, so the box
+                # must not sit waiting for a PIN when nobody is there.
+                if requires_setup(checks):
+                    heartbeat.hold(lambda reason=f"The photo booth cannot start. {problem}": menu.run(reason=reason))
+                    settings, token = current()
+                    problem = blocking_problem(diagnose(settings, token, wifi, httpx.Client))
                 if problem:
                     keys.flush()
                     screen.show(f"FOTOBOX\n\nNicht bereit / Not ready\n{problem}\n\nCtrl+Alt+S = Einrichtung / setup")
                     if keys.wait({SETUP}, NOT_READY_RETRY_SECONDS) == SETUP:
-                        menu.run()
+                        heartbeat.hold(menu.run)
                     continue
             if args.test_image:
                 camera = lambda: args.test_image.read_bytes()
@@ -608,14 +640,15 @@ def main(argv: list[str] | None = None) -> None:
                 feed = PresenceFeed(settings.server, token).start()
                 kiosk = Kiosk(api, camera, screen, keys, wait_seconds=args.wait_seconds,
                               test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds, report=report,
-                              make_conversation=conversation, detector=detector, feed=feed)
+                              make_conversation=conversation, detector=detector, feed=feed, heartbeat=heartbeat.beat,
+                              on_camera_error=lambda camera_name=settings.camera: camera_trouble(camera_name))
                 outcome = kiosk.run_once()
                 feed.stop()
                 if person_reporter is not None:
                     person_reporter.stop()
                 if outcome == "setup":
                     report("setup")
-                    menu.run()
+                    heartbeat.hold(menu.run)
             if args.once:
                 return
 

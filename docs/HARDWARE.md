@@ -14,7 +14,7 @@ On the Mac, register the Pi and start the server on the Mac's LAN address rather
 python -m photobox_server.admin device add pi-01
 ```
 ```bash
-python -m uvicorn photobox_server.app:app --host "$(ipconfig getifaddr en0)" --port 8000
+python -m uvicorn photobox_server.app:app --host "$(ipconfig getifaddr en0)" --port 8880
 ```
 On the Pi, store the token in a file only you can read:
 ```bash
@@ -22,7 +22,7 @@ install -m 600 /dev/null ~/.photobox.token && nano ~/.photobox.token
 ```
 Then point the camera at a synthetic scene or an authorized subject and run the acceptance test. It uploads 20 captures, and you check the saved orientation sample by eye:
 ```bash
-PHOTOBOX_DEVICE_TOKEN="$(cat ~/.photobox.token)" scripts/m1_acceptance.sh http://MAC_LAN_IP:8000 CAMERA_NAME --attest-documented-consent --rotate 0
+PHOTOBOX_DEVICE_TOKEN="$(cat ~/.photobox.token)" scripts/m1_acceptance.sh http://MAC_LAN_IP:8880 CAMERA_NAME --attest-documented-consent --rotate 0
 ```
 Moving to NetBird or Tailscale later changes only the server address on both machines.
 
@@ -36,12 +36,12 @@ To stop it: `launchctl bootout gui/$(id -u)/com.photobox.server`. The log is `~/
 ### Keyboard kiosk on the Pi's screen (ADR-020)
 On the Mac, copy `consent-notice.example.txt` to `consent-notice.txt` in the folder the server starts from, and replace every `TODO-OPERATOR`. Until then the kiosk shows "not ready". On the Pi, write the settings and install the service, which replaces the login prompt on tty1:
 ```bash
-printf 'PHOTOBOX_SERVER=http://MAC_LAN_IP:8000\nPHOTOBOX_CAMERA=/dev/v4l/by-id/CAMERA_NAME\n' > ~/.photobox-kiosk.env
+printf 'PHOTOBOX_SERVER=http://MAC_LAN_IP:8880\nPHOTOBOX_CAMERA=/dev/v4l/by-id/CAMERA_NAME\n' > ~/.photobox-kiosk.env
 ```
 ```bash
 sudo cp ~/photobox/deploy/pi/photobox-kiosk.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now photobox-kiosk
 ```
-The screen is a browser since ADR-028: `deploy/pi/run-kiosk.sh` starts the kiosk with Chromium under Cage at 1920 x 1080 (`sudo apt install --no-install-recommends cage chromium wlr-randr`), and starts the text kiosk instead if the browser cannot run. Measured on the Pi 5 with 4 GB: the page is ready 1 to 3 s after the browser starts, with about 3.4 GB of memory still available. To get the login prompt back: `sudo systemctl disable --now photobox-kiosk && sudo systemctl start getty@tty1`. To try the kiosk without the camera, run `python -m photobox_client.kiosk --server URL --token-file ~/.photobox.token --test-image FILE --once` in a terminal.
+The screen is a browser since ADR-028: `deploy/pi/run-kiosk.sh` starts the kiosk with Chromium under Cage at 1920 x 1080 (`sudo apt install --no-install-recommends cage chromium wlr-randr`), and starts the text kiosk instead if the browser cannot run. Measured on the Pi 5 with 4 GB: the page is ready 1 to 3 s after the browser starts, with about 3.4 GB of memory still available. For unattended running, `sudo sh ~/photobox/deploy/pi/install-autonomy.sh` starts the booth at boot and installs the watchdogs (ADR-032). To get the login prompt back: `sudo systemctl disable --now photobox-kiosk && sudo systemctl start getty@tty1`. To try the kiosk without the camera, run `python -m photobox_client.kiosk --server URL --token-file ~/.photobox.token --test-image FILE --once` in a terminal.
 
 ### Tested setup (2026-11-07)
 `scripts/m1_acceptance.sh` passed once, with 20 of 20 uploads, on this setup:

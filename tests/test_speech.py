@@ -334,7 +334,7 @@ def test_the_kiosk_reaches_the_microphone_only_through_a_server_window():  # 1
 
 def test_microphone_setting_is_kept(tmp_path):
     path = tmp_path / "kiosk.env"
-    Settings(server="http://mac:8000", camera="/dev/video0", microphone="plughw:CARD=Mini,DEV=0").save(path)
+    Settings(server="http://mac:8880", camera="/dev/video0", microphone="plughw:CARD=Mini,DEV=0").save(path)
     assert Settings.load(path).microphone == "plughw:CARD=Mini,DEV=0"
-    path.write_text("PHOTOBOX_SERVER=http://mac:8000\n")
+    path.write_text("PHOTOBOX_SERVER=http://mac:8880\n")
     assert Settings.load(path).microphone == ""

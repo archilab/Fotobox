@@ -9,4 +9,4 @@ if [ -z "$HOST" ]; then
     echo "No LAN address on $INTERFACE yet; retrying later." >&2
     exit 1
 fi
-exec .venv/bin/python -m uvicorn photobox_server.app:app --host "$HOST" --port "${PHOTOBOX_PORT:-8000}" --log-level info --timeout-graceful-shutdown 5
+exec .venv/bin/python -m uvicorn photobox_server.app:app --host "$HOST" --port "${PHOTOBOX_PORT:-8880}" --log-level info --timeout-graceful-shutdown 5

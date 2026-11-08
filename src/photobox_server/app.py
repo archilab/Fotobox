@@ -116,10 +116,23 @@ async def require_device_token(request: Request, call_next):
 DEVICE_STATES = ("idle", "consent", "capturing", "generating", "showing", "setup", "not ready")
 
 
+class BoxHealth(BaseModel):
+    """Figures about the machine only (ADR-032). Anything else in a report is ignored."""
+    temperature_c: float | None = Field(default=None, ge=-40, le=150)
+    throttled: bool | None = None
+    disk_free_mb: int | None = Field(default=None, ge=0)
+    memory_available_mb: int | None = Field(default=None, ge=0)
+    uptime_seconds: int | None = Field(default=None, ge=0)
+    screen: Literal["browser", "text"] | None = None
+    browser_restarts: int | None = Field(default=None, ge=0)
+    camera_failures: int | None = Field(default=None, ge=0)
+
+
 class StatusReport(BaseModel):
     state: Literal["idle", "consent", "capturing", "generating", "showing", "setup", "not ready"]
     # Only operator-facing text such as "camera failed"; never anything about a participant.
     detail: str | None = Field(default=None, max_length=120)
+    health: "BoxHealth | None" = None
 
 
 class MessageRequest(BaseModel):
@@ -167,9 +180,9 @@ def report_status(body: StatusReport, request: Request):
     """A box reports what it is doing, for the dashboard. Boxes send it on every change and every 30 s."""
     with db_connect() as db:
         db.execute(
-            "INSERT INTO device_status(device_id,state,detail,reported_at) VALUES(?,?,?,?) "
-            "ON CONFLICT(device_id) DO UPDATE SET state=excluded.state, detail=excluded.detail, reported_at=excluded.reported_at",
-            (request.state.device_id, body.state, body.detail, now_iso()),
+            "INSERT INTO device_status(device_id,state,detail,reported_at,health) VALUES(?,?,?,?,?) "
+            "ON CONFLICT(device_id) DO UPDATE SET state=excluded.state, detail=excluded.detail, reported_at=excluded.reported_at, health=COALESCE(excluded.health, health)",
+            (request.state.device_id, body.state, body.detail, now_iso(), body.health.model_dump_json() if body.health else None),
         )
     return Response(status_code=204)
 

@@ -54,7 +54,7 @@ class Settings:
 
 
 def normalize_server(text: str) -> str:
-    """Accept '192.168.1.24' or 'mac.local:8000' as well as a full address."""
+    """Accept '192.168.1.24' or 'mac.local:8880' as well as a full address."""
     address = text.strip()
     if not address:
         raise ValueError("enter the server's address")
@@ -64,10 +64,10 @@ def normalize_server(text: str) -> str:
     rest = rest.rstrip("/")
     address = f"{scheme}://{rest}"
     if scheme not in ("http", "https") or not rest or " " in rest:
-        raise ValueError("the address should look like 192.168.1.24 or http://192.168.1.24:8000")
+        raise ValueError("the address should look like 192.168.1.24 or http://192.168.1.24:8880")
     host = rest.split("/", 1)[0]
     if ":" not in host.rsplit("]", 1)[-1]:
-        address = f"{scheme}://{host}:8000" + rest[len(host):]
+        address = f"{scheme}://{host}:8880" + rest[len(host):]
     return address
 
 

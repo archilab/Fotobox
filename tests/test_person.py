@@ -171,9 +171,9 @@ def test_no_detector_without_its_model(tmp_path):
 def test_off_by_default_and_only_on_when_set(tmp_path):
     assert Settings().person_detection is False
     path = tmp_path / "kiosk.env"
-    path.write_text("PHOTOBOX_SERVER=http://mac:8000\n")
+    path.write_text("PHOTOBOX_SERVER=http://mac:8880\n")
     assert Settings.load(path).person_detection is False
-    Settings(server="http://mac:8000", person_detection=True, person_area="0,0,1,1").save(path)
+    Settings(server="http://mac:8880", person_detection=True, person_area="0,0,1,1").save(path)
     loaded = Settings.load(path)
     assert loaded.person_detection is True and loaded.person_area == "0,0,1,1"
 
