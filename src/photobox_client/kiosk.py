@@ -34,6 +34,7 @@ from .cli import idempotency_header, post_with_retry, read_token
 from . import views
 from .browser import BROWSER_FAILED, CONNECT_SECONDS, BrowserWatch
 from .conversation import Conversation, speech_talker
+from .live_feed import PersonReporter, PresenceFeed
 
 ENTER, ESC, BACKSPACE, SETUP = "enter", "esc", "backspace", "setup"
 # Ctrl+Alt+S, as the console sends it with Alt as an ESC prefix or as the eighth bit, and Ctrl+S alone.
@@ -45,6 +46,7 @@ LIVE_MOMENT_SECONDS = 3
 MESSAGE_SECONDS = 10
 # How often the start screen asks the server what is happening at the other boxes (ADR-023).
 PRESENCE_REFRESH_SECONDS = 3
+FEED_CHECK_SECONDS = 0.2  # how often the start screen looks at the live feed
 PRESENCE_TILES = 3
 CANCELLED = "Abgebrochen. Es wurde kein Foto gemacht.\nCancelled. No photo was taken."
 START_TEXT = "Druecke ENTER zum Starten.\nPress ENTER to start."
@@ -322,13 +324,15 @@ class Kiosk:
                  clock: Callable[[], float] = time.monotonic, test_mode: bool = False,
                  display: FramebufferDisplay | None = None, strip_seconds: int = STRIP_SECONDS,
                  report: Callable[..., None] = lambda *_args: None,
-                 make_conversation: Callable[[str], "Conversation"] | None = None) -> None:
+                 make_conversation: Callable[[str], "Conversation"] | None = None,
+                 detector: "PersonDetector | None" = None, feed: "PresenceFeed | None" = None) -> None:
         self.api, self.camera, self.screen, self.keys, self.report = api, camera, screen, keys, report
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
         self.banner = "TEST MODE - no camera\n\n" if test_mode else ""
         self.pooled_until: str | None = None
         self.make_conversation = make_conversation
+        self.detector, self.feed = detector, feed
         self.label: str | None = None
 
     def present(self, state: dict) -> None:
@@ -347,16 +351,30 @@ class Kiosk:
     def start_screen(self) -> str:
         """Wait for ENTER or the setup keys, refreshing what is happening at the other boxes."""
         self.keys.flush()
-        while True:
-            try:
-                snapshot = self.api.presence()
-                presence = presence_text(snapshot)
-            except (httpx.HTTPError, ValueError, KeyError, TypeError):
-                snapshot, presence = None, ""  # the start screen works without it
-            self.present(views.start(snapshot, "FOTOBOX\n\n" + (presence + "\n\n" if presence else "") + START_TEXT))
-            key = self.keys.wait({ENTER, SETUP}, PRESENCE_REFRESH_SECONDS)
-            if key is not None:
-                return key
+        # Only here, never during a visit, and the camera is free again before anything else happens (ADR-029).
+        if self.detector is not None:
+            self.detector.resume()
+        shown_version = None
+        try:
+            while True:
+                live = self.feed is not None and self.feed.connected
+                if live:
+                    version, snapshot = self.feed.latest()
+                if not live or version != shown_version:
+                    try:
+                        if not live:
+                            snapshot = self.api.presence()
+                        presence = presence_text(snapshot)
+                    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+                        snapshot, presence = None, ""  # the start screen works without it
+                    self.present(views.start(snapshot, "FOTOBOX\n\n" + (presence + "\n\n" if presence else "") + START_TEXT, detecting=self.detector is not None))
+                    shown_version = version if live else None
+                key = self.keys.wait({ENTER, SETUP}, FEED_CHECK_SECONDS if live else PRESENCE_REFRESH_SECONDS)
+                if key is not None:
+                    return key
+        finally:
+            if self.detector is not None:
+                self.detector.pause()
 
     def run_once(self) -> str:
         """One participant from start to finish. Returns how it ended."""
@@ -575,10 +593,25 @@ def main(argv: list[str] | None = None) -> None:
                 def conversation(session_id: str) -> Conversation:
                     return Conversation(api, session_id, keys, talker, time.monotonic)
 
+                # The test image stands in for the camera, so there is nothing to look at then.
+                detector, person_reporter = None, None
+                if settings.person_detection and not args.test_image:
+                    from .person import create_detector
+
+                    def post_person(present: bool, server=settings.server, token=token) -> None:
+                        httpx.post(f"{server}/api/v1/devices/person", json={"present": present}, headers={"Authorization": f"Bearer {token}"}, timeout=5).raise_for_status()
+
+                    person_reporter = PersonReporter(post_person).start()
+                    detector = create_detector(settings.camera, settings.person_area, person_reporter)
+                feed = PresenceFeed(settings.server, token).start()
                 kiosk = Kiosk(api, camera, screen, keys, wait_seconds=args.wait_seconds,
                               test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds, report=report,
-                              make_conversation=conversation)
-                if kiosk.run_once() == "setup":
+                              make_conversation=conversation, detector=detector, feed=feed)
+                outcome = kiosk.run_once()
+                feed.stop()
+                if person_reporter is not None:
+                    person_reporter.stop()
+                if outcome == "setup":
                     report("setup")
                     menu.run()
             if args.once:

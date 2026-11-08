@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
+import json
 import logging
 import os
 import re
@@ -12,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from PIL import Image
 from pydantic import BaseModel, Field
 from . import audit, live, message_windows, messaging, presence, throttle
@@ -128,6 +129,11 @@ class MessageRequest(BaseModel):
     text: str = Field(max_length=messaging.RAW_TEXT_LIMIT)
 
 
+class PersonReport(BaseModel):
+    # Whether the box's camera seems to see someone (ADR-029). Nothing else ever leaves the box.
+    present: bool
+
+
 class PairRequest(BaseModel):
     code: str = Field(min_length=1, max_length=12)
 
@@ -168,6 +174,14 @@ def report_status(body: StatusReport, request: Request):
     return Response(status_code=204)
 
 
+@app.post("/api/v1/devices/person", status_code=204)
+def report_person(body: PersonReport, request: Request):
+    """A box says someone seems to be there, or no longer. Never a session, and never consent (ADR-029)."""
+    with db_connect() as db:
+        presence_events.emit(db, "person.arrived" if body.present else "person.left", request.state.device_id)
+    return Response(status_code=204)
+
+
 @app.post("/api/v1/pair")
 def pair_device(body: PairRequest, request: Request):
     """Exchange a pairing code shown by `admin device pair` for this box's token."""
@@ -203,6 +217,43 @@ def presence_snapshot(request: Request):
     """What is happening at the other boxes, and the one message this box should show (ADR-023)."""
     with db_connect() as db:
         return presence.snapshot(db, request.state.device_id)
+
+
+STREAM_INTERVAL_SECONDS = 0.5
+# Boxes reconnect at once, and a server restart never waits long for a stream to end.
+STREAM_MAX_SECONDS = 55
+STREAM_KEEPALIVE_SECONDS = 15
+
+
+def presence_for(device_id: str) -> dict:
+    with db_connect() as db:
+        return presence.snapshot(db, device_id)
+
+
+async def presence_events_for(request: Request, device_id: str, once: bool) -> AsyncIterator[str]:
+    """The snapshot whenever it changes, and a keep-alive comment in between."""
+    sent, quiet, elapsed = None, 0.0, 0.0
+    while elapsed < STREAM_MAX_SECONDS and not await request.is_disconnected():
+        snapshot = await asyncio.to_thread(presence_for, device_id)
+        current = json.dumps({key: value for key, value in snapshot.items() if key != "generated_at"}, sort_keys=True)
+        if current != sent:
+            sent, quiet = current, 0.0
+            yield f"event: snapshot\ndata: {json.dumps(snapshot)}\n\n"
+            if once:
+                return
+        elif quiet >= STREAM_KEEPALIVE_SECONDS:
+            quiet = 0.0
+            yield ": keep-alive\n\n"
+        await asyncio.sleep(STREAM_INTERVAL_SECONDS)
+        quiet += STREAM_INTERVAL_SECONDS
+        elapsed += STREAM_INTERVAL_SECONDS
+
+
+@app.get("/api/v1/presence/stream")
+def presence_stream(request: Request, once: bool = False):
+    """The same as the snapshot, pushed as server-sent events the moment something changes."""
+    return StreamingResponse(presence_events_for(request, request.state.device_id, once), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
 
 
 def require_messaging() -> None:

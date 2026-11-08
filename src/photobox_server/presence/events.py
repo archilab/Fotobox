@@ -22,6 +22,8 @@ EventType = Literal[
     "generation.started",
     "generation.completed",
     "generation.failed",
+    "person.arrived",        # the box's camera seems to see someone (ADR-029); not a visitor, not consent
+    "person.left",
     # Reserved for live matching (milestone L-1). Nothing emits them yet; the projection already
     # accepts them so the simulator (S3) and L-1 share one contract.
     "match.live_created",

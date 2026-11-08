@@ -7,12 +7,12 @@
   const lang = root.dataset.lang;
   const byId = (id) => document.getElementById(id);
   const icons = { live: "●", recent: "◔", earlier: "▣", online: "○", offline: "×" };
-  const badgeKinds = { live_match: "live", partner_waiting: "live", remote_active: "live", recent_photo: "recent", earlier_portrait: "earlier", online_only: "online" };
+  const badgeKinds = { live_match: "live", partner_waiting: "live", remote_active: "live", person_nearby: "recent", recent_photo: "recent", earlier_portrait: "earlier", online_only: "online" };
   const unnamed = lang === "de" ? "Fotobox" : "Photobox";
 
   function tileKind(item) {
     if (item.device_state === "offline") return "offline";
-    return { session_active: "live", recent_photo: "recent" }[item.activity_state] || "online";
+    return { session_active: "live", recent_photo: "recent", person_nearby: "recent" }[item.activity_state] || "online";
   }
 
   function tile(item) {

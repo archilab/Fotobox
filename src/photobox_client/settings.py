@@ -32,6 +32,8 @@ class Settings:
     server: str = ""
     camera: str = "0"
     microphone: str = ""
+    person_detection: bool = False  # off unless the operator switches it on (ADR-029)
+    person_area: str = ""  # left,top,right,bottom as fractions; empty is the whole picture
 
     @classmethod
     def load(cls, path: Path) -> "Settings":
@@ -42,10 +44,13 @@ class Settings:
                 if separator and not key.strip().startswith("#"):
                     values[key.strip()] = value.strip()
         return cls(server=values.get("PHOTOBOX_SERVER", ""), camera=values.get("PHOTOBOX_CAMERA", "0") or "0",
-                   microphone=values.get("PHOTOBOX_MICROPHONE", ""))
+                   microphone=values.get("PHOTOBOX_MICROPHONE", ""),
+                   person_detection=values.get("PHOTOBOX_PERSON_DETECTION", "").lower() in {"1", "true", "yes"},
+                   person_area=values.get("PHOTOBOX_PERSON_AREA", ""))
 
     def save(self, path: Path) -> None:
-        _write_private(path, f"PHOTOBOX_SERVER={self.server}\nPHOTOBOX_CAMERA={self.camera}\nPHOTOBOX_MICROPHONE={self.microphone}\n")
+        _write_private(path, f"PHOTOBOX_SERVER={self.server}\nPHOTOBOX_CAMERA={self.camera}\nPHOTOBOX_MICROPHONE={self.microphone}\n"
+                                f"PHOTOBOX_PERSON_DETECTION={'true' if self.person_detection else 'false'}\nPHOTOBOX_PERSON_AREA={self.person_area}\n")
 
 
 def normalize_server(text: str) -> str:

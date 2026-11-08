@@ -156,7 +156,8 @@
       el("div", "fill"),
       s.tiles && s.tiles.length ? el("div", "tiles", ...s.tiles.map((t) =>
         el("div", "tile " + t.kind, el("b", "", t.label), el("span", "", t.status)))) : null,
-      el("div", "actions", action("ENTER", "Zum Starten drücken", "Press to start"))),
+      el("div", "actions", action("ENTER", "Zum Starten drücken", "Press to start")),
+      s.camera_note && el("div", "camera-note", s.camera_note.de, el("br"), el("span", "en", s.camera_note.en))),
 
     consent: (s) => noticeScreen(s),
 

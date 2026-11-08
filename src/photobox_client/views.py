@@ -6,9 +6,9 @@ kiosk keeps working as the fallback when no browser is available. Nothing here d
 """
 from __future__ import annotations
 
-ICONS = {"live": "●", "recent": "◔", "online": "○", "offline": "×"}
+ICONS = {"live": "●", "nearby": "◐", "recent": "◔", "online": "○", "offline": "×"}
 LIVE_KEYS = {"live_match", "partner_waiting", "remote_active"}
-BADGE_KINDS = {"recent_photo": "recent", "earlier_portrait": "earlier", "online_only": "online"}
+BADGE_KINDS = {"person_nearby": "nearby", "recent_photo": "recent", "earlier_portrait": "earlier", "online_only": "online"}
 IDLE_HERO = {"de": "Deine nächste Begegnung beginnt hier.", "en": "Your next encounter starts here."}
 IDLE_SUPPORT = {"de": "Mach ein Foto, um anzufangen.", "en": "Take a photo to begin."}
 
@@ -26,13 +26,21 @@ def _tile(location: dict) -> dict:
     if location.get("device_state") == "offline":
         kind = "offline"
     else:
-        kind = {"session_active": "live", "recent_photo": "recent"}.get(location.get("activity_state"), "online")
+        kind = {"session_active": "live", "person_nearby": "nearby", "recent_photo": "recent"}.get(location.get("activity_state"), "online")
     word = (location.get("status") or {}).get("de", "")
     return {"kind": kind, "label": location.get("label") or "Fotobox", "status": f"{ICONS[kind]} {word}".strip()}
 
 
-def start(snapshot: dict | None, plain: str, max_tiles: int = 3) -> dict:
-    state = {"screen": "start", "hero": dict(IDLE_HERO), "support": dict(IDLE_SUPPORT), "tiles": [], "badge": None, "plain": plain}
+CAMERA_NOTE = {"de": "Die Kamera erkennt, ob jemand da ist. Kein Bild wird gespeichert oder gesendet.",
+               "en": "The camera detects whether someone is here. No image is stored or sent."}
+
+
+def start(snapshot: dict | None, plain: str, max_tiles: int = 3, *, detecting: bool = False) -> dict:
+    """`detecting` says the camera is looking right now, which visitors must be able to read (ADR-029)."""
+    state = {"screen": "start", "hero": dict(IDLE_HERO), "support": dict(IDLE_SUPPORT), "tiles": [], "badge": None, "camera_note": None, "plain": plain}
+    if detecting:
+        state["camera_note"] = dict(CAMERA_NOTE)
+        state["plain"] = f"{plain}\n\n{CAMERA_NOTE['de'].replace('ü', 'ue')}\n{CAMERA_NOTE['en']}"
     message = (snapshot or {}).get("message") or {}
     texts = message.get("texts") or {}
     if "de" in texts and "en" in texts:

@@ -129,7 +129,9 @@ def device_rows(db) -> list[dict]:
         """SELECT d.id, d.created_at, d.revoked_at, d.public_label, s.state, s.detail, s.reported_at FROM devices d
            LEFT JOIN device_status s ON s.device_id = d.id ORDER BY d.id"""
     ).fetchall()
-    return [dict(row) | {"online": bool(row["reported_at"] and row["reported_at"] > cutoff and not row["revoked_at"])} for row in rows]
+    from ..presence import activity_by_box
+    activity = activity_by_box(db)
+    return [dict(row) | {"online": bool(row["reported_at"] and row["reported_at"] > cutoff and not row["revoked_at"]), "activity": activity.get(row["id"], "")} for row in rows]
 
 
 @app.get("/", response_class=HTMLResponse)

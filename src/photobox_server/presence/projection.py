@@ -19,12 +19,14 @@ from .events import PresenceEvent
 OFFLINE_SECONDS = 90  # the same as the dashboard (ADR-022)
 LEASE_SECONDS = 300
 MAX_SESSION_SECONDS = 1800  # the kiosk stops waiting for a strip after 30 minutes
+PERSON_MAX_SECONDS = 1800  # a detection that never ends is more likely a poster than a visitor (ADR-029)
+PERSON_EVENTS = frozenset({"person.arrived", "person.left"})
 SESSION_STATES = frozenset({"consent", "capturing", "generating", "showing"})
 IDLE_STATES = frozenset({"idle", "setup", "not ready"})
 SESSION_EVENTS = frozenset({"session.started", "portrait.captured", "generation.started", "generation.completed",
                             "generation.failed", "match.live_created", "match.pool_created"})
 DeviceState = Literal["online", "offline"]
-ActivityState = Literal["session_active", "recent_photo", "none"]
+ActivityState = Literal["session_active", "person_nearby", "recent_photo", "none"]
 
 
 @dataclass(frozen=True)
@@ -67,6 +69,8 @@ class _Track:
     ended: set[str] = field(default_factory=set)
     last_photo: datetime | None = None
     simulated: bool = False
+    person_at: datetime | None = None
+    person_here: bool = False
 
 
 def _seconds(later: datetime, earlier: datetime) -> float:
@@ -80,6 +84,10 @@ def _track(events: list[PresenceEvent]) -> dict[str, _Track]:
         track.simulated = track.simulated or event.simulated
         if event.type == "portrait.captured" and (track.last_photo is None or event.occurred_at > track.last_photo):
             track.last_photo = event.occurred_at
+        if event.type in PERSON_EVENTS:
+            if track.person_at is None or event.occurred_at >= track.person_at:
+                track.person_at, track.person_here = event.occurred_at, event.type == "person.arrived"
+            continue
         sid = event.session_id
         if sid is None:
             continue
@@ -124,6 +132,8 @@ def project(boxes: list[Box], events: list[PresenceEvent], now: datetime, settin
         if online:
             if any(_live(s, box, online, now) for sid, s in track.sessions.items() if sid not in track.ended):
                 activity = "session_active"
+            elif track.person_here and track.person_at is not None and _seconds(now, track.person_at) <= PERSON_MAX_SECONDS:
+                activity = "person_nearby"  # seen by a camera: never counts as a visitor who has agreed
             elif track.last_photo is not None and 0 <= _seconds(now, track.last_photo) <= settings.recent_seconds:
                 activity = "recent_photo"
                 if settings.detail == "detailed":
@@ -133,15 +143,15 @@ def project(boxes: list[Box], events: list[PresenceEvent], now: datetime, settin
     return views
 
 
-PRIORITY = {"session_active": 0, "recent_photo": 1}
+PRIORITY = {"session_active": 0, "person_nearby": 1, "recent_photo": 2}
 
 
 def order(views: list[BoxView]) -> list[BoxView]:
-    """Live first, then recent photos, then online, then offline; by name within each."""
+    """Live first, then someone nearby, then recent photos, then online, then offline; by name within each."""
     def rank(view: BoxView) -> tuple:
         if view.device_state == "offline":
-            level = 3
+            level = 4
         else:
-            level = PRIORITY.get(view.activity_state, 2)
+            level = PRIORITY.get(view.activity_state, 3)
         return (level, (view.label or "~").casefold(), view.box_id)
     return sorted(views, key=rank)

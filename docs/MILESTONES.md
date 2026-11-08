@@ -101,6 +101,14 @@ Each milestone stops for the owner's review.
 - [x] **U3** Chromium and Cage on the Pi, service, fallback to the text kiosk (tested), start time and memory measured
 - [x] **U4** Polish on the real television: overall size halved, header renamed, browser translation switched off
 
+## Person detection at the box (ADR-029)
+Each milestone stops for the owner's review. Off by default.
+- [x] **D0** Decision recorded, spec and privacy rules changed, sign drafted
+- [x] **D1** Benchmark of person detection models on the Pi next to the running browser: NanoDet chosen (`benchmarks/person_detect/README.md`); one person and one room so far
+- [x] **D2** Detector in the client, sharing the camera with the photo, frames in memory only. Tried on the real camera on 2026-11-08: detected, cleared, and the camera was free for a photo
+- [x] **D3** `person_nearby` on the server, sent to the other boxes in real time. Measured over HTTP on 2026-11-08: about 0.2 s; not yet on real boxes
+- [x] **D4** Start screen wording, detection area and calibration at the box, activity on the dashboard. Switched on at the Pi on 2026-11-08 and reports reached the server; not yet watched on a second real box
+
 ## Later phases — NOT in v0.5 MVP
 - Phase 2: touchscreen and accessible consent + countdown (keyboard kiosk already exists, ADR-020)
 - Phase 3: thermoprinter + idempotent printing

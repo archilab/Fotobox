@@ -20,13 +20,14 @@
 <p class="muted">The public name is what other boxes show, such as "Hall B" or a city. Never a person's name. A box without one is shown as "another Photobox".</p>
 <div class="panel">
 <table>
-  <tr><th>Box</th><th>Public name</th><th>Registered (UTC)</th><th>Connection</th><th>Doing</th><th></th></tr>
+  <tr><th>Box</th><th>Public name</th><th>Registered (UTC)</th><th>Connection</th><th>Doing</th><th>Activity</th><th></th></tr>
   {% for d in devices %}
   <tr><td>{{ d.id }}</td>
     <td>{% if not d.revoked_at %}<form class="inline" method="post" action="/devices/{{ d.id }}/label"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="text" name="label" value="{{ d.public_label or '' }}" maxlength="32" placeholder="e.g. Hall B" aria-label="Public name of {{ d.id }}"> <button>Save</button></form>{% else %}—{% endif %}</td>
     <td class="mono muted">{{ d.created_at[:19].replace('T', ' ') }}</td>
     <td class="{{ 'ok' if d.online else 'bad' }}">{{ 'revoked' if d.revoked_at else ('online' if d.online else 'offline') }}</td>
     <td>{{ d.state or '—' }}</td>
+    <td>{{ d.activity or '—' }}</td>
     <td>{% if not d.revoked_at %}<form class="inline" method="post" action="/devices/{{ d.id }}/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger">Revoke</button></form>{% endif %}</td></tr>
   {% endfor %}
 </table>

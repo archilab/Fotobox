@@ -159,12 +159,12 @@ class SetupMenu:
             header = f"{reason}\n\n" if reason else ""
             choice = self.choose(
                 f"{header}{status}",
-                ["WiFi", "Server address", "Pair with server", "Camera", "Test everything", "Start photo booth", "Microphone (optional)"],
+                ["WiFi", "Server address", "Pair with server", "Camera", "Test everything", "Start photo booth", "Microphone (optional)", "Person detection (optional)"],
             )
             reason = None
             if choice in (None, 5):
                 return
-            [self.setup_wifi, self.setup_server, self.pair, self.setup_camera, self.test, None, self.setup_microphone][choice]()
+            [self.setup_wifi, self.setup_server, self.pair, self.setup_camera, self.test, None, self.setup_microphone, self.setup_person][choice]()
 
     def setup_wifi(self) -> None:
         self.show("Searching for WiFi networks ...")
@@ -235,6 +235,26 @@ class SetupMenu:
         settings.microphone = microphones[choice].device
         settings.save(self.settings_path)
         self.message(f"Microphone saved: {microphones[choice].name}")
+
+    def setup_person(self) -> None:
+        """Switches the camera's person detection on or off, and limits what it looks at (ADR-029)."""
+        from .person import MODEL_PATH
+        if not MODEL_PATH.is_file():
+            self.message("The person detection model is not installed. Photos work as usual.")
+            return
+        choices = [("Off", False, ""), ("On, whole picture", True, ""), ("On, middle two thirds", True, "0.17,0,0.83,1"), ("On, middle half", True, "0.25,0,0.75,1")]
+        choice = self.choose(
+            "Person detection with the camera. It looks before anyone has agreed,\n"
+            "so switch it on only with the sign up and a checked legal basis.\n"
+            "No image is stored or sent.",
+            [label for label, _on, _area in choices],
+        )
+        if choice is None:
+            return
+        settings = Settings.load(self.settings_path)
+        settings.person_detection, settings.person_area = choices[choice][1:]
+        settings.save(self.settings_path)
+        self.message(f"Person detection: {choices[choice][0]}")
 
     def setup_camera(self) -> None:
         # The camera list holds paths; settings and the capture call need text.

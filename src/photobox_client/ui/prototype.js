@@ -37,7 +37,8 @@ ESC = Nein, nur mein Streifen / No, just my strip`;
   const CODE = "kQ3xV9mTzL7pRw2YbN4hJA";
 
   const screens = [
-    { screen: "start", label: LABEL, hero: { de: "Deine nächste Begegnung beginnt hier.", en: "Your next encounter starts here." }, support: { de: "Mach ein Foto, um anzufangen.", en: "Take a photo to begin." }, tiles: [] },
+    { screen: "start", label: LABEL, hero: { de: "Deine nächste Begegnung beginnt hier.", en: "Your next encounter starts here." }, support: { de: "Mach ein Foto, um anzufangen.", en: "Take a photo to begin." }, tiles: [],
+      camera_note: { de: "Die Kamera erkennt, ob jemand da ist. Kein Bild wird gespeichert oder gesendet.", en: "The camera detects whether someone is here. No image is stored or sent." } },
     { screen: "start", label: LABEL, badge: { kind: "live", de: "LIVE", en: "LIVE" }, hero: { de: "Jemand in Essen wartet auf ein gemeinsames Foto.", en: "Someone in Essen is waiting for a shared photo." }, support: { de: "Mach jetzt deins und ihr landet auf einem Streifen.", en: "Take yours now to join them." },
       tiles: [{ kind: "live", label: "Essen", status: "● LIVE" }, { kind: "recent", label: "London", status: "◔ GERADE EBEN" }, { kind: "online", label: "Wien", status: "○ ONLINE" }] },
     { screen: "consent", label: LABEL, text: CONSENT },

@@ -512,3 +512,35 @@ def test_missing_microphone_is_explained(paths, monkeypatch):
     m, screen = unlocked(paths, "7", ENTER, "6")
     m.run()
     assert any("photos work as usual" in s for s in screen.shown)
+
+
+@pytest.mark.parametrize("key,on,area", [("1", False, ""), ("2", True, ""), ("3", True, "0.17,0,0.83,1"), ("4", True, "0.25,0,0.75,1")])
+def test_person_detection_is_switched_in_the_menu(paths, monkeypatch, tmp_path, key, on, area):
+    from photobox_client import person
+    model = tmp_path / "nanodet.onnx"
+    model.write_bytes(b"x")
+    monkeypatch.setattr(person, "MODEL_PATH", model)
+    m, screen = unlocked(paths, "8", key, ENTER, "6")
+    m.run()
+    saved = Settings.load(paths["settings_path"])
+    assert (saved.person_detection, saved.person_area) == (on, area)
+    assert any("legal basis" in s for s in screen.shown)
+
+
+def test_person_detection_needs_its_model(paths, monkeypatch, tmp_path):
+    from photobox_client import person
+    monkeypatch.setattr(person, "MODEL_PATH", tmp_path / "missing.onnx")
+    m, screen = unlocked(paths, "8", ENTER, "6")
+    m.run()
+    assert any("not installed" in s for s in screen.shown)
+    assert Settings.load(paths["settings_path"]).person_detection is False
+
+
+def test_person_detection_stays_off_unless_chosen(paths, monkeypatch, tmp_path):
+    from photobox_client import person
+    model = tmp_path / "nanodet.onnx"
+    model.write_bytes(b"x")
+    monkeypatch.setattr(person, "MODEL_PATH", model)
+    m, _ = unlocked(paths, "8", ESC, "6")
+    m.run()
+    assert Settings.load(paths["settings_path"]).person_detection is False

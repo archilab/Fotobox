@@ -5,7 +5,7 @@
 **Extends:** Connected Photobox Development Starter Kit V0.5 and Social Presence & Communication Extension V0.2  
 **Status:** Extension specification; implement incrementally, with messaging gated behind real paired sessions
 
-> **Adopted with changes** in ADR-023 and ADR-024 (`docs/DECISIONS.md`): the booth already has a screen, presence is shown on the kiosk's idle screen, live matching across boxes is brought forward, and the V0.2 document referred to below does not exist. Where this spec and the ADRs differ, the ADRs apply.
+> **Adopted with changes** in ADR-023 and ADR-024 (`docs/DECISIONS.md`): the booth already has a screen, presence is shown on the kiosk's idle screen, live matching across boxes is brought forward, and the V0.2 document referred to below does not exist. ADR-029 replaces the rules below against automatic visitor detection with a person detector on the Pi under strict limits. Where this spec and the ADRs differ, the ADRs apply.
 
 ## 1. Instructions to Claude Code
 

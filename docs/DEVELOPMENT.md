@@ -57,6 +57,8 @@ The kiosk can run against a test image instead of the camera:
 .venv/bin/python -m photobox_client.kiosk --server http://127.0.0.1:8000 --test-image path/to/synthetic.png --once
 ```
 
+The person detector is tried with `python -m photobox_client.person test` on the Pi, which prints yes or no and saves nothing (ADR-029).
+
 To see the browser screen, add `--ui web --no-display` to that command. It prints an address with a one-time token to open on the same computer. The design prototype, with made-up data and no server, is `src/photobox_client/ui/prototype.html`, served for example with `python3 -m http.server --directory src/photobox_client/ui --bind 127.0.0.1`; the arrow keys change screen.
 
 ## Rules for changes

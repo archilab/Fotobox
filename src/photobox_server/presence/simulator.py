@@ -12,6 +12,8 @@ Actions, each mirroring what a real box causes:
     capture     the photo is uploaded and generation starts (portrait.captured, generation.started)
     finish      the strip is done and the box is back at its start screen (generation.completed, idle)
     cancel      the session is cancelled or withdrawn (session.ended, idle)
+    person      the camera seems to see someone (person.arrived, ADR-029)
+    nobody      the camera no longer sees anyone (person.left)
     expire      five minutes pass without any sign of the session: its events are moved back in time
 """
 from __future__ import annotations
@@ -22,7 +24,7 @@ from . import events
 from .projection import LEASE_SECONDS, Box
 
 MAX_BOXES = 5
-ACTIONS = ("connect", "disconnect", "start", "capture", "finish", "cancel", "expire")
+ACTIONS = ("connect", "disconnect", "person", "nobody", "start", "capture", "finish", "cancel", "expire")
 PREFIX = "sim:"
 
 
@@ -84,6 +86,9 @@ def act(db: sqlite3.Connection, box_id: str, action: str, now: datetime | None =
         return
     if not box["connected"]:
         raise SimulatorError("connect the box first")
+    if action in ("person", "nobody"):
+        events.emit(db, "person.arrived" if action == "person" else "person.left", box_id, occurred_at=now, simulated=True)
+        return
     if action == "start":
         if session is not None:
             raise SimulatorError("a session is already running; finish, cancel or expire it first")

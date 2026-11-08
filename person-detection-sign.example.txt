@@ -1,0 +1,22 @@
+Aushang VOR dem Bereich, den die Kamera sehen kann. Vor der Nutzung vervollstaendigen und pruefen lassen.
+Print this BEFORE the area the camera can see. Complete it and have it reviewed before use.
+
+KAMERA ERKENNT ANWESENHEIT
+
+Die Kamera dieser Fotobox erkennt, ob gerade jemand in der Box ist.
+Das Bild wird nur kurz auf diesem Geraet ausgewertet. Es wird nicht
+gespeichert und nicht uebertragen. Personen werden nicht identifiziert.
+
+Andere Fotoboxen sehen nur: "Jemand ist gerade an der Fotobox TODO-OPERATOR".
+
+Ein Foto entsteht erst, wenn du am Bildschirm ausdruecklich zustimmst.
+
+Verantwortlich: TODO-OPERATOR (Name und Kontakt)
+Rechtsgrundlage und weitere Informationen: TODO-OPERATOR
+
+CAMERA DETECTS PRESENCE
+
+This photo booth's camera detects whether someone is in the booth.
+The image is analysed briefly on this device. It is not stored and not sent.
+Nobody is identified. Other photo booths only see that someone is here.
+A photo is taken only after you agree on the screen.

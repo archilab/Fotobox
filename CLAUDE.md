@@ -1,6 +1,6 @@
 # Connected Photobox — Claude Code project instructions
 
-**Scope:** Work on V0.5 phase 1 only: ONE Raspberry Pi + generic UVC USB webcam, CLI capture, upload to Mac Studio API, temporary portrait pool, matching, *eventually* local AI 3–4 scene generation, vertical PNG artifact. NO touchscreen, NO printer, NO digital user retrieval feature. Social presence and live matching across boxes follow `docs/INTERACTION_EXTENSION.md` as adapted by ADR-023/ADR-024; until a second Pi exists, a second box is a kiosk on the Mac or the simulator.
+**Scope:** Work on V0.5 phase 1 only: ONE Raspberry Pi + generic UVC USB webcam, CLI capture, upload to Mac Studio API, temporary portrait pool, matching, *eventually* local AI 3–4 scene generation, vertical PNG artifact. NO touchscreen, NO printer, NO digital user retrieval feature. Social presence and live matching across boxes follow `docs/INTERACTION_EXTENSION.md` as adapted by ADR-023/ADR-024; until a second Pi exists, a second box is a kiosk on the Mac or the simulator. Camera-based person detection before consent is allowed only under the limits in ADR-029.
 
 1. Read `README.md`, `docs/ARCHITECTURE.md`, `docs/MILESTONES.md`, `docs/API.md`, `docs/PRIVACY.md`, `docs/SECURITY.md` before major changes.
 2. Implement milestones in order. Avoid speculative features or unapproved dependencies. Maintain small testable increments; run `pytest -q` after each.

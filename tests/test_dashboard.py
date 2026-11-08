@@ -160,6 +160,14 @@ def test_public_box_name_is_set_and_checked_on_the_boxes_page(client, dash):
     assert client.get("/api/v1/presence/snapshot").json()["self"]["label"] is None
 
 
+def test_someone_seen_at_a_box_shows_on_overview_and_boxes(client, dash):
+    client.post("/api/v1/devices/status", json={"state": "idle"})
+    client.post("/api/v1/devices/person", json={"present": True})
+    assert "NEARBY" in dash.get("/").text and "NEARBY" in dash.get("/devices").text
+    client.post("/api/v1/devices/person", json={"present": False})
+    assert "NEARBY" not in dash.get("/").text
+
+
 def test_silent_box_shows_offline(client, dash):
     client.post("/api/v1/devices/status", json={"state": "idle"})
     with db_connect() as db:

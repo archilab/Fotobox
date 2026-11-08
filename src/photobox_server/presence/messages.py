@@ -32,6 +32,10 @@ CATALOG: dict[str, tuple[str, dict[str, tuple[str, str]]]] = {
         "en": ("Someone is taking a photo {where}.", "Take yours now for a chance to connect."),
         "de": ("Jemand macht gerade ein Foto {where}.", "Mach jetzt deins, vielleicht verbindet ihr euch."),
     }),
+    "person_nearby": ("P2", {
+        "en": ("Someone seems to be {where} right now.", "Take a photo, and you might meet."),
+        "de": ("Jemand scheint gerade {where} zu sein.", "Mach ein Foto, vielleicht begegnet ihr euch."),
+    }),
     "recent_photo": ("P3", {
         "en": ("A photo was just taken {where}.", "Add yours to the story."),
         "de": ("Gerade wurde ein Foto {where} gemacht.", "Schreib die Geschichte mit deinem weiter."),
@@ -56,13 +60,14 @@ PLACES = {
 }
 STATUS_WORDS = {
     "session_active": {"en": "LIVE", "de": "LIVE"},
+    "person_nearby": {"en": "NEARBY", "de": "JEMAND DA"},
     "recent_photo": {"en": "RECENT", "de": "GERADE EBEN"},
     "online": {"en": "ONLINE", "de": "ONLINE"},
     "offline": {"en": "OFFLINE", "de": "OFFLINE"},
     "earlier": {"en": "EARLIER", "de": "FRÜHER"},
 }
 # The status word shown beside each message, so the kind of encounter is never left to colour alone.
-BADGES = {"live_match": "session_active", "partner_waiting": "session_active", "remote_active": "session_active", "recent_photo": "recent_photo",
+BADGES = {"live_match": "session_active", "partner_waiting": "session_active", "remote_active": "session_active", "person_nearby": "person_nearby", "recent_photo": "recent_photo",
           "earlier_portrait": "earlier", "online_only": "online"}
 PLACEHOLDER = re.compile(r"\{(location|where|elapsed|label)\}")
 
@@ -111,7 +116,7 @@ def choose(*, self_unavailable: bool, locations: Sequence[BoxView], earlier_port
     waiting = next((view for view in online if view.match_available), None)
     if waiting is not None:
         return "partner_waiting", waiting
-    for state, key in (("session_active", "remote_active"), ("recent_photo", "recent_photo")):
+    for state, key in (("session_active", "remote_active"), ("person_nearby", "person_nearby"), ("recent_photo", "recent_photo")):
         match = next((view for view in online if view.activity_state == state), None)
         if match is not None:
             return key, match

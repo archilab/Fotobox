@@ -76,6 +76,14 @@ def _apply_size(cv2: Any, camera: Any, width: int | None, height: int | None) ->
         camera.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
 
+def open_stream(camera: str, width: int, height: int) -> Any:
+    """Open the camera for reading frames. The caller must release it."""
+    cv2 = load_cv2()
+    device = _open(cv2, resolve_source(camera))
+    _apply_size(cv2, device, width, height)
+    return device
+
+
 def _rotate(cv2: Any, frame: Any, rotation: int) -> Any:
     codes = {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180, 270: cv2.ROTATE_90_COUNTERCLOCKWISE}
     return frame if rotation == 0 else cv2.rotate(frame, codes[rotation])

@@ -208,3 +208,4 @@ pool-notice.txt
 *.wav
 *.aiff
 benchmarks/voice_stt/audio/
+person-detection-sign.txt

@@ -41,7 +41,7 @@ Open **<http://127.0.0.1:8001>** in a browser **on the Mac** and log in. It cann
 
 | Page | What you can do |
 |---|---|
-| **Overview** | See whether each booth is **online** (it reported within the last 90 seconds) and what it's doing: waiting, consent, taking a photo, making a strip, showing it, setup or not ready. Also how many strips are waiting, free disk space, and which consent notice and stories are active. Refreshes every 10 seconds. |
+| **Overview** | See whether each booth is **online** (it reported within the last 90 seconds) and what it's doing: waiting, consent, taking a photo, making a strip, showing it, setup or not ready. "Activity" shows what other booths are told: LIVE, RECENT, or NEARBY when its camera seems to see someone. Also how many strips are waiting, free disk space, and which consent notice and stories are active. Refreshes every 10 seconds. |
 | **Queue** | Follow each strip frame by frame, see errors, and cancel a strip that is waiting or being made. The photo stays, so the booth can try again. |
 | **Strips** | See all stored strips, in color, grayscale or a black-and-white printer look, and how many minutes until each is deleted. Delete a visitor's pictures here; see [below](#deleting-a-visitors-pictures). |
 | **Consent notice** | Edit the text visitors agree to, with a preview of how it looks on the booth. |
@@ -195,6 +195,7 @@ Other booths' start screens name the place where something is happening, such as
 What the start screen says is always based on what really happened:
 - A booth that is only switched on is shown as **online**, never as someone being there.
 - **LIVE** appears only after a visitor has agreed to the consent notice, and ends when that booth returns to its start screen.
+- **JEMAND DA / NEARBY** appears only if you switched on person detection at that booth, and means its camera seems to see someone. It can be wrong and never counts as LIVE.
 - **RECENT** lasts 3 minutes after a photo.
 - "Someone left a photo for you" appears only while a visitor's shared pool photo exists, never for your seed images.
 

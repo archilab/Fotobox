@@ -187,3 +187,24 @@ Consent keeps its rules in the browser. A key press names the screen it was pres
 The kiosk runs this with `--ui web`; the default is still `--ui text`. Milestones: U0 design prototype, U1 screen states, U2 local server and U3 on the Pi are done. U3 installed Chromium and Cage on the Pi, and U4 is the polish on the real television. Inter is included under the SIL Open Font License (`ui/fonts/OFL-LICENSE.txt`).
 
 On the Pi, systemd runs `deploy/pi/run-kiosk.sh` in a login session on tty1. The kiosk starts `deploy/pi/start-browser.sh`, which runs Chromium under Cage, sets 1920 x 1080 with `wlr-randr`, and uses an incognito profile in memory. If the browser cannot start or keeps stopping (three restarts), or no browser opens the page within 60 s, the kiosk exits with code 75 and the script starts the text kiosk, tested by swapping in a broken browser. The token is passed to the browser as an argument, so it is visible in the Pi's process list to anyone logged in to the Pi; the only account is the operator's, and it only reaches this one local screen. It is no longer printed, so it does not reach the system log.
+
+## ADR-029: Detecting a person at the box with the camera, on the Pi
+**Decided by the project owner on 2026-11-08.** A box finds out whether someone is at it with its camera and a small AI model on the Pi, and tells the server and the other boxes in real time, with the box's public name. This reverses two rules of `docs/INTERACTION_EXTENSION.md` ("No automatic visitor detection" and "No surveillance-style detection") and the rule that nothing is analysed before consent. It necessarily runs before anyone has agreed, and can also catch people walking past. **That processing needs a legal basis, a data protection assessment and a sign before the box is used with the public;** this record is an engineering decision, not legal advice.
+
+The owner chose a camera over an image-free presence sensor, knowing the sensor would be simpler legally.
+
+Rules the implementation must keep, each to be enforced by a test:
+- **Only on the Pi.** Frames stay in memory, are never written, logged or sent, and are released as soon as they have been analysed. The only thing that leaves the Pi is whether a person is there.
+- **Only "a person is there".** No faces, identities, stored features, tracking between frames, counts, age or gender.
+- **Small and bounded.** Low resolution, and only an operator-set area inside the box, to leave out passers-by as far as possible.
+- **Visible.** A sign before the camera's view (`person-detection-sign.example.txt`) and a line on the start screen.
+- **Off by default.** It runs only when the operator switches it on, and only while the start screen is showing. During a visit it is off; the camera is released before any photo.
+- **Separate from consent.** The new state `person_nearby` never counts as LIVE, never starts a session and never takes a photo. LIVE still begins only with recorded consent (ADR-023).
+- **Careful wording.** A detection can be wrong, so screens say "someone seems to be", and the state expires by itself if the box stops reporting.
+- **No history.** It uses the existing presence events, deleted after an hour. A detector failure only means no signal; the booth carries on.
+
+The detector is `photobox_client/person.py`: NanoDet from the OpenCV Zoo (Apache 2.0, chosen in `benchmarks/person_detect`), 3 frames per second at 640 x 360, smoothed so that a majority over about 2 s says yes and about 5 s without one says no. It is switched on with `PHOTOBOX_PERSON_DETECTION=true` in the box's settings, and limited to a picture area with `PHOTOBOX_PERSON_AREA`. The model file goes in `~/photobox-person/nanodet.onnx`; without it nothing runs.
+
+A box reports only yes or no (`POST /devices/person`), stored as a `person.arrived` or `person.left` presence event. The state `person_nearby` ranks below LIVE and above a recent photo, ends when the box goes offline or after 30 minutes without an update, and creates no session and no consent. A kiosk says "nobody" when it starts, so a crash cannot leave a stale "someone". Other boxes get every change through `GET /presence/stream`, server-sent events, and fall back to asking every 3 s if the stream is down; the delay measured about 0.2 s.
+
+Milestones D0 to D4 are in `docs/MILESTONES.md`.

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Presence{% endblock %}
 {% macro tile_kind(item) -%}
-{{ 'offline' if item.device_state == 'offline' else {'session_active': 'live', 'recent_photo': 'recent'}.get(item.activity_state, 'online') }}
+{{ 'offline' if item.device_state == 'offline' else {'session_active': 'live', 'recent_photo': 'recent', 'person_nearby': 'recent'}.get(item.activity_state, 'online') }}
 {%- endmacro %}
 {% set icons = {'live': '●', 'recent': '◔', 'earlier': '▣', 'online': '○', 'offline': '×'} %}
 {% block content %}
@@ -62,7 +62,7 @@
   <div id="sim" class="sim" {{ 'hidden' if not simulated }}>SIMULATION · simulated boxes are marked</div>
   <div class="top"><span>CONNECTED PHOTOBOX</span><span id="self">{{ snapshot.self.label or snapshot.self.box_id }}{{ ' · NOT READY' if snapshot.self.state == 'unavailable' }}</span></div>
   <div class="hero" aria-live="polite">
-    {% set badge_kind = {'live_match': 'live', 'partner_waiting': 'live', 'remote_active': 'live', 'recent_photo': 'recent', 'earlier_portrait': 'earlier', 'online_only': 'online'}.get(message.key) %}
+    {% set badge_kind = {'live_match': 'live', 'partner_waiting': 'live', 'remote_active': 'live', 'person_nearby': 'recent', 'recent_photo': 'recent', 'earlier_portrait': 'earlier', 'online_only': 'online'}.get(message.key) %}
     <span id="badge" class="badge {{ badge_kind or '' }}" {{ 'hidden' if not message.badge }}>{% if badge_kind == 'live' %}<span class="pulse" aria-hidden="true">●</span> {% endif %}{{ message.badge[lang] if message.badge }}</span>
     <h2 id="hero">{{ message.texts[lang].hero }}</h2>
     <p id="support">{{ message.texts[lang].support }}</p>
@@ -130,6 +130,6 @@
 <div id="encounter" aria-live="polite"></div>
 <script src="/static/encounter.js" defer></script>
 {% else %}<p class="muted">Add at least two simulated boxes and press start on each.</p>{% endif %}
-<p class="muted">connect / disconnect: the box reports in or goes silent · start: a visitor gives consent · capture: the photo is uploaded and the strip is being made · finish: the strip is done and the box is back at its start screen · cancel: the visitor cancels or withdraws · expire: five minutes pass without any sign of the session.</p>
+<p class="muted">connect / disconnect: the box reports in or goes silent · person / nobody: the camera seems to see someone, or no longer · start: a visitor gives consent · capture: the photo is uploaded and the strip is being made · finish: the strip is done and the box is back at its start screen · cancel: the visitor cancels or withdraws · expire: five minutes pass without any sign of the session.</p>
 {% endif %}
 {% endblock %}

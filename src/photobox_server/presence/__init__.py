@@ -59,6 +59,12 @@ def earlier_portrait_available(db: sqlite3.Connection, now: datetime) -> bool:
     return row is not None
 
 
+def activity_by_box(db: sqlite3.Connection, now: datetime | None = None) -> dict[str, str]:
+    """What each real box looks like from outside: a status word, or an empty string for nothing happening."""
+    views = project(_boxes(db), events.load(db), now or datetime.now(timezone.utc), settings())
+    return {box_id: messages.status_word(view)["en"] if view.activity_state != "none" else "" for box_id, view in views.items()}
+
+
 def live_partner(db: sqlite3.Connection, self_box_id: str, views: dict[str, BoxView]) -> BoxView | None:
     """The box this box's current visitor is paired with live (ADR-024), while that visitor is still here."""
     own = views.get(self_box_id)
