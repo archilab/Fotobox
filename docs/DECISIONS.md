@@ -240,3 +240,13 @@ Tested on the real Pi: reboot, a frozen page, a frozen kiosk process. Not tested
 
 Tested against stand-ins for the system tools, and `--check` on the real Pi. **Not tested:** a complete run on a freshly written memory card.
 
+## ADR-034: One installer for the Mac
+**Decided by the project owner on 2026-11-08.** `scripts/setup_mac.sh` does what `INSTALL.md` used to list as twelve steps on the Mac. The code is still fetched with `git clone` first, because the script is part of it.
+
+- **What stays with a person.** The consent notice, the dashboard password and the statement that counterpart images may be used. At a terminal the script asks; only the exact word `yes` attests the rights. Without a terminal it attests nothing and lists these at the end. It never fills in `TODO-OPERATOR`, and a notice with placeholders does not count as done.
+- **Safe to repeat.** An existing `.env` is kept. A running service is restarted only if its service file changed, so running the script again does not interrupt a visit. An interrupted model download is detected and continued. `--check` only reports.
+- **mflux is pinned** to 0.24.0 with Python 3.12, the combination measured on the Mac Studio. The AI model has no checksum, because it is many files fetched by mflux itself.
+- **The network interface** is taken from the default route for a new `.env` and stored as `PHOTOBOX_INTERFACE`, so a Mac on WiFi or cable works without editing. The server still binds to that LAN address only (ADR-010).
+
+Tested against stand-ins for the system tools, and `--check` on the MacBook and the Mac Studio. **Not tested:** a complete run on a Mac that has nothing installed.
+

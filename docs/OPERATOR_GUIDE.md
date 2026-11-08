@@ -279,7 +279,7 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 | **A booth shows "offline"** | It hasn't reported for 90 seconds: it's off, has no network, or isn't paired. |
 | **`Operation not permitted` in a log** | The photo booth folder is inside Documents. It must be in `~/photobox-server`. |
 | **`Bootstrap failed: 5`** | That service is already running. Nothing to do. |
-| **Strips fail at once** | The AI model isn't downloaded yet; see INSTALL step 1.5. |
+| **Strips fail at once** | The AI model isn't downloaded yet; see INSTALL step 1.2. |
 | **"mflux was not found"** | Set `PHOTOBOX_MFLUX_COMMAND` in `.env` to the full path, such as `/Users/yourname/.local/bin/mflux-generate-flux2-edit`. |
 | **A strip has disappeared** | Strips are deleted with the visitor's photo after about an hour. |
 | **`python: command not found`** | Use `python3`, or `.venv/bin/python` inside `~/photobox-server`. |
