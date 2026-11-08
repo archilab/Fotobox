@@ -134,6 +134,10 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
         "ALTER TABLE sessions ADD COLUMN live_role TEXT CHECK (live_role IN ('lead', 'follow'))",
         "ALTER TABLE generation_jobs ADD COLUMN live_wait INTEGER NOT NULL DEFAULT 0",
     ),
+    # 11: the operator's word list for messages between live pairs (ADR-027). Never message text.
+    (
+        "CREATE TABLE message_filter (id INTEGER PRIMARY KEY CHECK (id = 1), words TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    ),
 )
 
 

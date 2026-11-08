@@ -629,6 +629,28 @@ def simulator_reset(request: Request):
     return simulate(request, lambda db, sim: sim.reset(db))
 
 
+# Messages between live pairs (ADR-027)
+
+@app.get("/messages", response_class=HTMLResponse)
+def messages_page(request: Request):
+    from ..message_filter import load_words
+    from ..message_windows import enabled
+    with db_connect() as db:
+        words = load_words(db)
+    return page(request, "messages.html", words="\n".join(words), enabled=enabled(), message=request.query_params.get("message"))
+
+
+@app.post("/messages")
+def messages_save(request: Request):
+    from ..message_filter import save_words
+    try:
+        with db_connect() as db:
+            words = save_words(db, str(form(request).get("words", "")))
+    except ValueError as exc:
+        return back("/messages", str(exc))
+    return back("/messages", f"Saved: {len(words)} entries.")
+
+
 # A simulated encounter with text messages (ADR-025)
 
 def simulated_box(db, box_id: str):

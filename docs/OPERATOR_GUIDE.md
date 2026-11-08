@@ -49,7 +49,8 @@ Open **<http://127.0.0.1:8001>** in a browser **on the Mac** and log in. It cann
 | **Stories** | Turn stories on or off, edit, add or delete them; see [below](#changing-the-stories). |
 | **Prompts** | Advanced: the background colors, the text that describes every scene, and the list of positions people can take. |
 | **Seeds** | Add or remove counterpart pictures. Tick the box confirming you may use the picture, and enter a short reference such as `FICTIONAL-AI` or a licence number. |
-| **Presence** | See what a booth's start screen would say about the other booths right now, as a larger preview that updates by itself. Choose the booth, the language and the screen shape. Simulated booths, used for testing, are marked SIMULATION. In developer mode, a simulator below the preview adds up to five pretend booths with buttons for what a visitor does there; your real booths never see them. It can also try out text messages between two pretend booths; real visitors cannot send messages yet. |
+| **Presence** | See what a booth's start screen would say about the other booths right now, as a larger preview that updates by itself. Choose the booth, the language and the screen shape. Simulated booths, used for testing, are marked SIMULATION. In developer mode, a simulator below the preview adds up to five pretend booths with buttons for what a visitor does there; your real booths never see them. It can also try out text messages between two pretend booths. |
+| **Messages** | Edit the words that visitors can't send each other. Message text itself is never stored or shown here. |
 | **Boxes** | Show a pairing code to link a booth, or switch a booth off for good ("Revoke"). |
 | **Audit** | A log of what happened: agreements, strips, deletions, logins. It contains only codes, never pictures or names. |
 
@@ -76,6 +77,7 @@ The top of the menu shows a status line for **Network**, **Server**, **Pairing**
 | **4 Camera** | Choose the webcam and see a test picture for 5 seconds. It isn't stored. |
 | **5 Test everything** | Checks all of the above. |
 | **6 Start photo booth** | Back to the start screen. ESC does the same. |
+| **7 Microphone (optional)** | Choose the microphone for later voice messages. Nothing is recorded here, and photos work without one. Used for voice messages, if you switch them on. |
 
 Keys: a **number** to choose, **ENTER** to confirm, **ESC** to go back, **BACKSPACE** to delete.
 
@@ -180,6 +182,8 @@ cd ~/photobox-server && .venv/bin/python -m photobox_client.kiosk --token-file ~
 ```
 Press **M** within 10 seconds, set a PIN, enter the server address, and pair it with a code from the dashboard's Boxes page under a new name such as `mac-kiosk`. The Mac manages its own network, so the WiFi part of the menu does not apply. Then press ENTER in that window as a visitor would. Use only synthetic pictures or people who agreed.
 
+**Voice messages:** with `PHOTOBOX_MESSAGING=true` too, the two visitors can talk to each other while their strip is made: ENTER starts recording, ENTER stops it, for up to 8 seconds, and the words appear as text on the other booth. They can send 3 messages each, for at most 45 seconds. No sound is sent or saved, and text is never stored. It needs a microphone chosen in the setup menu and the speech software from `benchmarks/voice_stt/README.md`; a booth without them can still read messages. Blocked words are on the dashboard's Messages page. The filter won't catch everything, so have someone nearby when the public uses it.
+
 If one of the two cancels or deletes their pictures before the strip is done, the other still gets a strip, with someone else. Afterwards, deleting either photo deletes the shared strip for both.
 
 ---
@@ -235,6 +239,7 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 | `PHOTOBOX_CLEANUP_INTERVAL_SECONDS` | `300` | How often expired pictures are deleted. |
 | `PHOTOBOX_POOL_HOURS` | `24` | How long a photo stays in the pool after the visitor agrees (1 to 720). The pool question shows the exact end time, and the photo is deleted then at the latest. |
 | `PHOTOBOX_LIVE_MATCHING` | off | `true` pairs visitors at different booths live. Only with a notice that says so. |
+| `PHOTOBOX_MESSAGING` | off | `true` lets live pairs send each other short voice messages as text. Only with a notice that says so. |
 | `PHOTOBOX_LIVE_WAIT_SECONDS` | `20` | How long a booth waits for someone at another booth (5 to 60). |
 | `PHOTOBOX_LIVE_MAX_WAIT_SECONDS` | `60` | The longest wait while a visitor at another booth has already agreed (20 to 120). |
 | `PHOTOBOX_POOL_NOTICE_FILE` | `pool-notice.txt` | The pool question used until you save one in the dashboard. Without one, the booths do not ask. |

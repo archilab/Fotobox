@@ -19,6 +19,7 @@ REJECTIONS = {
     "limit_reached": "No more messages in this encounter.",
     "cooldown": "One moment before the next message.",
     "invalid": "Message not sent.",
+    "blocked": "Message not sent.",
 }
 CLOSED_TEXT = {
     "generation_completed": "Your photo is ready. Messaging has ended.",

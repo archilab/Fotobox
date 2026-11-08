@@ -15,7 +15,7 @@ from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image
 from pydantic import BaseModel, Field
-from . import audit, live, presence, throttle
+from . import audit, live, message_windows, messaging, presence, throttle
 from .presence import events as presence_events
 from .auth import authenticate
 from .consent_notice import NoticeError, load_notice, load_pool_notice, pool_hours
@@ -69,6 +69,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     validate_settings()
     presence.settings()
     live.max_wait_seconds()
+    messaging.Limits.from_env()
     interval = get_cleanup_interval()
     with db_connect() as db:
         interrupted = recover_after_restart(db)
@@ -118,6 +119,13 @@ class StatusReport(BaseModel):
     state: Literal["idle", "consent", "capturing", "generating", "showing", "setup", "not ready"]
     # Only operator-facing text such as "camera failed"; never anything about a participant.
     detail: str | None = Field(default=None, max_length=120)
+
+
+class MessageRequest(BaseModel):
+    message_id: str = Field(min_length=1, max_length=64)
+    match_id: str = Field(min_length=1, max_length=128)
+    # The limit that applies is in the relay; this only keeps the request small. The text is never logged.
+    text: str = Field(max_length=messaging.RAW_TEXT_LIMIT)
 
 
 class PairRequest(BaseModel):
@@ -195,6 +203,29 @@ def presence_snapshot(request: Request):
     """What is happening at the other boxes, and the one message this box should show (ADR-023)."""
     with db_connect() as db:
         return presence.snapshot(db, request.state.device_id)
+
+
+def require_messaging() -> None:
+    if not message_windows.enabled():
+        raise HTTPException(404, "messaging is not switched on")
+
+
+@app.get("/api/v1/messaging/events")
+def messaging_events(request: Request):
+    """Events waiting for this box, once each: windows opening and closing, and text from its live partner."""
+    require_messaging()
+    with db_connect() as db:
+        message_windows.sync(db, request.state.device_id)
+    return {"events": message_windows.relay().drain(request.state.device_id)}
+
+
+@app.post("/api/v1/sessions/{session_id}/messages")
+def send_message(session_id: str, body: MessageRequest, request: Request):
+    """One text message to this session's live partner. The server decides who receives it (ADR-027)."""
+    require_messaging()
+    with db_connect() as db:
+        session = get_session(db, session_id, request.state.device_id)
+        return message_windows.send(db, session, body.match_id, body.message_id, body.text)
 
 
 @app.get("/api/v1/health")

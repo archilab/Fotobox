@@ -88,7 +88,9 @@ Each milestone stops for the owner's review.
 - [x] **L-1** Live matching across boxes: 20 s wait, then pool, then seed; identical strip for both; tested with a second kiosk on the Mac
 - [x] **L-2** Interactive waiting screen: searching, matched with {location}, the partner's progress
 - [x] **M-VOICE-0** Messaging contract and simulator, live pairs only (ADR-025; no real box can send yet)
-- [ ] **M-VOICE-1..3** Microphone and local speech-to-text on the Pi (engine benchmarked first), relay, visitor screen
+- [x] **M-VOICE-1** Microphone and local speech-to-text on the Pi, whisper.cpp base after a benchmark (ADR-026). The kiosk is not connected yet. Met on 2026-11-08: spoken sentences became text on the real microphone with no audio leaving the Pi
+- [x] **M-VOICE-2** Real relay between paired boxes, message filtering, kiosk connected (ADR-027, off by default). Met on 2026-11-08 over real HTTP with two boxes and a third that received nothing; typed text stood in for speech
+- [ ] **M-VOICE-3** Visitor screen, noisy-room testing, accessible alternative, consent wording
 **S1 acceptance:** a box that is only online is never shown as active, and an ended or expired session loses LIVE at once.
 
 ## Later phases — NOT in v0.5 MVP

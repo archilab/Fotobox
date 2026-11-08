@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from photobox_server import jobs, throttle
+from photobox_server import jobs, message_windows, throttle
 from photobox_server.app import app
 from photobox_server.auth import create_device
 from photobox_server.core import db_connect
@@ -14,6 +14,7 @@ def test_settings(monkeypatch, tmp_path):
     monkeypatch.setenv("PHOTOBOX_STORAGE_DIR", str(tmp_path / "default-storage"))
     monkeypatch.delenv("PHOTOBOX_PROVIDER", raising=False)
     monkeypatch.setenv("PHOTOBOX_GENERATION_RETRY_DELAY_SECONDS", "0")
+    message_windows.reset()
 
 
 def process(client, session_id, provider=None):

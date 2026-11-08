@@ -149,3 +149,26 @@ Spec section 15, milestone M-VOICE-0. `photobox_server/messaging.py` holds the m
 - Everything is in memory and bounded. Text is never written to the database or a log. An unread message disappears when it expires or its window closes, and nothing is replayed after a disconnect.
 
 The relay runs in whichever process creates it, here the dashboard, so the simulator's messages exist only there. M-VOICE-2 will create the real one in the booth server, tie windows to real jobs, and add message filtering, which the spec requires before visitors can send. **Not implemented yet:** filtering, a box-facing API, microphone capture and speech-to-text. The notice must disclose messaging before any of it goes live.
+
+## ADR-026: Microphone and speech-to-text on the Pi with whisper.cpp base
+**Decided by the project owner on 2026-11-08**, after the benchmark in `benchmarks/voice_stt`. Milestone M-VOICE-1, in `photobox_client/speech.py`, behind the `LocalSpeechTranscriber` interface the spec asks for. On one speaker with a RØDE NT-USB Mini, whisper.cpp got every word right in German and English, while Vosk small got 18.8% of English words wrong. Against tiny, base is more accurate on synthetic speech for about one more second per message. It takes about 2.3 s with a fixed language and about 4 s with automatic language detection, which is the default because visitors may speak either language. The limit is 10 s.
+
+- **Audio stays in memory.** `arecord` writes raw audio to a pipe, and whisper reads it on standard input. It is never written to disk or sent, and it is released after transcription.
+- **Recording needs a deliberate key press and an open window.** `PushToTalk` records only while its `window_open` says so, and discards the audio or text if the window closes meanwhile. A key held down cannot stop the recording it started. Recording ends at 8 s.
+- **Nothing invented may reach a stranger.** On silence and noise, whisper wrote text such as `* Musik *` and `[water flowing]`. A recording is passed to the model only if it holds at least 0.25 s of frames louder than both 150 and three times the room's own level. Annotations and known subtitle phrases such as "Thanks for watching" are then removed. The first threshold of 400 rejected a real short sentence and was lowered after measuring: room about 25, speech peaks about 1300.
+- **It stays optional.** A missing microphone or a failed transcription only means no message. The microphone is chosen by card name in the setup menu, which records nothing.
+
+Tested on the real microphone: full 8 s sentences, an early stop with ENTER, and silence. **Not tested:** noise, other voices, accents, children. The kiosk was connected afterwards, only for windows the server opens (ADR-027). `python -m photobox_client.speech test` is a developer tool that opens no window and sends nothing.
+
+Installed on the Pi in `~/photobox-speech`: a statically linked `whisper-cli` from whisper.cpp v1.7.4 and `ggml-base.bin`.
+
+## ADR-027: Messages between real live pairs
+Milestone M-VOICE-2, connecting ADR-025's relay to real boxes and ADR-026's speech to the kiosk. **The project owner accepted the proposed filter on 2026-11-08 by continuing after it was proposed; it is easy to change.** Off by default: `PHOTOBOX_MESSAGING=true`, and only with live matching and a notice that says so (`consent-notice.live.example.txt`).
+
+- **The relay lives in the booth server's memory.** A window opens when a live pair's strip starts (`message_windows.py`), for the two sessions the database says are paired, keeps its deadline across retries, and closes when the strip is done or has failed.
+- **The database is checked on every send and poll**, because withdrawal can come from the dashboard or the command line, which are other processes. If the pair has ended or the other box has gone silent for 90 s, the window closes.
+- **API:** REST, like the rest of the box's API: `GET /messaging/events` hands over a box's events once, and `POST /sessions/{id}/messages` sends one message. The kiosk polls every second while it is already showing progress, so no WebSocket was needed. A destination in the request is ignored.
+- **Filter** (`message_filter.py`): a word list the operator edits on the dashboard's Messages page, in German and English, plus phone numbers, email addresses, links and social media names, so that strangers cannot swap contact details. The sender only sees "Message not sent". This is a first check and will not catch everything.
+- **Kiosk** (`photobox_client/conversation.py`): ENTER counts only while the server has a window open. Keys pressed before the invitation appeared are discarded. A box without a microphone still receives text and shows no prompt. If the connection is lost, the window ends and nothing is queued or replayed. None of this delays the strip, and message text is transliterated for the console like the other screens.
+
+Tested over real HTTP with two boxes and an uninvolved third, with typed text in place of speech, and the microphone separately on the Pi (ADR-026). **Not tested:** two real kiosks with a microphone together, and noisy rooms; those belong to M-VOICE-3, along with the visitor-facing wording and an alternative for visitors who cannot speak.

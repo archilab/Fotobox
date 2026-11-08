@@ -30,6 +30,7 @@ import httpx
 from .camera import CameraError, CaptureSettings, capture_jpeg
 from .display import FramebufferDisplay, result_screen
 from .cli import idempotency_header, post_with_retry, read_token
+from .conversation import Conversation, speech_talker
 
 ENTER, ESC, BACKSPACE, SETUP = "enter", "esc", "backspace", "setup"
 # Ctrl+Alt+S, as the console sends it with Alt as an ESC prefix or as the eighth bit, and Ctrl+S alone.
@@ -189,6 +190,16 @@ class Api:
         response.raise_for_status()
         return response.json()
 
+    def messaging_events(self) -> list[dict]:
+        response = self.client.get("/api/v1/messaging/events", timeout=5)
+        response.raise_for_status()
+        return response.json()["events"]
+
+    def send_message(self, session_id: str, match_id: str, message_id: str, text: str) -> dict:
+        response = self.client.post(f"/api/v1/sessions/{session_id}/messages", json={"message_id": message_id, "match_id": match_id, "text": text}, timeout=5)
+        response.raise_for_status()
+        return response.json()
+
     def strip(self, session_id: str) -> bytes:
         response = self.client.get(f"/api/v1/sessions/{session_id}/result")
         response.raise_for_status()
@@ -307,12 +318,14 @@ class Kiosk:
                  wait_seconds: int = 1800, sleep: Callable[[float], None] = time.sleep,
                  clock: Callable[[], float] = time.monotonic, test_mode: bool = False,
                  display: FramebufferDisplay | None = None, strip_seconds: int = STRIP_SECONDS,
-                 report: Callable[..., None] = lambda *_args: None) -> None:
+                 report: Callable[..., None] = lambda *_args: None,
+                 make_conversation: Callable[[str], "Conversation"] | None = None) -> None:
         self.api, self.camera, self.screen, self.keys, self.report = api, camera, screen, keys, report
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
         self.banner = "TEST MODE - no camera\n\n" if test_mode else ""
         self.pooled_until: str | None = None
+        self.make_conversation = make_conversation
 
     def ask(self, text: str, accepted: set[str], timeout: float | None) -> str | None:
         self.keys.flush()
@@ -379,6 +392,7 @@ class Kiosk:
         self.report("generating")
         started = self.clock()
         waited, announced = False, False
+        conversation = self.make_conversation(session_id) if self.make_conversation else None
         while True:
             try:
                 state = self.api.status(session_id)
@@ -398,12 +412,19 @@ class Kiosk:
                 self.screen.show(self.banner + live_moment_text(state))
                 self.sleep(LIVE_MOMENT_SECONDS)
             encounter = encounter_text(state, waited)
+            if conversation is not None:
+                conversation.poll()
+                talk = conversation.text().translate(PLAIN_LETTERS)
+                encounter = f"{encounter}\n\n{talk}" if talk and encounter else (talk or encounter)
             self.screen.show(
                 f"{self.banner}Dein Fotostreifen wird erstellt.\nYour photo strip is being made.\n\n"
                 + (encounter + "\n\n" if encounter else "")
                 + f"        {elapsed // 60:02d}:{elapsed % 60:02d}\n\n        {frames}"
             )
-            self.sleep(1)
+            if conversation is not None:
+                conversation.wait(1)
+            else:
+                self.sleep(1)
         self.show_strip(session_id, code)
         withdraw = (f"Dein Widerrufscode / Your withdrawal code:\n\n        {code}\n\nNotiere ihn, um deine Bilder loeschen zu lassen.\nWrite it down to have your images deleted."
                     if code else "Zum Loeschen deiner Bilder wende dich an die Betreuung.\nTo have your images deleted, ask the staff.")
@@ -506,8 +527,15 @@ def main(argv: list[str] | None = None) -> None:
                 capture = CaptureSettings(width=args.width, height=args.height, rotation=args.rotate)
                 camera = lambda: capture_jpeg(settings.camera, capture)
             with httpx.Client(base_url=settings.server, timeout=60, headers={"Authorization": f"Bearer {token}"}) as client:
-                kiosk = Kiosk(Api(client), camera, screen, keys, wait_seconds=args.wait_seconds,
-                              test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds, report=report)
+                api = Api(client)
+                talker = speech_talker(settings.microphone, keys, screen)
+
+                def conversation(session_id: str) -> Conversation:
+                    return Conversation(api, session_id, keys, talker, time.monotonic)
+
+                kiosk = Kiosk(api, camera, screen, keys, wait_seconds=args.wait_seconds,
+                              test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds, report=report,
+                              make_conversation=conversation)
                 if kiosk.run_once() == "setup":
                     report("setup")
                     menu.run()

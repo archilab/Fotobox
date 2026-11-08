@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from PIL import Image
-from . import audit, live
+from . import audit, live, message_windows
 from .presence import events as presence_events
 from .config import get_frame_count, get_provider, int_setting
 from .core import SEED_PREFIX, db_connect, now_iso, storage_root, strip_images_active, write_private_image
@@ -122,6 +122,7 @@ def release_partner(db: sqlite3.Connection, session: sqlite3.Row) -> None:
     # A finished pair stays recorded: the shared strip shows both, so it must be deleted with either photo.
     if session["live_partner"] is None or session["status"] not in (QUEUED, PROCESSING):
         return
+    message_windows.close_for(session["id"] if session["live_role"] == live.LEAD else session["live_partner"], "participant_left")
     if session["live_role"] == live.FOLLOW and session["portrait_id"]:
         discard_frames_using(db, [session["portrait_id"]])
     partner_id = live.unpair(db, session["id"])
@@ -165,6 +166,7 @@ def _mark_failed(db: sqlite3.Connection, job_id: str, session_id: str, message: 
         db.execute("UPDATE sessions SET error=? WHERE id=?", (message, session_id))
         box = db.execute("SELECT box_id FROM sessions WHERE id=?", (session_id,)).fetchone()
         presence_events.emit(db, "generation.failed", box["box_id"], session_id=session_id)
+        message_windows.close_for(session_id, "generation_failed")
         live.fail_follower(db, session_id, message)
     audit.record(db, "generation_failed", session_id=session_id, detail=message)
     discard_frames(job_id)
@@ -291,6 +293,8 @@ def _finish(run: Run, provider: ImageGenerationProvider, frames: list[Path], met
     finally:
         if not kept:
             dest.unlink(missing_ok=True)
+    # The strip takes priority: the window ends now, and a late message is refused.
+    message_windows.close_for(run.session_id, "generation_completed")
     discard_frames(run.job_id)
 
 
@@ -299,6 +303,8 @@ def run_one(provider: ImageGenerationProvider, stop: threading.Event | None = No
     run = _claim()
     if run is None:
         return False
+    if run.attempts == 1:
+        message_windows.open_for(run.session_id)
 
     def should_cancel() -> bool:
         return (stop is not None and stop.is_set()) or not _still_current(run)

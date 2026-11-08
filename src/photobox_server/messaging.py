@@ -1,13 +1,13 @@
 """Ephemeral Message Relay (spec section 15, ADR-025, milestone M-VOICE-0).
 
 Short text messages between the visitors of one live pair, only while their strip is being made.
-This is the contract and its rules. Nothing connects it to real boxes yet (milestone M-VOICE-2);
-today only the dashboard's developer-mode simulator uses it.
+This is the contract and its rules; `message_windows.py` connects it to real live pairs (ADR-027),
+and the dashboard's developer-mode simulator uses its own instance.
 
 Everything is held in memory and bounded. Text is never written to the database or a log, and an
 unread message disappears when it expires or its window closes, so nothing is replayed later.
 The server decides who may send and who receives: a caller names a match, never a destination.
-Content filtering is not implemented; it belongs to M-VOICE-2, before any real visitor can send.
+What may be said is decided by the caller's `blocked` check (`message_filter.py`).
 """
 from __future__ import annotations
 import re
@@ -155,7 +155,15 @@ class Relay:
                 if window.closed_at is None and any(p.box_id == box_id for p in window.participants.values()):
                     self._close(window, "participant_left")
 
-    def send(self, box_id: str, session_id: str, match_id: str, message_id: str, text: str) -> dict:
+    def open_matches(self, box_id: str) -> list[tuple[str, list[Participant]]]:
+        """The windows this box is part of that are still open."""
+        with self._lock:
+            self._expire()
+            return [(w.match_id, list(w.participants.values())) for w in self._windows.values()
+                    if w.closed_at is None and any(p.box_id == box_id for p in w.participants.values())]
+
+    def send(self, box_id: str, session_id: str, match_id: str, message_id: str, text: str,
+             blocked: Callable[[str], bool] | None = None) -> dict:
         """Accept or reject one message. `box_id` is the authenticated box, never a claim by the caller.
 
         An unknown match and someone else's match get the same answer, so ids cannot be probed.
@@ -182,6 +190,8 @@ class Relay:
                 return _rejected(message_id, "empty")
             if len(cleaned) > self.limits.max_chars:
                 return _rejected(message_id, "too_long")
+            if blocked is not None and blocked(cleaned):
+                return _rejected(message_id, "blocked")
             if window.sent.get(session_id, 0) >= self.limits.max_per_sender:
                 return _rejected(message_id, "limit_reached")
             now = self.now()
