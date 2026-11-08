@@ -90,7 +90,7 @@ Each milestone stops for the owner's review.
 - [x] **M-VOICE-0** Messaging contract and simulator, live pairs only (ADR-025; no real box can send yet)
 - [x] **M-VOICE-1** Microphone and local speech-to-text on the Pi, whisper.cpp base after a benchmark (ADR-026). The kiosk is not connected yet. Met on 2026-11-08: spoken sentences became text on the real microphone with no audio leaving the Pi
 - [x] **M-VOICE-2** Real relay between paired boxes, message filtering, kiosk connected (ADR-027, off by default). Met on 2026-11-08 over real HTTP with two boxes and a third that received nothing; typed text stood in for speech
-- [ ] **M-VOICE-3** Visitor screen, noisy-room testing, accessible alternative, consent wording
+- [ ] **M-VOICE-3** Done: on-screen prompts, countdown and received text in German and English; daily counts on the dashboard; proposed consent wording. **Still open, on site:** two real booths with a microphone together, microphone level and noisy-room testing, an alternative for visitors who cannot speak, review of the consent wording before public use
 **S1 acceptance:** a box that is only online is never shown as active, and an ended or expired session loses LIVE at once.
 
 ## Later phases — NOT in v0.5 MVP

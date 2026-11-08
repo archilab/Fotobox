@@ -249,7 +249,7 @@ def test_second_enter_stops_and_the_text_is_returned():  # 2
     talk, screen, _ = talker(mic, transcriber, language="de")
     assert talk.talk() == "Hello there"
     assert mic.calls == [MAX_SECONDS] and mic.stopped and transcriber.calls == [("de", 10)]
-    assert screen.shown[0].startswith("LISTENING · 8 seconds left") and "TURNING YOUR VOICE INTO TEXT…" in screen.shown
+    assert "noch 8 Sekunden" in screen.shown[0] and "LISTENING · 8 seconds left" in screen.shown[0] and speech.CONVERTING in screen.shown
 
 
 def test_nothing_is_recorded_while_no_window_is_open():  # 1

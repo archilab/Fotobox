@@ -138,6 +138,10 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
     (
         "CREATE TABLE message_filter (id INTEGER PRIMARY KEY CHECK (id = 1), words TEXT NOT NULL, updated_at TEXT NOT NULL)",
     ),
+    # 12: daily totals of message use (ADR-027). Counts only: no text, session or box.
+    (
+        "CREATE TABLE message_stats (day TEXT PRIMARY KEY, windows INTEGER NOT NULL DEFAULT 0, accepted INTEGER NOT NULL DEFAULT 0, blocked INTEGER NOT NULL DEFAULT 0)",
+    ),
 )
 
 

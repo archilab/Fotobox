@@ -50,7 +50,7 @@ Open **<http://127.0.0.1:8001>** in a browser **on the Mac** and log in. It cann
 | **Prompts** | Advanced: the background colors, the text that describes every scene, and the list of positions people can take. |
 | **Seeds** | Add or remove counterpart pictures. Tick the box confirming you may use the picture, and enter a short reference such as `FICTIONAL-AI` or a licence number. |
 | **Presence** | See what a booth's start screen would say about the other booths right now, as a larger preview that updates by itself. Choose the booth, the language and the screen shape. Simulated booths, used for testing, are marked SIMULATION. In developer mode, a simulator below the preview adds up to five pretend booths with buttons for what a visitor does there; your real booths never see them. It can also try out text messages between two pretend booths. |
-| **Messages** | Edit the words that visitors can't send each other. Message text itself is never stored or shown here. |
+| **Messages** | Edit the words that visitors can't send each other, and see how many messages were delivered or blocked each day. Message text itself is never stored or shown here. |
 | **Boxes** | Show a pairing code to link a booth, or switch a booth off for good ("Revoke"). |
 | **Audit** | A log of what happened: agreements, strips, deletions, logins. It contains only codes, never pictures or names. |
 

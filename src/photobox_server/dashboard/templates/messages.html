@@ -4,6 +4,16 @@
 <h1>Messages between visitors</h1>
 <p class="muted">While a live pair's strip is being made, the two visitors can send each other short spoken messages, shown as text. Message text is never stored and never appears here.</p>
 <div class="msg">Messaging is {{ 'on' if enabled else 'off' }}. {{ 'It needs a consent notice that says so.' if enabled else 'Set PHOTOBOX_MESSAGING=true in .env and restart the server to switch it on, with a consent notice that says so.' }}</div>
+<h2>Use, by day (UTC)</h2>
+<div class="panel">
+{% if stats %}
+<table>
+  <tr><th>Day</th><th>Live pairs that could talk</th><th>Messages delivered</th><th>Messages blocked</th></tr>
+  {% for s in stats %}<tr><td class="mono">{{ s.day }}</td><td>{{ s.windows }}</td><td>{{ s.accepted }}</td><td>{{ s.blocked }}</td></tr>{% endfor %}
+</table>
+<p class="muted">Totals only, kept for 30 days. They say nothing about who sent what.</p>
+{% else %}<p class="muted">No messages have been sent yet.</p>{% endif %}
+</div>
 <h2>Blocked words</h2>
 <p class="muted">One word or phrase per line. A message containing one is not delivered, and the sender only sees "Message not sent". Phone numbers, email addresses, links and social media names are always blocked. This is a first check, and it will not catch everything.</p>
 <div class="panel">

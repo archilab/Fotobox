@@ -637,7 +637,8 @@ def messages_page(request: Request):
     from ..message_windows import enabled
     with db_connect() as db:
         words = load_words(db)
-    return page(request, "messages.html", words="\n".join(words), enabled=enabled(), message=request.query_params.get("message"))
+        stats = db.execute("SELECT * FROM message_stats ORDER BY day DESC LIMIT 14").fetchall()
+    return page(request, "messages.html", words="\n".join(words), enabled=enabled(), stats=stats, message=request.query_params.get("message"))
 
 
 @app.post("/messages")

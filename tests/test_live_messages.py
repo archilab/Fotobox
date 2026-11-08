@@ -218,6 +218,27 @@ def test_blocked_text_gets_a_neutral_refusal_and_is_not_delivered(pair):  # 13
     assert events(berlin) == []
 
 
+def test_daily_counts_hold_no_text_or_identifiers(boxes):
+    client, berlin = boxes
+    leader, _ = visit(client), visit(berlin)
+    message_windows.open_for(leader)
+    match = message_windows.match_id(leader)
+    say(client, leader, match, "Hallo")
+    say(client, leader, match, "Du Arschloch", "m2")
+    with db_connect() as db:
+        rows = [dict(row) for row in db.execute("SELECT * FROM message_stats")]
+    assert len(rows) == 1 and set(rows[0]) == {"day", "windows", "accepted", "blocked"}
+    assert (rows[0]["windows"], rows[0]["accepted"], rows[0]["blocked"]) == (1, 1, 1)
+
+
+def test_old_daily_counts_are_removed(boxes):
+    with db_connect() as db:
+        db.execute("INSERT INTO message_stats(day,windows,accepted,blocked) VALUES('2020-01-01',1,1,1)")
+        message_windows.count(db, windows=1)
+        assert [row["day"] for row in db.execute("SELECT day FROM message_stats")] != ["2020-01-01"]
+        assert db.execute("SELECT COUNT(*) FROM message_stats WHERE day='2020-01-01'").fetchone()[0] == 0
+
+
 def test_operator_list_is_used_and_validated(pair):
     client, berlin, leader, _, match = pair
     with db_connect() as db:
@@ -250,7 +271,7 @@ def dash(anonymous_client):
 
 def test_dashboard_edits_the_word_list(dash):
     page = dash.get("/messages").text
-    assert "arschloch" in page and "off" in page
+    assert "arschloch" in page and "off" in page and "No messages have been sent" in page
     token = re.search(r'name="csrf" value="([^"]+)"', page).group(1)
     assert dash.post("/messages", data={"csrf": token, "words": "eins\nzwei"}).status_code == 303
     assert "eins\nzwei" in dash.get("/messages").text

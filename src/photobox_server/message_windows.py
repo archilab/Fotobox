@@ -16,6 +16,7 @@ from .presence.projection import OFFLINE_SECONDS
 
 PREFIX = "live-"
 ACTIVE = ("queued", "processing")
+STATS_DAYS = 30
 _relay: Relay | None = None
 
 
@@ -53,6 +54,17 @@ def _label(db: sqlite3.Connection, box_id: str) -> str | None:
     return row["public_label"] if row else None
 
 
+def count(db: sqlite3.Connection, *, windows: int = 0, accepted: int = 0, blocked: int = 0) -> None:
+    """Add to today's totals, and forget totals older than STATS_DAYS. Counts only."""
+    now = datetime.now(timezone.utc)
+    db.execute(
+        """INSERT INTO message_stats(day,windows,accepted,blocked) VALUES(?,?,?,?)
+           ON CONFLICT(day) DO UPDATE SET windows=windows+excluded.windows, accepted=accepted+excluded.accepted, blocked=blocked+excluded.blocked""",
+        (now.date().isoformat(), windows, accepted, blocked),
+    )
+    db.execute("DELETE FROM message_stats WHERE day < ?", ((now - timedelta(days=STATS_DAYS)).date().isoformat(),))
+
+
 def open_for(leader_id: str) -> None:
     """Called when the strip starts. Only a live leader has a window; a pool match or seed never does."""
     if not enabled():
@@ -65,7 +77,9 @@ def open_for(leader_id: str) -> None:
     try:
         relay().open_window(match_id(leader_id), "live", people)
     except MessagingError:
-        pass  # a retry of the same strip keeps its original window and deadline
+        return  # a retry of the same strip keeps its original window and deadline
+    with db_connect() as db:
+        count(db, windows=1)
 
 
 def close_for(leader_id: str, reason: str) -> None:
@@ -92,4 +106,9 @@ def send(db: sqlite3.Connection, session: sqlite3.Row, match: str, message_id: s
     """Relay one message, after checking the pair is still real. Blocked text gets a neutral refusal."""
     sync(db, session["box_id"])
     words = load_words(db)
-    return relay().send(session["box_id"], session["id"], match, message_id, text, blocked=lambda cleaned: is_blocked(cleaned, words))
+    event = relay().send(session["box_id"], session["id"], match, message_id, text, blocked=lambda cleaned: is_blocked(cleaned, words))
+    if event["type"] == "messaging.message_ack":
+        count(db, accepted=1)
+    elif event.get("reason") == "blocked":
+        count(db, blocked=1)
+    return event

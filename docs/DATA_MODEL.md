@@ -12,6 +12,7 @@
 `devices(id PK, token_hash UNIQUE, created_at, revoked_at, public_label)`: `sessions.box_id` holds the authenticated device id; `public_label` is the name other boxes show (ADR-023)
 `simulated_boxes(box_id PK, label, connected, state, session_id, sessions, created_at)`: virtual boxes of the presence simulator (developer mode only, ADR-023); ids like `sim:1`, never a real device
 `message_filter(id=1, words, updated_at)`: the operator's blocked words, one per line (ADR-027). Message text itself is never stored
+`message_stats(day PK, windows, accepted, blocked)`: daily totals of message use, kept for 30 days; counts only (ADR-027)
 `presence_events(event_id PK, type, box_id, session_id, correlation_id, occurred_at, simulated)`: social presence events (ADR-023), opaque ids and times only, deleted after an hour; a repeated `event_id` is ignored
 `consent_records(id PK, session_id, purpose, policy_version, granted_at, withdrawn_at, provenance, evidence_ref, expires_at)`: one record per session and purpose (`processing`, `pool`, `live`); a pool consent given on the screen names the pool notice version with its hours (such as `pool-…-24h`) and, in `expires_at`, the end time the visitor was shown
 

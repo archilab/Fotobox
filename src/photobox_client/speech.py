@@ -177,8 +177,10 @@ class Screen(Protocol):
     def show(self, text: str) -> None: ...
 
 
-NOT_UNDERSTOOD = "I couldn't understand that. Try again."
-UNAVAILABLE = "Voice messaging unavailable."
+# German first, then English, in plain letters, like the kiosk's other screens.
+NOT_UNDERSTOOD = "Das habe ich nicht verstanden. Bitte versuch es noch einmal.\nI couldn't understand that. Try again."
+UNAVAILABLE = "Sprachnachrichten sind gerade nicht verfuegbar.\nVoice messaging unavailable."
+CONVERTING = "DEINE STIMME WIRD ZU TEXT ...\nTURNING YOUR VOICE INTO TEXT ..."
 
 
 class PushToTalk:
@@ -213,7 +215,7 @@ class PushToTalk:
             left = max(0, self.limit_seconds - int(self.clock() - started))
             if left != shown:
                 shown = left
-                self.screen.show(f"LISTENING · {left} seconds left\nPress ENTER when you are done.")
+                self.screen.show(f"ICH HOERE ZU · noch {left} Sekunden\nLISTENING · {left} seconds left\n\nENTER = fertig / Press ENTER when you are done.")
             if not self.window_open():
                 closed = True
                 break
@@ -239,7 +241,7 @@ class PushToTalk:
         audio = self._capture()
         if audio is None:
             return None
-        self.screen.show("TURNING YOUR VOICE INTO TEXT…")
+        self.screen.show(CONVERTING)
         if self.report_levels is not None:
             self.report_levels(speech_levels(audio))
         try:

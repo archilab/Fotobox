@@ -13,19 +13,22 @@ import httpx
 ENTER = "enter"
 POLL_SECONDS = 1.0
 DISPLAY_SECONDS = 8
-LOST = "Connection lost. Message not sent."
+# German first, then English, in plain letters, like the kiosk's other screens.
+LOST = "Verbindung verloren. Nachricht nicht gesendet.\nConnection lost. Message not sent."
+NOT_DELIVERED = "Nachricht nicht gesendet.\nMessage not sent."
+ENDED = "Die Nachrichten sind beendet.\nMessaging has ended."
 NOT_SENT = {
-    "too_long": "Too long. Please say something shorter.",
-    "limit_reached": "No more messages in this encounter.",
-    "cooldown": "One moment before the next message.",
-    "window_closed": "Messaging has ended. Message not sent.",
+    "too_long": "Zu lang. Bitte sag etwas Kuerzeres.\nToo long. Please say something shorter.",
+    "limit_reached": "Keine weiteren Nachrichten moeglich.\nNo more messages in this encounter.",
+    "cooldown": "Einen Moment bis zur naechsten Nachricht.\nOne moment before the next message.",
+    "window_closed": ENDED,
 }
 CLOSED = {
-    "generation_completed": "Your photo is ready. Messaging has ended.",
-    "generation_failed": "Messaging has ended.",
-    "timeout": "Message time is over. Your photo is still being made.",
-    "participant_left": "The other visitor has left. Messaging has ended.",
-    "cancelled": "Messaging has ended.",
+    "generation_completed": "Dein Foto ist fertig. Die Nachrichten sind beendet.\nYour photo is ready. Messaging has ended.",
+    "generation_failed": ENDED,
+    "timeout": "Die Zeit fuer Nachrichten ist um. Dein Foto entsteht noch.\nMessage time is over. Your photo is still being made.",
+    "participant_left": "Die andere Person ist gegangen.\nThe other visitor has left. Messaging has ended.",
+    "cancelled": ENDED,
 }
 
 
@@ -52,14 +55,14 @@ class Conversation:
             self.keys.flush()  # a key pressed before the invitation appeared is not a request to talk
         elif kind == "messaging.window_closed" and event.get("match_id") == self.match_id:
             self.open, self.status, self.current = False, None, None
-            self.closed = CLOSED.get(event.get("reason"), "Messaging has ended.")
+            self.closed = CLOSED.get(event.get("reason"), ENDED)
             self.waiting.clear()
         elif kind == "messaging.message_received" and event.get("match_id") == self.match_id:
             self.waiting.append(event)
         elif kind == "messaging.message_ack":
-            self.status = f"SENT TO {self.partner}"
+            self.status = f"GESENDET AN {self.partner}\nSENT TO {self.partner}"
         elif kind == "messaging.message_rejected":
-            self.status = NOT_SENT.get(event.get("reason"), "Message not sent.")
+            self.status = NOT_SENT.get(event.get("reason"), NOT_DELIVERED)
 
     def poll(self, force: bool = False) -> None:
         if not self.enabled or (not force and self.clock() < self.next_poll):
@@ -99,9 +102,9 @@ class Conversation:
             return self.closed
         if not self.open:
             return ""
-        lines = [f"CONNECTED TO {self.partner} · LIVE"]
+        lines = [f"VERBUNDEN MIT {self.partner} · LIVE\nCONNECTED TO {self.partner} · LIVE"]
         if self.make_talker is not None:
-            lines.append(f"PRESS ENTER TO TALK · up to {self.limit_seconds} seconds")
+            lines.append(f"ENTER = SPRECHEN · bis zu {self.limit_seconds} Sekunden\nPRESS ENTER TO TALK · up to {self.limit_seconds} seconds")
         if self.current is not None:
             lines.append(f"\n{self.current[0]['sender_label']}: {self.current[0]['text']}")
         if self.status:
