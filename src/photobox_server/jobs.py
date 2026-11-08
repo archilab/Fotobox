@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from PIL import Image
 from . import audit
+from .presence import events as presence_events
 from .config import get_frame_count, get_provider, int_setting
 from .core import SEED_PREFIX, db_connect, now_iso, storage_root, strip_images_active, write_private_image
 from .pool import record_use, select_match
@@ -137,6 +138,8 @@ def _mark_failed(db: sqlite3.Connection, job_id: str, session_id: str, message: 
     db.execute("UPDATE generation_jobs SET status=?,run_id=NULL,error=?,finished_at=? WHERE id=?", (FAILED_JOB, message, now_iso(), job_id))
     if transition(db, session_id, PROCESSING, FAILED):
         db.execute("UPDATE sessions SET error=? WHERE id=?", (message, session_id))
+        box = db.execute("SELECT box_id FROM sessions WHERE id=?", (session_id,)).fetchone()
+        presence_events.emit(db, "generation.failed", box["box_id"], session_id=session_id)
     audit.record(db, "generation_failed", session_id=session_id, detail=message)
     discard_frames(job_id)
 
@@ -194,6 +197,7 @@ def _claim() -> Run | None:
             "UPDATE generation_jobs SET status=?,run_id=?,attempts=?,started_at=? WHERE id=?",
             (RUNNING_JOB, run_id, attempts, now_iso(), job["id"]),
         )
+        presence_events.emit(db, "generation.started", session["box_id"], session_id=session["id"])
         return Run(job["id"], run_id, session["id"], own, match_path, match_id, job["seed"], job["frames_total"], attempts, job["prompt_version"])
 
 
@@ -247,6 +251,7 @@ def _finish(run: Run, provider: ImageGenerationProvider, frames: list[Path], met
                 (COMPLETE_JOB, now_iso(), json.dumps(summary), run.job_id),
             )
             audit.record(db, "generation_completed", session_id=run.session_id, detail=provider.name)
+            presence_events.emit(db, "generation.completed", session["box_id"], session_id=run.session_id)
             kept = True
     finally:
         if not kept:

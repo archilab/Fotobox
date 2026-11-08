@@ -21,7 +21,7 @@ How to run the Fotobox day to day. To install it, see [INSTALL.md](../INSTALL.md
 
 | Screen | What the visitor does |
 |---|---|
-| **FOTOBOX – Press ENTER to start** | Presses ENTER. |
+| **FOTOBOX – Press ENTER to start** | Presses ENTER. Above it, one line tells what is happening at the other booths, such as "Someone is taking a photo in Hall B", refreshed every 10 seconds (see *Booth names* below). |
 | **Consent notice** | Reads it, then presses ENTER to agree or ESC to cancel. After 90 seconds without an answer, it cancels. |
 | **3 – 2 – 1** | Looks at the camera. |
 | **Your photo strip is being made** | Waits about three minutes. A timer and "frame x of 4" show progress. |
@@ -148,6 +148,20 @@ Everything starts by itself: the Mac's server and dashboard when you log in, and
 
 ---
 
+## Booth names
+
+Other booths' start screens name the place where something is happening, such as "A photo was just taken in Hall B". Give each booth a public name in the dashboard under **Boxes** (or with `… admin device label pi-01 "Hall B"`). Use a place, never a person's name. A booth without a name is shown as "another Photobox".
+
+What the start screen says is always based on what really happened:
+- A booth that is only switched on is shown as **online**, never as someone being there.
+- **LIVE** appears only after a visitor has agreed to the consent notice, and ends when that booth returns to its start screen.
+- **RECENT** lasts 3 minutes after a photo.
+- "Someone left a photo for you" appears only while a visitor's shared pool photo exists, never for your seed images.
+
+Your consent notice must tell visitors that other booths show when someone takes a photo here; the example notice has a line for it.
+
+---
+
 ## Commands on the Mac
 
 Most tasks are easier in the dashboard. Everything also works as a command, run in `~/photobox-server`:
@@ -158,6 +172,7 @@ Most tasks are easier in the dashboard. Everything also works as a command, run 
 | … by session number | `.venv/bin/python -m photobox_server.admin withdraw --session SESSION_ID` |
 | Show a pairing code | `.venv/bin/python -m photobox_server.admin device pair pi-01` |
 | List or switch off booths | `… admin device list`, `… admin device revoke pi-01` |
+| Set a booth's public name | `… admin device label pi-01 "Hall B"` (leave out the name to remove it) |
 | Add, list or remove counterparts | `… admin seed add FILE --rights-reference REF --attest-rights`, `… admin seed list`, `… admin seed remove SEED_ID` |
 | Show the log | `… admin audit --limit 50` |
 | Delete expired pictures now (it also happens every 5 minutes) | `… admin cleanup` |
@@ -183,6 +198,8 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 | `PHOTOBOX_GENERATION_RETRY_DELAY_SECONDS` | `30` | Pause before trying again. |
 | `PHOTOBOX_CLEANUP_INTERVAL_SECONDS` | `300` | How often expired pictures are deleted. |
 | `PHOTOBOX_POOL_HOURS` | `24` | How long shared pool photos are kept. The booth never adds to the pool. |
+| `PHOTOBOX_PRESENCE_RECENT_SECONDS` | `180` | How long a photo counts as "just taken" on other booths (30 to 1800). |
+| `PHOTOBOX_PUBLIC_ACTIVITY_DETAIL` | `coarse` | `coarse` shows no times; `detailed` adds how long ago. |
 | `PHOTOBOX_STORAGE_DIR` | `./storage` | Where photos, strips and the database are kept. |
 | `PHOTOBOX_MAX_UPLOAD_BYTES` | `10000000` | Largest photo accepted. |
 | `PHOTOBOX_MAX_UPLOADS_PER_MINUTE` | `30` | Per booth. |

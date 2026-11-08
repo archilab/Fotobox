@@ -9,6 +9,7 @@ Every path except `/api/v1/health` and `/api/v1/pair` requires `Authorization: B
 |---|---|---|
 | GET | `/health` | `{status,provider,production_ready}` (no token needed) |
 | POST | `/devices/status` | `{state,detail?}` -> `204`; `state` is `idle`, `consent`, `capturing`, `generating`, `showing`, `setup` or `not ready`; `detail` at most 120 characters, operator-facing only (ADR-022) |
+| GET | `/presence/snapshot` | What is happening at the other boxes and the message to show (ADR-023): `{type,generated_at,detail,self:{box_id,label,state},locations:[{box_id,label,device_state,activity_state,activity_age_seconds,match_available,simulated,status:{de,en}}],more_locations,earlier_portrait_available,message:{priority,key,texts:{de:{hero,support},en:{hero,support}}}}`. `device_state` is `online` or `offline`; `activity_state` is `session_active`, `recent_photo` or `none`; `activity_age_seconds` is `null` unless `PHOTOBOX_PUBLIC_ACTIVITY_DETAIL=detailed`; `match_available` stays `false` until live matching (L-1). At most 5 locations, ordered live, recent, online, offline. Never contains images, paths, addresses or session ids |
 | POST | `/pair` | `{code}` -> `{device_id,token}`; **no token needed**; `403` for a wrong, used or expired code, `429` after 10 attempts per minute (ADR-021) |
 | GET | `/consent-notice` | `{version,text}` for the box's screen; `503` if no completed notice is configured (ADR-020) |
 | POST | `/sessions` | no body -> `{id,status}`; `box_id` is the authenticated device; `201`, or `200` when repeated with the same key |
@@ -37,7 +38,7 @@ Requests can be repeated safely after a lost connection. Each one does its work 
 | Uploads per device, `PHOTOBOX_MAX_UPLOADS_PER_MINUTE` | 30 | `429` with `Retry-After` |
 
 ## Future design (not implemented)
-- authenticated WebSocket box updates, short-lived scoped credentials
+- pushed presence updates (server-sent events, milestone S2), short-lived scoped credentials
 - self-service withdrawal
 - image/object access control
 - multi-box live matching, printer protocol, touchscreen flow

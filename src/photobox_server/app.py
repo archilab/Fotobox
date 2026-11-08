@@ -15,7 +15,8 @@ from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image
 from pydantic import BaseModel, Field
-from . import audit, throttle
+from . import audit, presence, throttle
+from .presence import events as presence_events
 from .auth import authenticate
 from .consent_notice import NoticeError, load_notice
 from .pairing import complete_pairing
@@ -47,6 +48,7 @@ def run_cleanup() -> None:
     with db_connect() as db:
         cleanup_expired(db)
         cleanup_job_folders(db)
+        presence_events.purge(db)
 
 
 async def cleanup_loop(interval: int) -> None:
@@ -65,6 +67,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     provider = create_provider(get_provider())
     get_frame_count()
     validate_settings()
+    presence.settings()
     interval = get_cleanup_interval()
     with db_connect() as db:
         interrupted = recover_after_restart(db)
@@ -175,6 +178,13 @@ def consent_notice():
     return {"version": version, "text": text}
 
 
+@app.get("/api/v1/presence/snapshot")
+def presence_snapshot(request: Request):
+    """What is happening at the other boxes, and the one message this box should show (ADR-023)."""
+    with db_connect() as db:
+        return presence.snapshot(db, request.state.device_id)
+
+
 @app.get("/api/v1/health")
 def health():
     return {"status": "ok", "provider": get_provider(), "production_ready": False}
@@ -244,6 +254,8 @@ def record_consent(session_id: str, body: ConsentRequest, request: Request):
                         (str(uuid.uuid4()), session_id, purpose, policy_version, granted, body.method, body.evidence_ref),
                     )
                     audit.record(db, "consent_granted", session_id=session_id, device_id=request.state.device_id, detail=purpose)
+                # Only now, with consent recorded, may other boxes learn that someone is here (ADR-023).
+                presence_events.emit(db, "session.started", request.state.device_id, session_id=session_id)
                 return {"status": AWAITING_PORTRAIT, "pool_consent": body.pool, "withdrawal_code": code}
             s = get_session(db, session_id, request.state.device_id)
         # A retry of the same request succeeds; anything that would change consent does not.
@@ -316,6 +328,7 @@ def upload_portrait(session_id: str, request: Request, image: UploadFile = File(
                     (pool_id, session_id, str(saved[1]), now_iso(), (now+timedelta(hours=hours)).isoformat()),
                 )
             db.execute("UPDATE sessions SET portrait_id=? WHERE id=?", (photo_id, session_id))
+            presence_events.emit(db, "portrait.captured", device_id, session_id=session_id)
     except Exception:
         # A portrait with no record could never be found again for deletion.
         for path in saved:

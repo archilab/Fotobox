@@ -5,6 +5,7 @@ import secrets
 import sqlite3
 from typing import NamedTuple
 from . import audit
+from .presence import events as presence_events
 from .core import delete_portrait, now_iso, purge_stale_strips
 from .jobs import cancel_for_session, discard_frames_using
 from .sessions import WITHDRAWN
@@ -39,7 +40,7 @@ def withdraw_session(db: sqlite3.Connection, session_id: str) -> WithdrawalResul
     The consent records stay, marked withdrawn, as the record of what happened. Safe to repeat.
     Generation in progress stops, and cannot complete afterwards: its state change to complete fails.
     """
-    row = db.execute("SELECT status FROM sessions WHERE id = ?", (session_id,)).fetchone()
+    row = db.execute("SELECT status, box_id FROM sessions WHERE id = ?", (session_id,)).fetchone()
     if row is None:
         return None
     already = row["status"] == WITHDRAWN
@@ -53,4 +54,5 @@ def withdraw_session(db: sqlite3.Connection, session_id: str) -> WithdrawalResul
     strips = purge_stale_strips(db)
     if not already:
         audit.record(db, "consent_withdrawn", session_id=session_id)
+        presence_events.emit(db, "session.ended", row["box_id"], session_id=session_id)
     return WithdrawalResult(session_id, already, len(portraits), strips)

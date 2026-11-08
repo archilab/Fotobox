@@ -16,7 +16,8 @@ Start with the [README](../README.md) for an overview and [INSTALL.md](../INSTAL
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Components, session states, concurrency |
 | [API.md](API.md) | The HTTP API between booth and server |
 | [DATA_MODEL.md](DATA_MODEL.md) | Database tables |
-| [DECISIONS.md](DECISIONS.md) | Architecture decision records (ADR-001 to ADR-022) |
+| [DECISIONS.md](DECISIONS.md) | Architecture decision records (ADR-001 to ADR-024) |
+| [INTERACTION_EXTENSION.md](INTERACTION_EXTENSION.md) | Spec for social presence, live encounters and voice messages, as adopted by ADR-023/024 |
 | [SECURITY.md](SECURITY.md) | Security boundaries and the review of the LAN setup |
 | [MILESTONES.md](MILESTONES.md) | Milestones and their acceptance results |
 | [TEST_PLAN.md](TEST_PLAN.md) | What is tested, and the evaluation set |

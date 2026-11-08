@@ -38,6 +38,10 @@ NOTICE_TIMEOUT_SECONDS = 90
 RESULT_SECONDS = 60
 STRIP_SECONDS = 20
 MESSAGE_SECONDS = 10
+# How often the start screen asks the server what is happening at the other boxes (ADR-023).
+PRESENCE_REFRESH_SECONDS = 10
+PRESENCE_TILES = 3
+START_TEXT = "Druecke ENTER zum Starten.\nPress ENTER to start."
 COUNTDOWN = (3, 2, 1)
 BIG_DIGITS = {
     3: ("#####", "    #", " ####", "    #", "#####"),
@@ -169,6 +173,11 @@ class Api:
         response = post_with_retry(self.client, f"/api/v1/sessions/{session_id}/process")
         response.raise_for_status()
 
+    def presence(self) -> dict | None:
+        response = self.client.get("/api/v1/presence/snapshot", timeout=5)
+        response.raise_for_status()
+        return response.json()
+
     def strip(self, session_id: str) -> bytes:
         response = self.client.get(f"/api/v1/sessions/{session_id}/result")
         response.raise_for_status()
@@ -178,6 +187,34 @@ class Api:
         response = self.client.get(f"/api/v1/sessions/{session_id}")
         response.raise_for_status()
         return response.json()
+
+
+# The console font is kept to plain letters, as on every other kiosk screen.
+PLAIN_LETTERS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss"})
+
+
+def presence_text(snapshot: dict | None) -> str:
+    """The start screen's lines about the other boxes, in German and English. Empty if unknown.
+
+    The server chooses the message from real state (ADR-023); the kiosk only shows it.
+    """
+    if not snapshot:
+        return ""
+    texts = snapshot.get("message", {}).get("texts", {})
+    lines = []
+    for language in ("de", "en"):
+        text = texts.get(language)
+        if text:
+            lines.append(f"{text['hero']}\n{text['support']}")
+    tiles = []
+    for location in snapshot.get("locations", [])[:PRESENCE_TILES]:
+        status = location.get("status", {})
+        words = " / ".join(dict.fromkeys(word for word in (status.get("de"), status.get("en")) if word))
+        tiles.append(f"  {location.get('label') or 'Fotobox'}  ·  {words}")
+    more = snapshot.get("more_locations", 0) + max(0, len(snapshot.get("locations", [])) - PRESENCE_TILES)
+    if more:
+        tiles.append(f"  +{more}")
+    return ("\n\n".join(lines) + ("\n\n" + "\n".join(tiles) if tiles else "")).translate(PLAIN_LETTERS)
 
 
 def big(number: int) -> str:
@@ -239,10 +276,23 @@ class Kiosk:
     def message(self, text: str) -> None:
         self.ask(text + "\n\nENTER", {ENTER}, MESSAGE_SECONDS)
 
+    def start_screen(self) -> str:
+        """Wait for ENTER or the setup keys, refreshing what is happening at the other boxes."""
+        self.keys.flush()
+        while True:
+            try:
+                presence = presence_text(self.api.presence())
+            except (httpx.HTTPError, ValueError, KeyError, TypeError):
+                presence = ""  # the start screen works without it
+            self.screen.show(self.banner + "FOTOBOX\n\n" + (presence + "\n\n" if presence else "") + START_TEXT)
+            key = self.keys.wait({ENTER, SETUP}, PRESENCE_REFRESH_SECONDS)
+            if key is not None:
+                return key
+
     def run_once(self) -> str:
         """One participant from start to finish. Returns how it ended."""
         self.report("idle")
-        if self.ask("FOTOBOX\n\nDruecke ENTER zum Starten.\nPress ENTER to start.", {ENTER, SETUP}, None) == SETUP:
+        if self.start_screen() == SETUP:
             return "setup"
         self.report("consent")
         try:

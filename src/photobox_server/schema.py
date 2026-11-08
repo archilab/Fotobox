@@ -95,6 +95,15 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
             iterations INTEGER NOT NULL, set_at TEXT NOT NULL
         )""",
     ),
+    # 7: social presence (ADR-023): recorded events and a public name per box.
+    (
+        """CREATE TABLE presence_events (
+            event_id TEXT PRIMARY KEY, type TEXT NOT NULL, box_id TEXT NOT NULL, session_id TEXT,
+            correlation_id TEXT NOT NULL, occurred_at TEXT NOT NULL, simulated INTEGER NOT NULL DEFAULT 0
+        )""",
+        "CREATE INDEX presence_events_time ON presence_events(occurred_at)",
+        "ALTER TABLE devices ADD COLUMN public_label TEXT",
+    ),
 )
 
 

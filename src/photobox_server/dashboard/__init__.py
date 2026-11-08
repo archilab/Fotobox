@@ -123,7 +123,7 @@ def logout(request: Request):
 def device_rows(db) -> list[dict]:
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=ONLINE_SECONDS)).isoformat()
     rows = db.execute(
-        """SELECT d.id, d.created_at, d.revoked_at, s.state, s.detail, s.reported_at FROM devices d
+        """SELECT d.id, d.created_at, d.revoked_at, d.public_label, s.state, s.detail, s.reported_at FROM devices d
            LEFT JOIN device_status s ON s.device_id = d.id ORDER BY d.id"""
     ).fetchall()
     return [dict(row) | {"online": bool(row["reported_at"] and row["reported_at"] > cutoff and not row["revoked_at"])} for row in rows]
@@ -461,6 +461,20 @@ def devices_revoke(device_id: str, request: Request):
     with db_connect() as db:
         revoked = revoke_device(db, device_id)
     return back("/devices", f"Revoked {device_id}. Pair it again to use it." if revoked else "No active box with that name.")
+
+
+@app.post("/devices/{device_id}/label")
+def devices_label(device_id: str, request: Request):
+    from ..presence import set_label
+    label = str(form(request).get("label", ""))
+    try:
+        with db_connect() as db:
+            changed = set_label(db, device_id, label)
+    except ValueError as exc:
+        return back("/devices", str(exc))
+    if not changed:
+        return back("/devices", "No active box with that name.")
+    return back("/devices", f"Public name of {device_id} saved." if label.strip() else f"Public name of {device_id} removed.")
 
 
 # Audit

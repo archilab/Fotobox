@@ -20,6 +20,9 @@ def main(argv: list[str] | None = None) -> int:
     actions.add_parser("revoke", help="revoke a device's token").add_argument("device_id")
     actions.add_parser("list", help="list devices (tokens are not shown)")
     actions.add_parser("pair", help="show a code that pairs a box as this device").add_argument("device_id")
+    label = actions.add_parser("label", help="set the public name other boxes show for this box, such as a place")
+    label.add_argument("device_id")
+    label.add_argument("label", nargs="?", default="", help="1-32 characters; leave out to remove the name")
     commands.add_parser("cleanup", help="delete expired portraits, their strips and untracked files now")
     seed = commands.add_parser("seed", help="manage rights-cleared seed images")
     seed_actions = seed.add_subparsers(dest="action", required=True)
@@ -69,6 +72,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Pairing code for {args.device_id}, valid for {VALID_MINUTES} minutes and usable once:")
             print(f"    {code[:3]} {code[3:]}")
             print("Enter it in the box's setup menu under 'Pair with server'. Any earlier code no longer works.")
+        elif args.action == "label":
+            from .presence import set_label
+            try:
+                changed = set_label(db, args.device_id, args.label)
+            except ValueError as exc:
+                print(f"Error: {exc}", file=sys.stderr)
+                return 1
+            if not changed:
+                print(f"Error: no active device {args.device_id!r}", file=sys.stderr)
+                return 1
+            print(f"Public name of {args.device_id}: {args.label.strip() or '(none: shown as another Photobox)'}")
         elif args.action == "add":
             try:
                 token = create_device(db, args.device_id)
@@ -83,8 +97,8 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             print(f"Device {args.device_id} revoked.")
         else:
-            for row in db.execute("SELECT id,created_at,revoked_at FROM devices ORDER BY id"):
-                print(f"{row['id']}\tcreated {row['created_at']}\t{'revoked ' + row['revoked_at'] if row['revoked_at'] else 'active'}")
+            for row in db.execute("SELECT id,created_at,revoked_at,public_label FROM devices ORDER BY id"):
+                print(f"{row['id']}\tcreated {row['created_at']}\t{'revoked ' + row['revoked_at'] if row['revoked_at'] else 'active'}\tname {row['public_label'] or '-'}")
     return 0
 
 

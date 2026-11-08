@@ -148,6 +148,18 @@ def test_status_needs_a_token_and_a_known_state(client, anonymous_client):
     assert client.post("/api/v1/devices/status", json={"state": "idle", "detail": "x" * 121}).status_code == 422
 
 
+def test_public_box_name_is_set_and_checked_on_the_boxes_page(client, dash):
+    assert post(dash, "/devices/pi-01/label", {"label": "Hall B"}, page="/devices").status_code == 303
+    assert 'value="Hall B"' in dash.get("/devices").text
+    assert client.get("/api/v1/presence/snapshot").json()["self"]["label"] == "Hall B"
+    refused = post(dash, "/devices/pi-01/label", {"label": "<script>"}, page="/devices")
+    assert refused.status_code == 303 and "must be" in dash.get(refused.headers["location"]).text
+    assert "<script>" not in dash.get("/devices").text
+    assert post(dash, "/devices/nobody/label", {"label": "X"}, page="/devices").status_code == 303
+    post(dash, "/devices/pi-01/label", {"label": ""}, page="/devices")
+    assert client.get("/api/v1/presence/snapshot").json()["self"]["label"] is None
+
+
 def test_silent_box_shows_offline(client, dash):
     client.post("/api/v1/devices/status", json={"state": "idle"})
     with db_connect() as db:

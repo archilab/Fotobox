@@ -9,7 +9,8 @@
 `prompt_sets(version PK, content, created_at, active)` and `consent_notices(version PK, text, created_at, active)`: every saved version, one active each (ADR-022); `generation_jobs.prompt_version` names the set a job used
 `device_status(device_id PK, state, detail, reported_at)`: the latest report from each box
 `dashboard_password(id=1, salt, hash, iterations, set_at)` and `device_pairings(id, device_id, code_hash, created_at, expires_at, used_at, wrong_guesses)`
-`devices(id PK, token_hash UNIQUE, created_at, revoked_at)`: `sessions.box_id` holds the authenticated device id
+`devices(id PK, token_hash UNIQUE, created_at, revoked_at, public_label)`: `sessions.box_id` holds the authenticated device id; `public_label` is the name other boxes show (ADR-023)
+`presence_events(event_id PK, type, box_id, session_id, correlation_id, occurred_at, simulated)`: social presence events (ADR-023), opaque ids and times only, deleted after an hour; a repeated `event_id` is ignored
 `consent_records(id PK, session_id, purpose, policy_version, granted_at, withdrawn_at, provenance, evidence_ref)`: one record per session and purpose (`processing`, `pool`)
 
 Consent provenance is `operator_attestation`, or `migrated_flag` for records converted from the old flags, whose `granted_at` is the session's creation time because the real time was never stored. A record is an operator's statement, not proof of consent. `upload_sha256` identifies repeated uploads, is not a face template, and is deleted with the portrait.

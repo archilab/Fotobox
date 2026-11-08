@@ -95,3 +95,26 @@ Content becomes versioned data. Stories, backdrops, stagings and the scene templ
 Boxes report their state (idle, consent, capturing, generating, showing, setup or not ready) to `POST /api/v1/devices/status` on every change and every 30 s; a box is shown as offline after 90 s of silence. Reports carry no participant data.
 
 Not included: making a test strip from the dashboard (use `scripts/evaluate_pairs.py`), and remote access to the dashboard, which waits for an encrypted network.
+
+## ADR-023: Social presence from recorded events, shown truthfully
+**Decided by the project owner on 2026-11-08**, adopting `docs/INTERACTION_EXTENSION.md` (V0.3) with these adaptations. The booth already has a screen (ADR-020), so presence is shown on the kiosk's idle screen as text, besides the dashboard preview of milestone S2. Updates are polled for now; S2 adds server-sent events rather than a WebSocket, which needs no new dependency. The spec's reference to an interaction extension V0.2 is void: no such document exists, and V0.3 is treated as complete.
+
+Presence is derived, never guessed. The booth server writes typed events (`photobox_server/presence/events.py`) into a `presence_events` table inside the same transaction as the action they describe, so an event exists exactly when its action committed. A pure projection (`presence/projection.py`) turns those events and each box's latest status report into a snapshot. Keeping events in SQLite rather than in memory lets the dashboard, a separate process, read the same state, and a restart loses nothing. Events hold opaque ids, a type and times, never image data or anything about a person, and are deleted after an hour, so they never become a history of visits.
+
+Rules:
+- A box is **online** if it reported within 90 s. Online never means someone is there.
+- A box is **active** (LIVE) from a session's recorded consent, not from its creation: before consent nothing about the visitor is signalled. It stays active while the box keeps reporting a session state (consent, capturing, generating, showing), and ends when the box reports idle, setup or not ready, when it goes offline, when the session is cancelled or withdrawn, or 5 minutes after the last sign of the session.
+- A **recent photo** lasts 3 minutes after an upload (`PHOTOBOX_PRESENCE_RECENT_SECONDS`).
+- An **earlier portrait** is available only while a visitor's pool portrait with valid pool consent exists; seed portraits never count. This is read from the portraits table on every snapshot, so withdrawal and expiry take effect at once.
+- Repeated events are ignored by event id, and an event can never revive a session that has ended.
+- Simulated events are marked and never appear in a box's snapshot.
+- Detail defaults to **coarse** (`PHOTOBOX_PUBLIC_ACTIVITY_DETAIL`): no ages are published, only states.
+
+Public names come from an operator-set label per box (`admin device label`, or the dashboard), never from device ids or addresses. Messages come from a catalog in German and English (`presence/messages.py`); the kiosk writes umlauts as plain letters, like its other screens. Labels are cleaned of control characters, so they cannot inject terminal escape codes, and are inserted in one pass, so a label cannot introduce further placeholders. A box without a label is called "another Photobox". The consent notice must say that taking a photo is signalled to other boxes before this goes beyond one box.
+
+## ADR-024: Live matching across boxes, and timed pool consent at the kiosk
+**Decided by the project owner on 2026-11-08.** This brings part of phase 4 forward. When a visitor's photo arrives, the server first looks for a visitor at another box who has also just taken an unmatched photo, and pairs them live. If none arrives within 20 s, it matches with a visitor pool portrait, and only then with a seed. Both live visitors get the identical strip. Until a second Pi exists, the second box is a second kiosk on the Mac, using a test image or the webcam, plus the simulator; only consenting people may be photographed.
+
+The kiosk will offer pool use as a second, separate question after the processing consent, never bundled with it: ENTER keeps the photo in the pool for 24 hours (`PHOTOBOX_POOL_HOURS`, set by the operator), ESC keeps it out, and the screen states the exact end time. It is recorded as its own `pool` consent with the notice version that described it, and expires or is withdrawn like any pool portrait. This replaces ADR-020's rule that the kiosk never asks for pool use, which was about not covering two purposes with one key press; separate questions satisfy it.
+
+Milestones P-1 (timed pool consent), L-1 (live matching) and L-2 (the interactive waiting screen) follow S1 in `docs/MILESTONES.md`. Voice messages (milestones M-VOICE) stay limited to live pairs and come after L-1.

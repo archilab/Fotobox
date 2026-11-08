@@ -153,6 +153,9 @@ class FakeApi:
         self.states = list(states)
         self.fail = fail
 
+    def presence(self):
+        return None
+
     def notice(self):
         self.calls.append("notice")
         if self.fail == "notice":

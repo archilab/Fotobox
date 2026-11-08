@@ -7,6 +7,8 @@ in einer kleinen Geschichte zu sehen bist.
 - Dein Foto wird ueber das lokale Netzwerk uebertragen, derzeit unverschluesselt.
 - Gespeichert wird es hoechstens 1 Stunde. Der Streifen wird mit ihm geloescht.
 - Dein Foto wird nicht fuer die Streifen anderer Personen verwendet.
+- Andere Fotoboxen zeigen an, dass hier gerade jemand ein Foto macht, mit dem
+  Namen dieses Ortes, aber ohne Bild und ohne Angaben zu dir.
 - Am Ende bekommst du einen Widerrufscode. Damit loescht die Betreuung deine
   Bilder sofort.
 - Die Teilnahme ist freiwillig. Mindestalter: TODO-OPERATOR
@@ -14,7 +16,9 @@ in einer kleinen Geschichte zu sehen bist.
 
 This photo booth takes a photo of you and uses AI to make a photo strip of you with
 an invented second person. Your photo is kept for at most 1 hour and is not used
-for anyone else's strip. You get a code to have it deleted at any time.
+for anyone else's strip. Other photo booths show that someone is taking a photo
+at this place, with no image and nothing about you. You get a code to have it
+deleted at any time.
 
 ENTER = Ich stimme zu, Foto machen / I agree, take the photo
 ESC   = Abbrechen / Cancel
