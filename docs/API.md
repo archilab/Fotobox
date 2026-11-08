@@ -38,7 +38,7 @@ Requests can be repeated safely after a lost connection. Each one does its work 
 | Uploads per device, `PHOTOBOX_MAX_UPLOADS_PER_MINUTE` | 30 | `429` with `Retry-After` |
 
 ## Future design (not implemented)
-- pushed presence updates (server-sent events, milestone S2), short-lived scoped credentials
+- pushed presence updates to boxes, short-lived scoped credentials (the dashboard preview already receives server-sent events; the presence simulator is in the dashboard, not in this API, ADR-023)
 - self-service withdrawal
 - image/object access control
 - multi-box live matching, printer protocol, touchscreen flow

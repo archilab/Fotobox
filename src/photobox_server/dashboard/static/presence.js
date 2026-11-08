@@ -69,5 +69,10 @@
     render(JSON.parse(event.data));
     byId("conn").textContent = "Live · last change " + new Date().toLocaleTimeString();
   });
-  source.onerror = () => { byId("conn").textContent = "Connection lost, reconnecting…"; };
+  source.onerror = () => {
+    // CLOSED means the browser gave up, for example because the login expired and a page came back instead.
+    byId("conn").textContent = source.readyState === EventSource.CLOSED
+      ? "Updates stopped. Reload the page; you may need to log in again."
+      : "Connection lost, reconnecting…";
+  };
 })();

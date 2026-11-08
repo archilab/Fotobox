@@ -75,6 +75,9 @@ def snapshot(db: sqlite3.Connection, self_box_id: str, now: datetime | None = No
     now = now or datetime.now(timezone.utc)
     config = settings()
     boxes = _boxes(db)
+    if include_simulated:
+        from .simulator import simulated_boxes
+        boxes += simulated_boxes(db, now)
     views = project(boxes, events.load(db, include_simulated=include_simulated), now, config)
     me = next((box for box in boxes if box.box_id == self_box_id), None)
     others = order([view for box_id, view in views.items() if box_id != self_box_id])

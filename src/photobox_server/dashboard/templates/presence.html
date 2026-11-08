@@ -80,4 +80,36 @@
 <p id="conn" class="conn">Updates every 2 seconds while this page is open.</p>
 <script src="/static/presence.js" defer></script>
 {% endif %}
+
+{% if simulator is not none %}
+<h2>Simulator <span class="muted">(developer mode)</span></h2>
+<p class="muted">Virtual boxes for trying out the screen. They and everything they do are marked simulated, appear only in this preview, and never reach a real box's screen. Each button causes exactly the events a real box would.</p>
+<div class="panel">
+{% set keep %}<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="box" value="{{ box }}"><input type="hidden" name="lang" value="{{ lang }}"><input type="hidden" name="aspect" value="{{ aspect }}">{% endset %}
+{% if simulator %}
+<div style="overflow-x:auto">
+<table>
+  <tr><th>Simulated box</th><th>Connection</th><th>Reports</th><th>Actions</th></tr>
+  {% for s in simulator %}
+  <tr>
+    <td><b>{{ s.label }}</b> <span class="muted mono">{{ s.box_id }}</span></td>
+    <td class="{{ 'ok' if s.connected else 'bad' }}">{{ 'connected' if s.connected else 'disconnected' }}</td>
+    <td>{{ s.state or '—' }}{% if s.session_id %} <span class="muted">· session running</span>{% endif %}</td>
+    <td>{% for a in actions %}<form class="inline" method="post" action="/presence/simulator/{{ s.box_id }}/{{ a }}">{{ keep }}<button class="quiet">{{ a }}</button></form> {% endfor %}</td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% else %}<p class="muted">No simulated boxes yet.</p>{% endif %}
+{% if simulator | length < max_simulated %}
+<form method="post" action="/presence/simulator/add">{{ keep }}
+  <label for="simlabel">Add a simulated box (name shown on screens)</label>
+  <input type="text" id="simlabel" name="label" maxlength="32" placeholder="e.g. Berlin">
+  <p><button>Add</button></p>
+</form>
+{% endif %}
+{% if simulator %}<form method="post" action="/presence/simulator/reset">{{ keep }}<button class="danger">Remove all simulated boxes and events</button></form>{% endif %}
+</div>
+<p class="muted">connect / disconnect: the box reports in or goes silent · start: a visitor gives consent · capture: the photo is uploaded and the strip is being made · finish: the strip is done and the box is back at its start screen · cancel: the visitor cancels or withdraws · expire: five minutes pass without any sign of the session.</p>
+{% endif %}
 {% endblock %}

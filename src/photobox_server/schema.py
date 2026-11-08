@@ -109,6 +109,13 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
         "ALTER TABLE consent_notices ADD COLUMN kind TEXT NOT NULL DEFAULT 'processing'",
         "ALTER TABLE consent_records ADD COLUMN expires_at TEXT",
     ),
+    # 9: the presence simulator (milestone S3): virtual boxes for the dashboard preview only.
+    (
+        """CREATE TABLE simulated_boxes (
+            box_id TEXT PRIMARY KEY, label TEXT NOT NULL, connected INTEGER NOT NULL DEFAULT 1,
+            state TEXT, session_id TEXT, sessions INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+        )""",
+    ),
 )
 
 

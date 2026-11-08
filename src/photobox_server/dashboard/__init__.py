@@ -572,16 +572,64 @@ def active_boxes() -> list[str]:
         return [row["id"] for row in db.execute("SELECT id FROM devices WHERE revoked_at IS NULL ORDER BY id")]
 
 
+def simulator_rows() -> list | None:
+    """The simulated boxes, or None when the simulator is off (outside developer mode)."""
+    from ..presence import simulator
+    if not simulator.enabled():
+        return None
+    with db_connect() as db:
+        return simulator.listing(db)
+
+
 @app.get("/presence", response_class=HTMLResponse)
 def presence_preview(request: Request, box: str = "", lang: str = "de", aspect: str = "16:9"):
+    from ..presence.simulator import ACTIONS, MAX_BOXES
     boxes = active_boxes()
-    if not boxes:
-        return page(request, "presence.html", boxes=[], snapshot=None, box="", lang="de", aspect="16:9", ratio=ASPECTS["16:9"], aspects=ASPECTS)
-    box = box if box in boxes else boxes[0]
     lang = lang if lang in PRESENCE_LANGUAGES else "de"
     aspect = aspect if aspect in ASPECTS else "16:9"
-    return page(request, "presence.html", boxes=boxes, snapshot=preview_snapshot(box), box=box, lang=lang,
-                aspect=aspect, ratio=ASPECTS[aspect], aspects=ASPECTS)
+    common = dict(lang=lang, aspect=aspect, ratio=ASPECTS[aspect], aspects=ASPECTS, simulator=simulator_rows(),
+                  actions=ACTIONS, max_simulated=MAX_BOXES, message=request.query_params.get("message"))
+    if not boxes:
+        return page(request, "presence.html", boxes=[], snapshot=None, box="", **common)
+    box = box if box in boxes else boxes[0]
+    return page(request, "presence.html", boxes=boxes, snapshot=preview_snapshot(box), box=box, **common)
+
+
+def back_to_preview(request: Request, message: str | None = None) -> RedirectResponse:
+    from urllib.parse import urlencode
+    data = form(request)
+    query = {key: str(data.get(key, "")) for key in ("box", "lang", "aspect") if data.get(key)}
+    if message:
+        query["message"] = message
+    return RedirectResponse("/presence" + ("?" + urlencode(query) if query else ""), status_code=303)
+
+
+def simulate(request: Request, change) -> Response:
+    from ..presence import simulator
+    if not simulator.enabled():
+        return Response("The simulator needs PHOTOBOX_DEVELOPER_MODE=true.", status_code=404)
+    try:
+        with db_connect() as db:
+            change(db, simulator)
+    except ValueError as exc:
+        return back_to_preview(request, str(exc))
+    return back_to_preview(request)
+
+
+@app.post("/presence/simulator/add")
+def simulator_add(request: Request):
+    label = str(form(request).get("label", ""))
+    return simulate(request, lambda db, sim: sim.add_box(db, label))
+
+
+@app.post("/presence/simulator/reset")
+def simulator_reset(request: Request):
+    return simulate(request, lambda db, sim: sim.reset(db))
+
+
+@app.post("/presence/simulator/{box_id}/{action}")
+def simulator_action(box_id: str, action: str, request: Request):
+    return simulate(request, lambda db, sim: sim.act(db, box_id, action))
 
 
 async def presence_stream(request: Request, box: str, once: bool = False):

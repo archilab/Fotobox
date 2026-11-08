@@ -33,6 +33,7 @@ class Box:
     label: str | None
     status: str | None = None  # the latest reported state
     reported_at: datetime | None = None
+    simulated: bool = False
 
 
 @dataclass(frozen=True)
@@ -127,7 +128,8 @@ def project(boxes: list[Box], events: list[PresenceEvent], now: datetime, settin
                 activity = "recent_photo"
                 if settings.detail == "detailed":
                     age = int(_seconds(now, track.last_photo))
-        views[box.box_id] = BoxView(box.box_id, box.label, "online" if online else "offline", activity, age, simulated=track.simulated)
+        views[box.box_id] = BoxView(box.box_id, box.label, "online" if online else "offline", activity, age,
+                                    simulated=box.simulated or track.simulated)
     return views
 
 
