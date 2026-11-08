@@ -93,6 +93,14 @@ Each milestone stops for the owner's review.
 - [ ] **M-VOICE-3** Done: on-screen prompts, countdown and received text in German and English; daily counts on the dashboard; proposed consent wording. **Still open, on site:** two real booths with a microphone together, microphone level and noisy-room testing, an alternative for visitors who cannot speak, review of the consent wording before public use
 **S1 acceptance:** a box that is only online is never shown as active, and an ended or expired session loses LIVE at once.
 
+## Browser screen on the box (ADR-028)
+Each milestone stops for the owner's review.
+- [x] **U0** Design prototype: every screen in HTML at 1920 x 1080, checked in a browser
+- [x] **U1** The kiosk describes screens as states; the text kiosk is unchanged
+- [x] **U2** Local UI server on 127.0.0.1 and the live page, a whole visit with a test image on the Mac
+- [x] **U3** Chromium and Cage on the Pi, service, fallback to the text kiosk (tested), start time and memory measured
+- [x] **U4** Polish on the real television: overall size halved, header renamed, browser translation switched off
+
 ## Later phases — NOT in v0.5 MVP
 - Phase 2: touchscreen and accessible consent + countdown (keyboard kiosk already exists, ADR-020)
 - Phase 3: thermoprinter + idempotent printing

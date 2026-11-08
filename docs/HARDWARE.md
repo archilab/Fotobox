@@ -41,7 +41,7 @@ printf 'PHOTOBOX_SERVER=http://MAC_LAN_IP:8000\nPHOTOBOX_CAMERA=/dev/v4l/by-id/C
 ```bash
 sudo cp ~/photobox/deploy/pi/photobox-kiosk.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now photobox-kiosk
 ```
-To get the login prompt back: `sudo systemctl disable --now photobox-kiosk && sudo systemctl start getty@tty1`. To try the kiosk without the camera, run `python -m photobox_client.kiosk --server URL --token-file ~/.photobox.token --test-image FILE --once` in a terminal.
+The screen is a browser since ADR-028: `deploy/pi/run-kiosk.sh` starts the kiosk with Chromium under Cage at 1920 x 1080 (`sudo apt install --no-install-recommends cage chromium wlr-randr`), and starts the text kiosk instead if the browser cannot run. Measured on the Pi 5 with 4 GB: the page is ready 1 to 3 s after the browser starts, with about 3.4 GB of memory still available. To get the login prompt back: `sudo systemctl disable --now photobox-kiosk && sudo systemctl start getty@tty1`. To try the kiosk without the camera, run `python -m photobox_client.kiosk --server URL --token-file ~/.photobox.token --test-image FILE --once` in a terminal.
 
 ### Tested setup (2026-11-07)
 `scripts/m1_acceptance.sh` passed once, with 20 of 20 uploads, on this setup:

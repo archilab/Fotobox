@@ -259,6 +259,7 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 ### At the booth
 | What you see | Cause and fix |
 |---|---|
+| **The text suddenly looks like an old computer** | The browser screen could not start, so the booth switched to its simple text screen by itself. Visits still work. Restart the booth; if it stays that way, see `sudo journalctl -b \| grep -i browser` on the Pi. |
 | **The screen looks empty** | The text may be tiny on a large screen, or in a corner the TV cuts off. Restart the booth. Check the screen's input. |
 | **The setup menu opens by itself** | The reason is at the top. Usually the Mac is off or asleep, its address changed, or the booth isn't paired. |
 | **"Not ready"** | The Mac's server isn't running, or the consent notice is missing or still has `TODO-OPERATOR`. |

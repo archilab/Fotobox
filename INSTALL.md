@@ -180,7 +180,7 @@ The first time, type `yes` to trust the Pi, then the Pi's password. **You should
 
 ### 2.3 Install what the booth needs
 ```bash
-sudo apt update && sudo apt install -y git python3-venv polkitd
+sudo apt update && sudo apt install -y git python3-venv polkitd && sudo apt install -y --no-install-recommends cage chromium wlr-randr
 ```
 
 ### 2.4 Download and install the photo booth
@@ -198,7 +198,7 @@ sudo cp ~/photobox/deploy/pi/50-photobox-network.rules /etc/polkit-1/rules.d/
 ```
 This makes the booth start on the screen at every boot, instead of the login prompt:
 ```bash
-sudo cp ~/photobox/deploy/pi/photobox-kiosk.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable photobox-kiosk
+sudo mkdir -p /etc/chromium/policies/managed && sudo cp ~/photobox/deploy/pi/chromium-policy.json /etc/chromium/policies/managed/photobox.json && sudo cp ~/photobox/deploy/pi/photobox-kiosk.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable photobox-kiosk
 ```
 Now restart the Pi:
 ```bash

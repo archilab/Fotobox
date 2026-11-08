@@ -24,12 +24,15 @@ import textwrap
 import time
 import tty
 from collections.abc import Callable
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Protocol
 import httpx
 from .camera import CameraError, CaptureSettings, capture_jpeg
 from .display import FramebufferDisplay, result_screen
 from .cli import idempotency_header, post_with_retry, read_token
+from . import views
+from .browser import BROWSER_FAILED, CONNECT_SECONDS, BrowserWatch
 from .conversation import Conversation, speech_talker
 
 ENTER, ESC, BACKSPACE, SETUP = "enter", "esc", "backspace", "setup"
@@ -326,24 +329,31 @@ class Kiosk:
         self.banner = "TEST MODE - no camera\n\n" if test_mode else ""
         self.pooled_until: str | None = None
         self.make_conversation = make_conversation
+        self.label: str | None = None
 
-    def ask(self, text: str, accepted: set[str], timeout: float | None) -> str | None:
+    def present(self, state: dict) -> None:
+        """Show a screen. Every screen carries the box's name and whether this is a test."""
+        self.label = state.get("label", self.label)
+        views.present(self.screen, state | {"label": self.label, "test_mode": bool(self.banner), "plain": self.banner + state["plain"]})
+
+    def ask(self, state: dict, accepted: set[str], timeout: float | None) -> str | None:
         self.keys.flush()
-        self.screen.show(self.banner + text)
+        self.present(state)
         return self.keys.wait(accepted, timeout)
 
     def message(self, text: str) -> None:
-        self.ask(text + "\n\nENTER", {ENTER}, MESSAGE_SECONDS)
+        self.ask(views.message(text, key=True), {ENTER}, MESSAGE_SECONDS)
 
     def start_screen(self) -> str:
         """Wait for ENTER or the setup keys, refreshing what is happening at the other boxes."""
         self.keys.flush()
         while True:
             try:
-                presence = presence_text(self.api.presence())
+                snapshot = self.api.presence()
+                presence = presence_text(snapshot)
             except (httpx.HTTPError, ValueError, KeyError, TypeError):
-                presence = ""  # the start screen works without it
-            self.screen.show(self.banner + "FOTOBOX\n\n" + (presence + "\n\n" if presence else "") + START_TEXT)
+                snapshot, presence = None, ""  # the start screen works without it
+            self.present(views.start(snapshot, "FOTOBOX\n\n" + (presence + "\n\n" if presence else "") + START_TEXT))
             key = self.keys.wait({ENTER, SETUP}, PRESENCE_REFRESH_SECONDS)
             if key is not None:
                 return key
@@ -359,12 +369,12 @@ class Kiosk:
         except httpx.HTTPError:
             self.message("Die Fotobox ist gerade nicht bereit.\nThe photo booth is not ready right now.")
             return "not ready"
-        if self.ask(text, {ENTER, ESC}, NOTICE_TIMEOUT_SECONDS) != ENTER:
+        if self.ask(views.consent(text), {ENTER, ESC}, NOTICE_TIMEOUT_SECONDS) != ENTER:
             self.message(CANCELLED)
             return "declined"
         if pool is not None:
             # A separate question, so one key press never covers two purposes (ADR-024).
-            answer = self.ask(pool["text"], {ENTER, ESC}, NOTICE_TIMEOUT_SECONDS)
+            answer = self.ask(views.pool(pool), {ENTER, ESC}, NOTICE_TIMEOUT_SECONDS)
             if answer is None:
                 self.message(CANCELLED)
                 return "declined"
@@ -374,9 +384,9 @@ class Kiosk:
             session_id, code = self.api.start(version, pool)
             self.report("capturing")
             for number in COUNTDOWN:
-                self.screen.show(self.banner + "Schau in die Kamera / Look at the camera" + big(number))
+                self.present(views.countdown(number, "Schau in die Kamera / Look at the camera" + big(number)))
                 self.sleep(1)
-            self.screen.show(self.banner + "\n\n        * KLICK *")
+            self.present(views.flash())
             jpeg = self.camera()
             self.api.upload_and_process(session_id, jpeg)
         except CameraError:
@@ -409,18 +419,20 @@ class Kiosk:
             waited = waited or bool(job.get("waiting_for_partner"))
             if (state.get("match") or {}).get("kind") == "live" and not announced:
                 announced = True
-                self.screen.show(self.banner + live_moment_text(state))
+                self.present(views.live_moment((state.get("match") or {}).get("partner_label"), live_moment_text(state)))
                 self.sleep(LIVE_MOMENT_SECONDS)
             encounter = encounter_text(state, waited)
+            spoken = None
             if conversation is not None:
                 conversation.poll()
                 talk = conversation.text().translate(PLAIN_LETTERS)
                 encounter = f"{encounter}\n\n{talk}" if talk and encounter else (talk or encounter)
-            self.screen.show(
-                f"{self.banner}Dein Fotostreifen wird erstellt.\nYour photo strip is being made.\n\n"
+                spoken = conversation.view()
+            self.present(views.making(elapsed, job, views.encounter(state, waited, spoken), (
+                "Dein Fotostreifen wird erstellt.\nYour photo strip is being made.\n\n"
                 + (encounter + "\n\n" if encounter else "")
                 + f"        {elapsed // 60:02d}:{elapsed % 60:02d}\n\n        {frames}"
-            )
+            )))
             if conversation is not None:
                 conversation.wait(1)
             else:
@@ -431,21 +443,27 @@ class Kiosk:
         if self.pooled_until:
             withdraw += (f"\n\nDein Foto bleibt bis {self.pooled_until} im Pool. Der Code loescht es auch dort."
                          f"\nYour photo stays in the pool until {self.pooled_until}. The code deletes it there too.")
-        self.ask(f"Fertig! Done!\n\n{withdraw}\n\nENTER", {ENTER}, RESULT_SECONDS)
+        self.ask(views.done(code, self.pooled_until, f"Fertig! Done!\n\n{withdraw}\n\nENTER"), {ENTER}, RESULT_SECONDS)
         return "complete"
 
 
     def show_strip(self, session_id: str, code: str | None) -> bool:
         """Show the finished strip on the screen. Returns False if it could not be shown."""
-        if self.display is None:
+        put_image = getattr(self.screen, "put_image", None)
+        if self.display is None and put_image is None:
             return False
         self.report("showing")
         try:
-            image = result_screen(self.api.strip(session_id), code, self.display.size)
-            self.display.show(image)
+            strip = self.api.strip(session_id)
+            if put_image is not None:
+                self.present(views.strip(put_image(strip), code))
+            else:
+                self.display.show(result_screen(strip, code, self.display.size))
         except (httpx.HTTPError, OSError, ValueError):
             return False
         self.sleep(self.strip_seconds)
+        if put_image is not None:
+            self.screen.clear_image()  # the strip is held only while it is on screen
         return True
 
 
@@ -473,6 +491,9 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--once", action="store_true", help="Serve one participant, then exit")
     parser.add_argument("--strip-seconds", type=int, default=STRIP_SECONDS, help="How long the finished strip is shown (default: 20)")
     parser.add_argument("--no-display", action="store_true", help="Do not show the strip on the screen")
+    parser.add_argument("--ui", choices=["text", "web"], default="text", help="Console text, or the browser screen on 127.0.0.1")
+    parser.add_argument("--ui-port", type=int, default=8765, help="Port of the browser screen")
+    parser.add_argument("--browser", help="Program that shows the screen's address, given as its argument. Without it, the address is printed")
     args = parser.parse_args(argv)
 
     def current() -> tuple[Settings, str | None]:
@@ -485,7 +506,27 @@ def main(argv: list[str] | None = None) -> None:
             token = None
         return settings, token
 
-    screen, wifi = TerminalScreen(), Wifi()
+    web = None
+    if args.ui == "web":
+        from .webui import WebUI
+        try:
+            web = WebUI(args.ui_port).start()
+        except OSError:
+            if args.browser:
+                print("The screen server could not start.", file=sys.stderr, flush=True)
+                raise SystemExit(BROWSER_FAILED) from None
+            print("The browser screen could not start; using the text screen.", flush=True)
+        if web is not None and args.browser:
+            started = time.monotonic()
+            watch = BrowserWatch(args.browser, web.url).start()
+            if not web.connected.wait(CONNECT_SECONDS):
+                print("The browser did not open the screen in time.", file=sys.stderr, flush=True)
+                watch.stop()
+                raise SystemExit(BROWSER_FAILED)
+            print(f"Browser screen ready after {time.monotonic() - started:.1f} s", file=sys.stderr, flush=True)
+        elif web is not None:
+            print(f"Open the screen at {web.url}", flush=True)
+    screen, wifi = web or TerminalScreen(), Wifi()
     reporter = None
 
     def reporting(settings: Settings, token: str | None) -> StatusReporter | None:
@@ -499,8 +540,9 @@ def main(argv: list[str] | None = None) -> None:
                 httpx.post(f"{server}/api/v1/devices/status", json=body, headers={"Authorization": f"Bearer {token}"}, timeout=5)
             reporter = StatusReporter(post).start()
         return reporter
-    display = None if args.no_display else FramebufferDisplay.open()
-    with TerminalKeys(sys.stdin.fileno()) as keys:
+    # The browser draws the strip itself, and has the screen to itself.
+    display = None if args.no_display or web is not None else FramebufferDisplay.open()
+    with (nullcontext(web) if web is not None else TerminalKeys(sys.stdin.fileno())) as keys:
         menu = SetupMenu(screen, keys, settings_path=args.config, token_path=args.token_file, pin=Pin(args.pin_file), wifi=wifi, display=display)
         keys.flush()
         screen.show(f"FOTOBOX\n\nStarting ...\n\nM = Einrichtung / setup  ({BOOT_SETUP_SECONDS} s)")

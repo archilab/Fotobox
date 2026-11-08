@@ -7,7 +7,7 @@ For people who want to understand or change the code. To install and run the pho
 | Folder | Contents |
 |---|---|
 | `src/photobox_server` | FastAPI server, SQLite storage, matching, generation jobs, image providers, strip renderer, admin commands, and the dashboard (`dashboard/`) |
-| `src/photobox_client` | Pi side: the keyboard kiosk, setup menu, camera, framebuffer display and command line client |
+| `src/photobox_client` | Pi side: the keyboard kiosk, its screen states (`views.py`) and browser screen (`ui/`), setup menu, camera, microphone and speech, framebuffer display and command line client |
 | `tests` | `pytest` tests, using synthetic images only |
 | `scripts` | Start scripts for server and dashboard, the M1 acceptance test, the evaluation tool |
 | `deploy` | launchd templates for the Mac, systemd unit and polkit rule for the Pi |
@@ -56,6 +56,8 @@ The kiosk can run against a test image instead of the camera:
 ```bash
 .venv/bin/python -m photobox_client.kiosk --server http://127.0.0.1:8000 --test-image path/to/synthetic.png --once
 ```
+
+To see the browser screen, add `--ui web --no-display` to that command. It prints an address with a one-time token to open on the same computer. The design prototype, with made-up data and no server, is `src/photobox_client/ui/prototype.html`, served for example with `python3 -m http.server --directory src/photobox_client/ui --bind 127.0.0.1`; the arrow keys change screen.
 
 ## Rules for changes
 

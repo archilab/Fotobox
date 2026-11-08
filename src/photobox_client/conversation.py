@@ -111,6 +111,23 @@ class Conversation:
             lines.append(f"\n{self.status}")
         return "\n".join(lines)
 
+    def view(self) -> dict | None:
+        """The same state as `text`, for a screen that lays it out itself. Call it after `text`."""
+        if not self.open and not self.closed:
+            return None
+
+        def both(text: str) -> dict:
+            de, _, en = text.partition("\n")
+            return {"de": de, "en": en}
+
+        state: dict = {"talk": self.limit_seconds if self.open and self.make_talker is not None else None,
+                       "message": None, "status": None}
+        if self.current is not None:
+            state["message"] = {"from": self.current[0]["sender_label"], "text": self.current[0]["text"]}
+        if self.closed or self.status:
+            state["status"] = both(self.closed or self.status)
+        return state
+
     def wait(self, seconds: float) -> None:
         """Pass the time between screen updates, acting on ENTER only while a window is open."""
         key = self.keys.read_key(seconds)

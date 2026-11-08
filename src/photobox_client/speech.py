@@ -24,6 +24,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
+from . import views
 
 SAMPLE_RATE = 16000
 SAMPLE_BYTES = 2
@@ -215,7 +216,7 @@ class PushToTalk:
             left = max(0, self.limit_seconds - int(self.clock() - started))
             if left != shown:
                 shown = left
-                self.screen.show(f"ICH HOERE ZU · noch {left} Sekunden\nLISTENING · {left} seconds left\n\nENTER = fertig / Press ENTER when you are done.")
+                views.present(self.screen, views.listening(left, self.limit_seconds, f"ICH HOERE ZU · noch {left} Sekunden\nLISTENING · {left} seconds left\n\nENTER = fertig / Press ENTER when you are done."))
             if not self.window_open():
                 closed = True
                 break
@@ -230,7 +231,7 @@ class PushToTalk:
         if closed or not self.window_open():
             return None
         if "error" in result:
-            self.screen.show(UNAVAILABLE)
+            views.present(self.screen, views.message(UNAVAILABLE))
             return None
         return result.get("audio")  # type: ignore[return-value]
 
@@ -241,23 +242,23 @@ class PushToTalk:
         audio = self._capture()
         if audio is None:
             return None
-        self.screen.show(CONVERTING)
+        views.present(self.screen, views.converting(CONVERTING))
         if self.report_levels is not None:
             self.report_levels(speech_levels(audio))
         try:
             if not has_speech(audio):
-                self.screen.show(NOT_UNDERSTOOD)
+                views.present(self.screen, views.message(NOT_UNDERSTOOD))
                 return None
             text = clean_transcript(self.transcriber.transcribe(audio, self.language, self.timeout))
         except SpeechError:
-            self.screen.show(NOT_UNDERSTOOD)
+            views.present(self.screen, views.message(NOT_UNDERSTOOD))
             return None
         finally:
             del audio
         if not self.window_open():
             return None  # the strip finished meanwhile: a late message is dropped
         if not text:
-            self.screen.show(NOT_UNDERSTOOD)
+            views.present(self.screen, views.message(NOT_UNDERSTOOD))
             return None
         return text
 
