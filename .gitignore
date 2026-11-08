@@ -204,3 +204,7 @@ consent-notice.txt
 pool-notice.txt
 # Local preview launcher with machine-specific paths
 .claude/launch.json
+# Speech recordings are personal data and must never be committed
+*.wav
+*.aiff
+benchmarks/voice_stt/audio/

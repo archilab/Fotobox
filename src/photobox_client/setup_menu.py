@@ -159,12 +159,12 @@ class SetupMenu:
             header = f"{reason}\n\n" if reason else ""
             choice = self.choose(
                 f"{header}{status}",
-                ["WiFi", "Server address", "Pair with server", "Camera", "Test everything", "Start photo booth"],
+                ["WiFi", "Server address", "Pair with server", "Camera", "Test everything", "Start photo booth", "Microphone (optional)"],
             )
             reason = None
             if choice in (None, 5):
                 return
-            [self.setup_wifi, self.setup_server, self.pair, self.setup_camera, self.test][choice]()
+            [self.setup_wifi, self.setup_server, self.pair, self.setup_camera, self.test, None, self.setup_microphone][choice]()
 
     def setup_wifi(self) -> None:
         self.show("Searching for WiFi networks ...")
@@ -220,6 +220,21 @@ class SetupMenu:
         body = response.json()
         save_token(self.token_path, body["token"])
         self.message(f"Paired as {body['device_id']}.")
+
+    def setup_microphone(self) -> None:
+        """Only chooses the device. Nothing is recorded here."""
+        from .speech import list_microphones
+        microphones = list_microphones()
+        if not microphones:
+            self.message("No microphone found. Voice messages stay off; photos work as usual.")
+            return
+        choice = self.choose("Choose the microphone", [m.name for m in microphones])
+        if choice is None:
+            return
+        settings = Settings.load(self.settings_path)
+        settings.microphone = microphones[choice].device
+        settings.save(self.settings_path)
+        self.message(f"Microphone saved: {microphones[choice].name}")
 
     def setup_camera(self) -> None:
         # The camera list holds paths; settings and the capture call need text.

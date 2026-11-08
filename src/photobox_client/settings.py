@@ -31,6 +31,7 @@ def _write_private(path: Path, text: str) -> None:
 class Settings:
     server: str = ""
     camera: str = "0"
+    microphone: str = ""
 
     @classmethod
     def load(cls, path: Path) -> "Settings":
@@ -40,10 +41,11 @@ class Settings:
                 key, separator, value = line.partition("=")
                 if separator and not key.strip().startswith("#"):
                     values[key.strip()] = value.strip()
-        return cls(server=values.get("PHOTOBOX_SERVER", ""), camera=values.get("PHOTOBOX_CAMERA", "0") or "0")
+        return cls(server=values.get("PHOTOBOX_SERVER", ""), camera=values.get("PHOTOBOX_CAMERA", "0") or "0",
+                   microphone=values.get("PHOTOBOX_MICROPHONE", ""))
 
     def save(self, path: Path) -> None:
-        _write_private(path, f"PHOTOBOX_SERVER={self.server}\nPHOTOBOX_CAMERA={self.camera}\n")
+        _write_private(path, f"PHOTOBOX_SERVER={self.server}\nPHOTOBOX_CAMERA={self.camera}\nPHOTOBOX_MICROPHONE={self.microphone}\n")
 
 
 def normalize_server(text: str) -> str:

@@ -495,3 +495,20 @@ def test_without_networkmanager_the_network_check_does_not_block(monkeypatch):
     checks = diagnose(Settings(), None, Wifi(runner=lambda *a, **k: (_ for _ in ()).throw(AssertionError("nmcli must not run"))), None)
     assert checks[0].ok and checks[0].detail == "managed by this computer"
     assert blocking_problem(checks) == "Server: no address set"
+
+
+def test_microphone_is_chosen_without_recording_anything(paths, monkeypatch):
+    from photobox_client import speech
+    monkeypatch.setattr(speech, "list_microphones", lambda: [speech.MicrophoneInfo("plughw:CARD=BRIO,DEV=0", "Logitech BRIO"), speech.MicrophoneInfo("plughw:CARD=Mini,DEV=0", "RODE Mini")])
+    monkeypatch.setattr(speech.Microphone, "record", lambda *_a, **_k: pytest.fail("the menu must not record"))
+    m, _ = unlocked(paths, "7", "2", ENTER, "6")
+    m.run()
+    assert Settings.load(paths["settings_path"]).microphone == "plughw:CARD=Mini,DEV=0"
+
+
+def test_missing_microphone_is_explained(paths, monkeypatch):
+    from photobox_client import speech
+    monkeypatch.setattr(speech, "list_microphones", lambda: [])
+    m, screen = unlocked(paths, "7", ENTER, "6")
+    m.run()
+    assert any("photos work as usual" in s for s in screen.shown)
