@@ -58,6 +58,19 @@ def earlier_portrait_available(db: sqlite3.Connection, now: datetime) -> bool:
     return row is not None
 
 
+def live_partner(db: sqlite3.Connection, self_box_id: str, views: dict[str, BoxView]) -> BoxView | None:
+    """The box this box's current visitor is paired with live (ADR-024), while that visitor is still here."""
+    own = views.get(self_box_id)
+    if own is None or own.activity_state != "session_active":
+        return None
+    row = db.execute(
+        """SELECT p.box_id FROM sessions s JOIN sessions p ON p.id = s.live_partner
+           WHERE s.box_id = ? AND s.status IN ('queued', 'processing', 'complete') ORDER BY s.created_at DESC LIMIT 1""",
+        (self_box_id,),
+    ).fetchone()
+    return views.get(row["box_id"]) if row else None
+
+
 def _public(view: BoxView) -> dict:
     return {
         "box_id": view.box_id, "label": view.label, "device_state": view.device_state,
@@ -84,7 +97,8 @@ def snapshot(db: sqlite3.Connection, self_box_id: str, now: datetime | None = No
     # Any box's pool portrait counts: matching may use one taken at this box too.
     earlier = earlier_portrait_available(db, now)
     unavailable = me is not None and me.status == "not ready"
-    key, about = messages.choose(self_unavailable=unavailable, locations=others, earlier_portrait=earlier)
+    key, about = messages.choose(self_unavailable=unavailable, locations=others, earlier_portrait=earlier,
+                                 live_partner=live_partner(db, self_box_id, views))
     return {
         "type": "presence.snapshot",
         "generated_at": now.isoformat(),

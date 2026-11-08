@@ -31,7 +31,11 @@ class Check:
 
 
 def diagnose(settings: Settings, token: str | None, wifi: Wifi, http: HttpFactory) -> list[Check]:
-    checks = [Check("Network", wifi.online(), wifi.current() or "connected" if wifi.online() else "not connected")]
+    if getattr(wifi, "managed", lambda: True)():
+        checks = [Check("Network", wifi.online(), wifi.current() or "connected" if wifi.online() else "not connected")]
+    else:
+        # Without NetworkManager, as on a Mac, the computer handles its own network; the server check below still counts.
+        checks = [Check("Network", True, "managed by this computer", essential=False)]
     if not settings.server:
         return checks + [Check("Server", False, "no address set")]
     try:

@@ -6,6 +6,7 @@ in the process list, and they are never logged.
 """
 from __future__ import annotations
 import re
+import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -43,6 +44,10 @@ def split_terse(line: str) -> list[str]:
 class Wifi:
     def __init__(self, runner: Runner = subprocess.run, interface: str = "wlan0") -> None:
         self.runner, self.interface = runner, interface
+
+    def managed(self) -> bool:
+        """Whether this computer's network is managed through nmcli. A kiosk on a Mac is not (ADR-024)."""
+        return shutil.which("nmcli") is not None
 
     def _nmcli(self, *arguments: str, stdin: str | None = None, timeout: int = 45) -> subprocess.CompletedProcess:
         return self.runner(["nmcli", *arguments], input=stdin, capture_output=True, text=True, timeout=timeout)

@@ -1,0 +1,31 @@
+FOTOBOX - BITTE LESEN / PLEASE READ
+
+Diese Fotobox macht ein Foto von dir. Ein Computer im lokalen Netz erzeugt daraus
+mit KI einen Fotostreifen, auf dem du mit einer weiteren Person in einer kleinen
+Geschichte zu sehen bist.
+
+- LIVE: Macht gerade jemand an einer anderen Fotobox ein Foto, landet ihr
+  zusammen auf einem Streifen, und ihr bekommt beide denselben. Diese Person
+  sieht dann dein KI-Bild, und du ihres. Sonst ist die zweite Person erfunden.
+- Dein Foto wird ueber das lokale Netzwerk uebertragen, derzeit unverschluesselt.
+- Gespeichert wird es hoechstens 1 Stunde. Der Streifen wird mit ihm geloescht,
+  auch bei der anderen Person.
+- Spaeter wird dein Foto nur verwendet, wenn du auf der naechsten Seite
+  ausdruecklich zustimmst.
+- Andere Fotoboxen zeigen an, dass hier gerade jemand ein Foto macht, mit dem
+  Namen dieses Ortes, aber ohne Bild und ohne Angaben zu dir.
+- Am Ende bekommst du einen Widerrufscode. Damit loescht die Betreuung deine
+  Bilder sofort.
+- Die Teilnahme ist freiwillig. Mindestalter: TODO-OPERATOR
+- Verantwortlich: TODO-OPERATOR (Name und Kontakt)
+
+This photo booth takes a photo of you and uses AI to make a photo strip of you with
+a second person. If someone is taking a photo at another booth right now, you two
+share one strip and both get it, so they see your AI picture and you see theirs;
+otherwise the second person is invented. Your photo is kept for at most 1 hour,
+and the strip is deleted with it, for both of you. It is used later only if you
+agree on the next page. Other booths show that someone is taking a photo at this
+place, with no image and nothing about you. You get a code to have it deleted.
+
+ENTER = Ich stimme zu, Foto machen / I agree, take the photo
+ESC   = Abbrechen / Cancel

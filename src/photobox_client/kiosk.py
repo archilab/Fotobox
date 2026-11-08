@@ -157,6 +157,8 @@ class Api:
         response = self.client.get("/api/v1/consent-notice")
         response.raise_for_status()
         body = response.json()
+        # The notice covers live pairing when the server has it switched on (ADR-024).
+        self.live_matching = bool(body.get("live_matching"))
         return body["version"], body["text"], body.get("pool")
 
     def start(self, notice_version: str, pool: dict | None = None) -> tuple[str, str | None]:
@@ -167,7 +169,8 @@ class Api:
         response = post_with_retry(self.client, "/api/v1/sessions", headers=idempotency_header())
         response.raise_for_status()
         session_id = response.json()["id"]
-        consent = {"processing": True, "pool": pool is not None, "method": "participant_screen", "notice_version": notice_version}
+        consent = {"processing": True, "pool": pool is not None, "live": getattr(self, "live_matching", False),
+                   "method": "participant_screen", "notice_version": notice_version}
         if pool is not None:
             consent |= {"pool_notice_version": pool["version"], "pool_until": pool["until"]}
         response = post_with_retry(self.client, f"/api/v1/sessions/{session_id}/consent", json=consent)
@@ -222,6 +225,22 @@ def presence_text(snapshot: dict | None) -> str:
     if more:
         tiles.append(f"  +{more}")
     return ("\n\n".join(lines) + ("\n\n" + "\n".join(tiles) if tiles else "")).translate(PLAIN_LETTERS)
+
+
+def encounter_text(state: dict) -> str:
+    """Who this visitor's photo meets, exactly as the server knows it (ADR-024). Empty for a seed."""
+    job = state.get("job") or {}
+    match = state.get("match") or {}
+    if job.get("waiting_for_partner"):
+        return "Wir suchen jemanden an einer anderen Fotobox ...\nLooking for someone at another photo booth ..."
+    if match.get("kind") == "live":
+        label = match.get("partner_label")
+        de = f"in {label}" if label else "an einer anderen Fotobox"
+        en = f"in {label}" if label else "at another photo booth"
+        return (f"LIVE! Du teilst dein Foto mit jemandem {de}.\nLIVE! You share your photo with someone {en}.").translate(PLAIN_LETTERS)
+    if match.get("kind") == "pool":
+        return "Dein Foto trifft jemanden, der vorhin hier war.\nYour photo meets someone who was here earlier."
+    return ""
 
 
 def big(number: int) -> str:
@@ -353,9 +372,11 @@ class Kiosk:
                 self.message("Leider hat es nicht geklappt. Bitte melde dich bei der Betreuung.\nSorry, that did not work. Please ask the staff.")
                 return "generation failed"
             frames = f"Bild {job.get('frames_done', 0)} von {job.get('frames_total', '?')}" if job else "In der Warteschlange / Queued"
+            encounter = encounter_text(state)
             self.screen.show(
                 f"{self.banner}Dein Fotostreifen wird erstellt.\nYour photo strip is being made.\n\n"
-                f"        {elapsed // 60:02d}:{elapsed % 60:02d}\n\n        {frames}"
+                + (encounter + "\n\n" if encounter else "")
+                + f"        {elapsed // 60:02d}:{elapsed % 60:02d}\n\n        {frames}"
             )
             self.sleep(1)
         self.show_strip(session_id, code)

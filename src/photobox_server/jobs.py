@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from PIL import Image
-from . import audit
+from . import audit, live
 from .presence import events as presence_events
 from .config import get_frame_count, get_provider, int_setting
 from .core import SEED_PREFIX, db_connect, now_iso, storage_root, strip_images_active, write_private_image
@@ -59,22 +59,26 @@ def wake() -> None:
     _work_available.set()
 
 
-def enqueue(db: sqlite3.Connection, session_id: str, source_state: str) -> str | None:
-    """Queue a session once. Returns None if another request already moved it."""
+def enqueue(db: sqlite3.Connection, session_id: str, source_state: str, wait_seconds: int = 0) -> str | None:
+    """Queue a session once. Returns None if another request already moved it.
+
+    With `wait_seconds`, the job waits that long for a live partner before it may start (ADR-024).
+    """
     if not transition(db, session_id, source_state, QUEUED):
         return None
     existing = db.execute("SELECT id FROM generation_jobs WHERE session_id=?", (session_id,)).fetchone()
     job_id = existing["id"] if existing else str(uuid.uuid4())
     now = now_iso()
+    start = (datetime.now(timezone.utc) + timedelta(seconds=wait_seconds)).isoformat() if wait_seconds else now
     if existing:
         db.execute(
-            "UPDATE generation_jobs SET provider=?,prompt_version=?,status=?,run_id=NULL,attempts=0,frames_done=0,next_attempt_at=?,error=NULL,finished_at=NULL WHERE id=?",
-            (get_provider(), active_prompt_version(db), QUEUED_JOB, now, job_id),
+            "UPDATE generation_jobs SET provider=?,prompt_version=?,status=?,run_id=NULL,attempts=0,frames_done=0,next_attempt_at=?,error=NULL,finished_at=NULL,live_wait=?,created_at=? WHERE id=?",
+            (get_provider(), active_prompt_version(db), QUEUED_JOB, start, int(bool(wait_seconds)), now, job_id),
         )
     else:
         db.execute(
-            "INSERT INTO generation_jobs(id,session_id,provider,prompt_version,status,seed,frames_total,next_attempt_at,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
-            (job_id, session_id, get_provider(), active_prompt_version(db), QUEUED_JOB, random.randrange(2**31), get_frame_count(), now, now),
+            "INSERT INTO generation_jobs(id,session_id,provider,prompt_version,status,seed,frames_total,next_attempt_at,created_at,live_wait) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (job_id, session_id, get_provider(), active_prompt_version(db), QUEUED_JOB, random.randrange(2**31), get_frame_count(), start, now, int(bool(wait_seconds))),
         )
     db.execute("UPDATE sessions SET error=NULL WHERE id=?", (session_id,))
     return job_id
@@ -106,6 +110,27 @@ def discard_frames_using(db: sqlite3.Connection, image_ids: list[str]) -> None:
         for row in rows:
             db.execute("UPDATE sessions SET match_portrait_id=NULL WHERE id=?", (row["session_id"],))
             discard_frames(row["id"])
+
+
+def release_partner(db: sqlite3.Connection, session: sqlite3.Row) -> None:
+    """After one side of a live pair cancels or withdraws, the other visitor still gets a strip.
+
+    `session` is the row from before the change. A leaving follower's photo is removed from the
+    leader's frames first; the leader then starts again with a pool portrait or seed. A leaving
+    leader's follower had no job of its own, so it is queued on its own.
+    """
+    # A finished pair stays recorded: the shared strip shows both, so it must be deleted with either photo.
+    if session["live_partner"] is None or session["status"] not in (QUEUED, PROCESSING):
+        return
+    if session["live_role"] == live.FOLLOW and session["portrait_id"]:
+        discard_frames_using(db, [session["portrait_id"]])
+    partner_id = live.unpair(db, session["id"])
+    if partner_id is None or session["live_role"] != live.LEAD:
+        return
+    partner = db.execute("SELECT status FROM sessions WHERE id=?", (partner_id,)).fetchone()
+    if partner is not None and partner["status"] == QUEUED and transition(db, partner_id, QUEUED, UPLOADED):
+        if enqueue(db, partner_id, UPLOADED):
+            wake()
 
 
 def recover_after_restart(db: sqlite3.Connection) -> int:
@@ -140,6 +165,7 @@ def _mark_failed(db: sqlite3.Connection, job_id: str, session_id: str, message: 
         db.execute("UPDATE sessions SET error=? WHERE id=?", (message, session_id))
         box = db.execute("SELECT box_id FROM sessions WHERE id=?", (session_id,)).fetchone()
         presence_events.emit(db, "generation.failed", box["box_id"], session_id=session_id)
+        live.fail_follower(db, session_id, message)
     audit.record(db, "generation_failed", session_id=session_id, detail=message)
     discard_frames(job_id)
 
@@ -183,6 +209,9 @@ def _claim() -> Run | None:
         match_id = session["match_portrait_id"]
         if match_id is None or not strip_images_active(db, session):
             discard_frames(job["id"])
+            if session["live_partner"]:
+                # The live partner's photo is gone; they are handled by their withdrawal or expiry.
+                live.unpair(db, session["id"])
             matched = select_match(db, session["id"])
             if matched is None:
                 _mark_failed(db, job["id"], session["id"], "no eligible match")
@@ -190,6 +219,8 @@ def _claim() -> Run | None:
             match_id = matched[0]
             db.execute("UPDATE sessions SET match_portrait_id=? WHERE id=?", (match_id, session["id"]))
             db.execute("UPDATE generation_jobs SET frames_done=0 WHERE id=?", (job["id"],))
+            if not match_id.startswith(SEED_PREFIX):
+                presence_events.emit(db, "match.pool_created", session["box_id"], session_id=session["id"])
         match_path = _image_path(db, match_id)
         run_id = str(uuid.uuid4())
         attempts = job["attempts"] + 1
@@ -198,6 +229,9 @@ def _claim() -> Run | None:
             (RUNNING_JOB, run_id, attempts, now_iso(), job["id"]),
         )
         presence_events.emit(db, "generation.started", session["box_id"], session_id=session["id"])
+        follower = live.follower_of(db, session["id"])
+        if follower is not None:
+            presence_events.emit(db, "generation.started", follower["box_id"], session_id=follower["id"])
         return Run(job["id"], run_id, session["id"], own, match_path, match_id, job["seed"], job["frames_total"], attempts, job["prompt_version"])
 
 
@@ -252,6 +286,7 @@ def _finish(run: Run, provider: ImageGenerationProvider, frames: list[Path], met
             )
             audit.record(db, "generation_completed", session_id=run.session_id, detail=provider.name)
             presence_events.emit(db, "generation.completed", session["box_id"], session_id=run.session_id)
+            live.complete_follower(db, run.session_id, str(dest))
             kept = True
     finally:
         if not kept:

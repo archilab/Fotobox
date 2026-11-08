@@ -233,7 +233,7 @@ def test_consent_notice_is_versioned_and_served_to_boxes(client, dash):
     page = dash.get("/consent").text
     assert version in page and "active" in page
     post(dash, f"/consent/{version}/activate", page="/consent")
-    assert client.get("/api/v1/consent-notice").json() == {"version": version, "text": first, "pool": None}
+    assert client.get("/api/v1/consent-notice").json() == {"version": version, "text": first, "live_matching": False, "pool": None}
     assert first in dash.get(f"/consent/{version}").text
 
 

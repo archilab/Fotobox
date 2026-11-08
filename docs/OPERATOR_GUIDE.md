@@ -165,6 +165,25 @@ Rules the server enforces:
 
 ---
 
+## Live encounters between booths
+
+With two or more booths, visitors who take a photo at about the same time can share one strip. They are both in it and both get it. The first visitor's booth waits up to 20 seconds for someone at another booth, and shows "Looking for someone at another photo booth". If nobody comes, the strip is made with a pool photo or a seed as usual. With only one booth online there is no waiting.
+
+**To switch it on:**
+1. Use a consent notice that says so; `consent-notice.live.example.txt` has the wording.
+2. Set `PHOTOBOX_LIVE_MATCHING=true` in `.env`.
+3. Restart the server.
+
+**Trying it with one Pi:** the second booth can be a kiosk in a Terminal window on the Mac, with a test picture instead of a camera:
+```bash
+cd ~/photobox-server && .venv/bin/python -m photobox_client.kiosk --token-file ~/.photobox-mac-kiosk.token --config ~/.photobox-mac-kiosk.env --pin-file ~/.photobox-mac-kiosk-pin.json --test-image path/to/synthetic.jpg --no-display
+```
+Press **M** within 10 seconds, set a PIN, enter the server address, and pair it with a code from the dashboard's Boxes page under a new name such as `mac-kiosk`. The Mac manages its own network, so the WiFi part of the menu does not apply. Then press ENTER in that window as a visitor would. Use only synthetic pictures or people who agreed.
+
+If one of the two cancels or deletes their pictures before the strip is done, the other still gets a strip, with someone else. Afterwards, deleting either photo deletes the shared strip for both.
+
+---
+
 ## Booth names
 
 Other booths' start screens name the place where something is happening, such as "A photo was just taken in Hall B". Give each booth a public name in the dashboard under **Boxes** (or with `… admin device label pi-01 "Hall B"`). Use a place, never a person's name. A booth without a name is shown as "another Photobox".
@@ -215,6 +234,8 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 | `PHOTOBOX_GENERATION_RETRY_DELAY_SECONDS` | `30` | Pause before trying again. |
 | `PHOTOBOX_CLEANUP_INTERVAL_SECONDS` | `300` | How often expired pictures are deleted. |
 | `PHOTOBOX_POOL_HOURS` | `24` | How long a photo stays in the pool after the visitor agrees (1 to 720). The pool question shows the exact end time, and the photo is deleted then at the latest. |
+| `PHOTOBOX_LIVE_MATCHING` | off | `true` pairs visitors at different booths live. Only with a notice that says so. |
+| `PHOTOBOX_LIVE_WAIT_SECONDS` | `20` | How long a booth waits for someone at another booth (5 to 60). |
 | `PHOTOBOX_POOL_NOTICE_FILE` | `pool-notice.txt` | The pool question used until you save one in the dashboard. Without one, the booths do not ask. |
 | `PHOTOBOX_PRESENCE_RECENT_SECONDS` | `180` | How long a photo counts as "just taken" on other booths (30 to 1800). |
 | `PHOTOBOX_PUBLIC_ACTIVITY_DETAIL` | `coarse` | `coarse` shows no times; `detailed` adds how long ago. |

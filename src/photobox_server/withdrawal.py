@@ -7,7 +7,7 @@ from typing import NamedTuple
 from . import audit
 from .presence import events as presence_events
 from .core import delete_portrait, now_iso, purge_stale_strips
-from .jobs import cancel_for_session, discard_frames_using
+from .jobs import cancel_for_session, discard_frames_using, release_partner
 from .sessions import WITHDRAWN
 
 
@@ -40,13 +40,14 @@ def withdraw_session(db: sqlite3.Connection, session_id: str) -> WithdrawalResul
     The consent records stay, marked withdrawn, as the record of what happened. Safe to repeat.
     Generation in progress stops, and cannot complete afterwards: its state change to complete fails.
     """
-    row = db.execute("SELECT status, box_id FROM sessions WHERE id = ?", (session_id,)).fetchone()
+    row = db.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
     if row is None:
         return None
     already = row["status"] == WITHDRAWN
     db.execute("UPDATE sessions SET status = ? WHERE id = ?", (WITHDRAWN, session_id))
     db.execute("UPDATE consent_records SET withdrawn_at = ? WHERE session_id = ? AND withdrawn_at IS NULL", (now_iso(), session_id))
     cancel_for_session(db, session_id, "consent withdrawn")
+    release_partner(db, row)
     portraits = db.execute("SELECT id, path FROM portraits WHERE session_id = ?", (session_id,)).fetchall()
     discard_frames_using(db, [portrait["id"] for portrait in portraits])
     for portrait in portraits:

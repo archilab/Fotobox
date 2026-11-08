@@ -123,4 +123,17 @@ The kiosk will offer pool use as a second, separate question after the processin
 
 Implementation of P-1: the pool question is its own notice kind (`consent_notices.kind = 'pool'`, or `pool-notice.txt`), edited on the dashboard's Pool page. It must contain `{until}`; the server fills in the end time, rounded down to the minute, and its version includes the hours (`pool-<hash>-24h`). The box sends that end time back with the consent, the server checks it lies within the allowed hours, and stores it in `consent_records.expires_at`; the pool copy expires then at the latest. Without a usable pool notice the box does not ask, so pool use stays off until the operator writes one. The operator can remove one photo from the pool, which deletes the strips of others that used it, but not the visitor's own strip.
 
+Implementation of L-1. **Decided by the project owner on 2026-11-08:** live pairing is covered by the consent notice rather than a third question, because a live pair is the strip being made now, with someone who is there now. It is still recorded as its own consent purpose, `live`, with the notice's version, and only when the operator has switched it on (`PHOTOBOX_LIVE_MATCHING=true`), which they should do only once the notice says so (`consent-notice.live.example.txt`).
+
+How it works (`photobox_server/live.py`):
+- `POST /process` takes the database's write lock first. It looks for the longest-waiting visitor at another box whose job is still waiting, has live consent and is unpaired.
+- **If one is found**, the two are paired with conditional updates. The earlier visitor leads: their job starts at once with the newcomer's session photo as counterpart. The newcomer follows: it has no job of its own, reports the leader's progress, and on completion receives the same strip file.
+- **If none is found** and another real box is online, the job waits up to 20 s (`PHOTOBOX_LIVE_WAIT_SECONDS`, 5-60). With no other box online it starts at once. After the wait the job picks a pool portrait or a seed as before.
+
+When something goes wrong:
+- **Before the strip is done:** if one side cancels or withdraws, the pair breaks. A departed follower's photo is removed from the leader's frames, and the leader starts again with another counterpart; a departed leader's follower is queued on its own. A failed strip fails for both and breaks the pair, so either can try again alone.
+- **After the strip is done:** the pair stays recorded, so withdrawing or expiring either photo deletes the shared strip for both.
+
+The box's status shows `match.kind` (live, pool or seed), the partner's public name and whether it is still waiting, and its start screen says "You're connected with …". `match.live_created` and `match.pool_created` are now emitted.
+
 Milestones P-1 (timed pool consent), L-1 (live matching) and L-2 (the interactive waiting screen) follow S1 in `docs/MILESTONES.md`. Voice messages (milestones M-VOICE) stay limited to live pairs and come after L-1.

@@ -483,3 +483,15 @@ def test_missing_notice_does_not_block_the_menu_checks(paths, monkeypatch):
     checks = diagnose(Settings(server="http://testserver"), token, FakeWifi(), server_factory)
     notice = next(c for c in checks if c.name == "Consent notice")
     assert not notice.ok and not notice.essential and blocking_problem(checks) is None
+
+
+
+def test_without_networkmanager_the_network_check_does_not_block(monkeypatch):
+    from photobox_client.network import Wifi
+    from photobox_client.settings import Settings
+    from photobox_client.setup_menu import blocking_problem, diagnose
+    import photobox_client.network as network
+    monkeypatch.setattr(network.shutil, "which", lambda _name: None)
+    checks = diagnose(Settings(), None, Wifi(runner=lambda *a, **k: (_ for _ in ()).throw(AssertionError("nmcli must not run"))), None)
+    assert checks[0].ok and checks[0].detail == "managed by this computer"
+    assert blocking_problem(checks) == "Server: no address set"

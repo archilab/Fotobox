@@ -116,6 +116,24 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
             state TEXT, session_id TEXT, sessions INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
         )""",
     ),
+    # 10: live matching across boxes (ADR-024): a third consent purpose, pairs, and jobs that wait for a partner.
+    # SQLite cannot change a CHECK constraint, so consent_records is rebuilt with the same rows.
+    (
+        """CREATE TABLE consent_records_new (
+            id TEXT PRIMARY KEY, session_id TEXT NOT NULL,
+            purpose TEXT NOT NULL CHECK (purpose IN ('processing', 'pool', 'live')),
+            policy_version TEXT NOT NULL, granted_at TEXT NOT NULL, withdrawn_at TEXT,
+            provenance TEXT NOT NULL, evidence_ref TEXT, expires_at TEXT,
+            UNIQUE (session_id, purpose)
+        )""",
+        """INSERT INTO consent_records_new(id, session_id, purpose, policy_version, granted_at, withdrawn_at, provenance, evidence_ref, expires_at)
+           SELECT id, session_id, purpose, policy_version, granted_at, withdrawn_at, provenance, evidence_ref, expires_at FROM consent_records""",
+        "DROP TABLE consent_records",
+        "ALTER TABLE consent_records_new RENAME TO consent_records",
+        "ALTER TABLE sessions ADD COLUMN live_partner TEXT",
+        "ALTER TABLE sessions ADD COLUMN live_role TEXT CHECK (live_role IN ('lead', 'follow'))",
+        "ALTER TABLE generation_jobs ADD COLUMN live_wait INTEGER NOT NULL DEFAULT 0",
+    ),
 )
 
 

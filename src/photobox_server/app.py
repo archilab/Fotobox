@@ -15,14 +15,14 @@ from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image
 from pydantic import BaseModel, Field
-from . import audit, presence, throttle
+from . import audit, live, presence, throttle
 from .presence import events as presence_events
 from .auth import authenticate
 from .consent_notice import NoticeError, load_notice, load_pool_notice, pool_hours
 from .pairing import complete_pairing
 from .config import ConfigError, get_cleanup_interval, get_frame_count, get_provider, load_env_file
 from .core import cleanup_expired, db_connect, now_iso, save_portrait, storage_root, strip_images_active, validate_image
-from .jobs import Worker, cancel_for_session, cleanup_job_folders, enqueue, job_for_session, recover_after_restart, wake
+from .jobs import Worker, cancel_for_session, release_partner, cleanup_job_folders, enqueue, job_for_session, recover_after_restart, wake
 from .pool import select_match
 from .providers import create_provider
 from .strip import apply_profile, validate_settings
@@ -126,6 +126,8 @@ class PairRequest(BaseModel):
 class ConsentRequest(BaseModel):
     processing: bool
     pool: bool = False
+    # Being paired live with a visitor at another box, covered by the notice when live matching is on (ADR-024).
+    live: bool = False
     documented_externally: bool = False
     # How consent was given: stated by the operator, or confirmed by the participant on the box's screen.
     method: Literal["operator_attestation", "participant_screen"] = "operator_attestation"
@@ -182,7 +184,8 @@ def consent_notice():
     except NoticeError as exc:
         raise HTTPException(503, str(exc)) from exc
     pool = load_pool_notice()
-    return {"version": version, "text": text, "pool": None if pool is None else {
+    # live_matching: the notice above covers being paired live with a visitor at another box (ADR-024).
+    return {"version": version, "text": text, "live_matching": live.enabled(), "pool": None if pool is None else {
         "version": pool.version, "text": pool.text, "until": pool.until.isoformat(), "until_text": pool.until_text}}
 
 
@@ -251,6 +254,8 @@ def screen_pool_consent(body: ConsentRequest) -> tuple[str, str]:
 
 @app.post("/api/v1/sessions/{session_id}/consent")
 def record_consent(session_id: str, body: ConsentRequest, request: Request):
+    if body.live and not live.enabled():
+        raise HTTPException(403, "live matching is not switched on")
     with db_connect() as db:
         s = get_session(db, session_id, request.state.device_id)
         if body.method == "participant_screen":
@@ -276,6 +281,7 @@ def record_consent(session_id: str, body: ConsentRequest, request: Request):
                 code, code_hash = new_code()
                 db.execute("UPDATE sessions SET withdrawal_hash=? WHERE id=?", (code_hash, session_id))
                 purposes = [("processing", policy_version, None)] + ([("pool", pool_policy, pool_expiry)] if body.pool else [])
+                purposes += [("live", policy_version, None)] if body.live else []
                 for purpose, version, expiry in purposes:
                     db.execute(
                         "INSERT INTO consent_records(id,session_id,purpose,policy_version,granted_at,provenance,evidence_ref,expires_at) VALUES(?,?,?,?,?,?,?,?)",
@@ -294,6 +300,7 @@ def record_consent(session_id: str, body: ConsentRequest, request: Request):
             and (body.documented_externally or body.method == "participant_screen")
             and processing["evidence_ref"] == body.evidence_ref
             and (active_consent(db, session_id, "pool") is not None) == body.pool
+            and (active_consent(db, session_id, "live") is not None) == body.live
         )
         if not same:
             raise HTTPException(409, "consent cannot be changed in current state")
@@ -381,23 +388,34 @@ def accepted(session_id: str, status: str, job_id: str) -> dict:
 
 @app.post("/api/v1/sessions/{session_id}/process", status_code=202)
 def process_session(session_id: str, request: Request, response: Response):
-    """Queue generation, whichever provider is configured. Poll the session for progress."""
+    """Queue generation, whichever provider is configured. Poll the session for progress.
+
+    With live matching on, a visitor waiting at another box is paired with this one first (ADR-024).
+    """
     with db_connect() as db:
+        # The write lock from the start, so two boxes arriving together cannot both miss each other.
+        db.execute("BEGIN IMMEDIATE")
         s = get_session(db, session_id, request.state.device_id)
         status = s["status"]
         if status in (UPLOADED, FAILED):
             own = db.execute("SELECT 1 FROM portraits WHERE id=?", (s["portrait_id"],)).fetchone()
             if own is None:
                 raise HTTPException(409, "portrait has expired")
+            partner = live.find_partner(db, s)
+            if partner is not None:
+                job_id = live.pair(db, partner, s)
+                if job_id is not None:
+                    wake()
+                    return accepted(session_id, QUEUED, job_id)
             if select_match(db, session_id) is None:
                 raise HTTPException(409, "no eligible match: add a rights-cleared seed portrait")
             # Only one request can win this, so a session is never queued twice.
-            job_id = enqueue(db, session_id, status)
+            job_id = enqueue(db, session_id, status, live.wait_for(db, s))
             if job_id is not None:
                 wake()
                 return accepted(session_id, QUEUED, job_id)
             status = get_session(db, session_id, request.state.device_id)["status"]
-        job = job_for_session(db, session_id)
+        job = job_for_leader(db, s)
         if status in (QUEUED, PROCESSING) and job is not None:
             return accepted(session_id, status, job["id"])
         if status == COMPLETE and s["output_path"] and job is not None:
@@ -408,11 +426,16 @@ def process_session(session_id: str, request: Request, response: Response):
 
 @app.post("/api/v1/sessions/{session_id}/cancel")
 def cancel_session(session_id: str, request: Request):
-    """Stop waiting or running generation. The portrait stays, so the session can be processed again."""
+    """Stop waiting or running generation. The portrait stays, so the session can be processed again.
+
+    Cancelling either side of a live pair breaks the pair: the other visitor's strip is then made
+    with a pool portrait or seed instead, or, if this was the leader, the follower is queued on its own.
+    """
     with db_connect() as db:
         s = get_session(db, session_id, request.state.device_id)
         if s["status"] in (QUEUED, PROCESSING) and transition(db, session_id, s["status"], UPLOADED):
             cancel_for_session(db, session_id, "requested by device")
+            release_partner(db, s)
             return {"status": UPLOADED, "cancelled": True}
         current = get_session(db, session_id, request.state.device_id)["status"]
         if current == UPLOADED:
@@ -420,16 +443,38 @@ def cancel_session(session_id: str, request: Request):
         raise HTTPException(409, "nothing to cancel in current state")
 
 
+def job_for_leader(db, s):
+    """A follower's progress is its leader's job: they share one strip."""
+    return job_for_session(db, live.leader_of(db, s) or s["id"])
+
+
+def match_info(db, s) -> dict:
+    kind = live.match_kind(s)
+    partner_label = None
+    if kind == "live":
+        row = db.execute(
+            "SELECT d.public_label FROM sessions p JOIN devices d ON d.id = p.box_id WHERE p.id=?", (s["live_partner"],)
+        ).fetchone()
+        partner_label = presence.messages.clean(row["public_label"]) if row and row["public_label"] else None
+    return {"kind": kind, "partner_label": partner_label}
+
+
 @app.get("/api/v1/sessions/{session_id}")
 def session_status(session_id: str, request: Request):
     with db_connect() as db:
         s = get_session(db, session_id, request.state.device_id)
-        job = job_for_session(db, session_id)
+        job = job_for_leader(db, s)
+        status = s["status"]
+        if s["live_role"] == live.FOLLOW and status == QUEUED and job is not None and job["status"] == "running":
+            status = PROCESSING
         progress = None if job is None else {
             "status": job["status"], "frames_done": job["frames_done"], "frames_total": job["frames_total"],
             "attempts": job["attempts"], "provider": job["provider"],
+            # Still waiting for a visitor at another box (ADR-024).
+            "waiting_for_partner": bool(job["live_wait"]) and job["status"] == "queued" and job["next_attempt_at"] > now_iso() and s["live_partner"] is None,
         }
-        return {"id": s["id"], "box_id": s["box_id"], "status": s["status"], "error": s["error"], "has_result": bool(s["output_path"]), "job": progress}
+        return {"id": s["id"], "box_id": s["box_id"], "status": status, "error": s["error"], "has_result": bool(s["output_path"]),
+                "job": progress, "match": match_info(db, s)}
 
 
 @app.get("/api/v1/sessions/{session_id}/result")
