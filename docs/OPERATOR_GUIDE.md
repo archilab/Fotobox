@@ -49,6 +49,7 @@ Open **<http://127.0.0.1:8001>** in a browser **on the Mac** and log in. It cann
 | **Stories** | Turn stories on or off, edit, add or delete them; see [below](#changing-the-stories). |
 | **Prompts** | Advanced: the background colors, the text that describes every scene, and the list of positions people can take. |
 | **Seeds** | Add or remove counterpart pictures. Tick the box confirming you may use the picture, and enter a short reference such as `FICTIONAL-AI` or a licence number. |
+| **Presence** | See what a booth's start screen would say about the other booths right now, as a larger preview that updates by itself. Choose the booth, the language and the screen shape. Simulated booths, used for testing, are marked SIMULATION. |
 | **Boxes** | Show a pairing code to link a booth, or switch a booth off for good ("Revoke"). |
 | **Audit** | A log of what happened: agreements, strips, deletions, logins. It contains only codes, never pictures or names. |
 

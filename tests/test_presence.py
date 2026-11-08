@@ -465,3 +465,74 @@ def test_kiosk_start_screen_refreshes_and_survives_a_failing_server():
     assert kiosk.start_screen() == ENTER
     assert len(shown) == 3 and keys.flushes == 1  # refreshing never discards a key press
     assert "Other Photoboxes" in shown[0] and "Other Photoboxes" not in shown[1] and "ENTER" in shown[1]
+
+
+# The dashboard preview (milestone S2)
+
+@pytest.fixture
+def dash(anonymous_client):
+    from photobox_server import dashboard
+    from photobox_server.dashboard.security import Sessions, set_password
+    dashboard.app.state.sessions = Sessions()
+    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8001", follow_redirects=False)
+    with db_connect() as db:
+        set_password(db, "correct horse battery")
+    browser.post("/login", data={"password": "correct horse battery"})
+    return browser
+
+
+def test_preview_needs_a_login(client):
+    from photobox_server import dashboard
+    browser = TestClient(dashboard.app, base_url="http://127.0.0.1:8001", follow_redirects=False)
+    assert browser.get("/presence").status_code == 303
+    assert browser.get("/presence/stream?box=pi-01&once=1").status_code == 303
+
+
+def test_preview_shows_what_a_box_would_be_told(client, berlin, dash):
+    report(berlin, "capturing")
+    start(berlin)
+    page = dash.get("/presence?box=pi-01&lang=en").text
+    assert "Someone is taking a photo in Berlin." in page and "LIVE" in page
+    assert 'id="sim" class="sim" hidden' in page  # nothing simulated
+    german = dash.get("/presence?box=pi-01&lang=de&aspect=9:16").text
+    assert "Jemand macht gerade ein Foto in Berlin." in german and "aspect-ratio:9 / 16" in german
+
+
+def test_preview_marks_simulated_boxes(client, berlin, dash):
+    report(berlin, "capturing")
+    with db_connect() as db:
+        events.emit(db, "session.started", "box-berlin", session_id="sim", simulated=True)
+    page = dash.get("/presence?box=pi-01").text
+    assert 'id="sim" class="sim" >' in page and "simtag" in page
+    assert snap(client)["locations"][0]["simulated"] is False  # the box itself never sees it
+
+
+def test_preview_escapes_box_names_and_has_no_inline_script(client, berlin, dash):
+    with db_connect() as db:
+        db.execute("UPDATE devices SET public_label='<img src=x onerror=alert(1)>' WHERE id='box-berlin'")
+    report(berlin, "idle")
+    page = dash.get("/presence?box=pi-01").text
+    assert "<img src=x" not in page and "&lt;img" in page
+    assert page.count("<script") == 1 and '<script src="/static/presence.js" defer></script>' in page
+    script = dash.get("/static/presence.js")
+    assert script.status_code == 200 and "javascript" in script.headers["content-type"]
+    assert "innerHTML" not in script.text and "textContent" in script.text
+
+
+def test_preview_stream_sends_the_snapshot_as_server_sent_events(client, berlin, dash):
+    report(berlin, "idle")
+    response = dash.get("/presence/stream?box=pi-01&once=1")
+    assert response.status_code == 200 and response.headers["content-type"].startswith("text/event-stream")
+    kind, data = response.text.strip().split("\n")
+    assert kind == "event: snapshot" and json.loads(data.removeprefix("data: "))["message"]["key"] == "online_only"
+    assert dash.get("/presence/stream?box=nobody&once=1").status_code == 404
+
+
+def test_preview_without_boxes(anonymous_client, dash):
+    assert "No box is paired yet" in dash.get("/presence").text
+
+
+def test_messages_carry_a_status_word():
+    assert messages.render("remote_active", bv("session_active"))["badge"] == {"en": "LIVE", "de": "LIVE"}
+    assert messages.render("earlier_portrait", None)["badge"]["en"] == "EARLIER"
+    assert messages.render("idle", None)["badge"] is None

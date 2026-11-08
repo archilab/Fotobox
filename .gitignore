@@ -202,3 +202,5 @@ consent-notice.txt
 # macOS
 .DS_Store
 pool-notice.txt
+# Local preview launcher with machine-specific paths
+.claude/launch.json

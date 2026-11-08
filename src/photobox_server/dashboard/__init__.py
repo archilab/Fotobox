@@ -6,13 +6,14 @@ Shows the boxes, the queue and the stored strips, and edits the consent notice, 
 seed images and box pairing. It shares the database with the photo booth server but never runs jobs.
 """
 from __future__ import annotations
+import asyncio
 import io
 import json
 import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response, StreamingResponse
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from PIL import Image
 from .. import audit
@@ -549,6 +550,71 @@ def devices_label(device_id: str, request: Request):
     if not changed:
         return back("/devices", "No active box with that name.")
     return back("/devices", f"Public name of {device_id} saved." if label.strip() else f"Public name of {device_id} removed.")
+
+
+# Presence preview (ADR-023, milestone S2)
+
+PRESENCE_LANGUAGES = ("de", "en")
+STREAM_INTERVAL_SECONDS = 2.0
+STREAM_KEEPALIVE_SECONDS = 15.0
+ASPECTS = {"16:9": "16 / 9", "9:16": "9 / 16", "4:3": "4 / 3"}
+
+
+def preview_snapshot(box_id: str) -> dict:
+    """What `box_id` would be told, including simulated boxes, which the preview marks as such."""
+    from .. import presence
+    with db_connect() as db:
+        return presence.snapshot(db, box_id, include_simulated=True)
+
+
+def active_boxes() -> list[str]:
+    with db_connect() as db:
+        return [row["id"] for row in db.execute("SELECT id FROM devices WHERE revoked_at IS NULL ORDER BY id")]
+
+
+@app.get("/presence", response_class=HTMLResponse)
+def presence_preview(request: Request, box: str = "", lang: str = "de", aspect: str = "16:9"):
+    boxes = active_boxes()
+    if not boxes:
+        return page(request, "presence.html", boxes=[], snapshot=None, box="", lang="de", aspect="16:9", ratio=ASPECTS["16:9"], aspects=ASPECTS)
+    box = box if box in boxes else boxes[0]
+    lang = lang if lang in PRESENCE_LANGUAGES else "de"
+    aspect = aspect if aspect in ASPECTS else "16:9"
+    return page(request, "presence.html", boxes=boxes, snapshot=preview_snapshot(box), box=box, lang=lang,
+                aspect=aspect, ratio=ASPECTS[aspect], aspects=ASPECTS)
+
+
+async def presence_stream(request: Request, box: str, once: bool = False):
+    """Server-sent events: the snapshot whenever it changes, and a keep-alive comment in between."""
+    sent, quiet = None, 0.0
+    while True:
+        if await request.is_disconnected():
+            return
+        snapshot = await asyncio.to_thread(preview_snapshot, box)
+        current = json.dumps({key: value for key, value in snapshot.items() if key != "generated_at"}, sort_keys=True)
+        if current != sent:
+            sent, quiet = current, 0.0
+            yield f"event: snapshot\ndata: {json.dumps(snapshot)}\n\n"
+            if once:
+                return
+        elif quiet >= STREAM_KEEPALIVE_SECONDS:
+            quiet = 0.0
+            yield ": keep-alive\n\n"
+        await asyncio.sleep(STREAM_INTERVAL_SECONDS)
+        quiet += STREAM_INTERVAL_SECONDS
+
+
+@app.get("/presence/stream")
+def presence_stream_route(request: Request, box: str, once: bool = False):
+    if box not in active_boxes():
+        return Response("Unknown box", status_code=404)
+    return StreamingResponse(presence_stream(request, box, once), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+
+@app.get("/static/presence.js")
+def presence_script():
+    return FileResponse(Path(__file__).parent / "static" / "presence.js", media_type="text/javascript")
 
 
 # Audit

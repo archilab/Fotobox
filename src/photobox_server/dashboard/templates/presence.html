@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Presence{% endblock %}
+{% macro tile_kind(item) -%}
+{{ 'offline' if item.device_state == 'offline' else {'session_active': 'live', 'recent_photo': 'recent'}.get(item.activity_state, 'online') }}
+{%- endmacro %}
+{% set icons = {'live': '●', 'recent': '◔', 'earlier': '▣', 'online': '○', 'offline': '×'} %}
+{% block content %}
+<style>
+.controls { display:flex; gap:16px; flex-wrap:wrap; align-items:end; margin-bottom:16px; }
+.controls label { margin:0 0 4px; }
+.controls select { font:inherit; padding:6px 8px; border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--text); }
+/* aspect-ratio is a minimum here: with visible overflow the frame grows when the text needs more room. */
+.frame { container-type:inline-size; width:100%; max-width:1000px; background:#0d0d0f; color:#f4f4f2; border-radius:12px;
+         display:flex; flex-direction:column; border:1px solid var(--line); }
+.frame > :first-child { border-radius:12px 12px 0 0; }
+.frame.portrait { max-width:460px; }
+.sim { background:#ffd23f; color:#111; font-weight:800; letter-spacing:.12em; text-align:center; padding:.5em; font-size:max(13px, 1.6cqw); }
+.top { display:flex; justify-content:space-between; gap:1em; padding:3cqw 4cqw 0; font-size:max(11px, 1.6cqw); letter-spacing:.14em; color:#b9b9b4; }
+.hero { padding:4cqw 4cqw 2cqw; flex:1; }
+.badge { display:inline-block; font-weight:800; letter-spacing:.12em; font-size:max(12px, 1.8cqw); padding:.25em .7em; border-radius:999px; border:2px solid currentColor; margin-bottom:1em; }
+.badge.live { color:#ff6b5e; } .badge.recent { color:#ffc857; } .badge.earlier { color:#9db4ff; } .badge.online { color:#8fd19e; }
+.hero h2 { font-size:max(22px, 5.4cqw); line-height:1.12; margin:0 0 .35em; font-weight:800; }
+.hero p { font-size:max(14px, 2.6cqw); margin:0; color:#d6d6d1; }
+.cta { margin:3cqw 4cqw; padding:1em; border:2px dashed #6b6b70; border-radius:10px; text-align:center; font-weight:800; letter-spacing:.14em; font-size:max(13px, 2.2cqw); }
+.cta small { display:block; font-weight:400; letter-spacing:0; color:#a0a0a6; margin-top:.3em; font-size:max(11px, 1.4cqw); }
+.tiles { list-style:none; margin:0; padding:0 4cqw 3cqw; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap:1.4cqw; }
+.tile { background:#1b1b1f; border-radius:10px; padding:.8em 1em; font-size:max(13px, 1.8cqw); border-left:6px solid #44444a; }
+.tile b { display:block; font-size:1.15em; }
+.tile .state { letter-spacing:.1em; font-weight:700; }
+.tile.live { border-color:#ff6b5e; } .tile.live .state { color:#ff6b5e; }
+.tile.recent { border-color:#ffc857; } .tile.recent .state { color:#ffc857; }
+.tile.online { border-color:#8fd19e; } .tile.online .state { color:#8fd19e; }
+.tile.offline { opacity:.6; } .tile.offline .state { color:#b0b0b0; }
+.tile .simtag { margin-left:.5em; background:#ffd23f; color:#111; border-radius:4px; padding:0 .4em; font-size:.75em; font-weight:800; letter-spacing:.08em; }
+.foot { padding:0 4cqw 2.4cqw; color:#8c8c90; font-size:max(11px, 1.3cqw); }
+.pulse { display:inline-block; animation:pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity:.25; } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation:none; } }
+.conn { font-size:13px; color:var(--muted); margin-top:8px; }
+</style>
+
+<h1>Presence preview</h1>
+<p class="muted">What a box's screen would say right now, chosen from real recorded events. This is a developer preview, not the box's screen: the box itself shows the same message as text on its start screen. Simulated boxes are always marked.</p>
+
+{% if not boxes %}
+<div class="msg">No box is paired yet. Pair one on the Boxes page.</div>
+{% else %}
+<form class="controls" method="get" action="/presence">
+  <div><label for="box">As seen by</label>
+    <select id="box" name="box">{% for b in boxes %}<option value="{{ b }}" {{ 'selected' if b == box }}>{{ b }}</option>{% endfor %}</select></div>
+  <div><label for="lang">Language</label>
+    <select id="lang" name="lang"><option value="de" {{ 'selected' if lang == 'de' }}>Deutsch</option><option value="en" {{ 'selected' if lang == 'en' }}>English</option></select></div>
+  <div><label for="aspect">Screen</label>
+    <select id="aspect" name="aspect">{% for name in aspects %}<option value="{{ name }}" {{ 'selected' if name == aspect }}>{{ name }}</option>{% endfor %}</select></div>
+  <div><button>Show</button></div>
+</form>
+
+{% set message = snapshot.message %}
+{% set simulated = snapshot.locations | selectattr('simulated') | list %}
+<section id="presence" class="frame {{ 'portrait' if aspect == '9:16' }}" style="aspect-ratio:{{ ratio }}"
+         data-stream="/presence/stream?box={{ box | urlencode }}" data-lang="{{ lang }}" aria-label="Preview of the presence screen">
+  <div id="sim" class="sim" {{ 'hidden' if not simulated }}>SIMULATION · simulated boxes are marked</div>
+  <div class="top"><span>CONNECTED PHOTOBOX</span><span id="self">{{ snapshot.self.label or snapshot.self.box_id }}{{ ' · NOT READY' if snapshot.self.state == 'unavailable' }}</span></div>
+  <div class="hero" aria-live="polite">
+    {% set badge_kind = {'live_match': 'live', 'remote_active': 'live', 'recent_photo': 'recent', 'earlier_portrait': 'earlier', 'online_only': 'online'}.get(message.key) %}
+    <span id="badge" class="badge {{ badge_kind or '' }}" {{ 'hidden' if not message.badge }}>{% if badge_kind == 'live' %}<span class="pulse" aria-hidden="true">●</span> {% endif %}{{ message.badge[lang] if message.badge }}</span>
+    <h2 id="hero">{{ message.texts[lang].hero }}</h2>
+    <p id="support">{{ message.texts[lang].support }}</p>
+  </div>
+  <div class="cta" aria-hidden="true">{{ 'ENTER DRÜCKEN' if lang == 'de' else 'PRESS ENTER' }}<small>{{ 'Vorschau: hier kann kein Foto gemacht werden' if lang == 'de' else 'Preview: no photo can be taken here' }}</small></div>
+  <ul id="tiles" class="tiles">
+    {% for item in snapshot.locations %}{% set kind = tile_kind(item) %}
+    <li class="tile {{ kind }}"><b>{{ item.label or ('Fotobox' if lang == 'de' else 'Photobox') }}{% if item.simulated %}<span class="simtag">SIMULATED</span>{% endif %}</b>
+      <span class="state">{{ icons[kind] }} {{ item.status[lang] }}</span></li>
+    {% endfor %}
+    {% if snapshot.more_locations %}<li class="tile">+{{ snapshot.more_locations }}</li>{% endif %}
+  </ul>
+  <div class="foot">{{ 'Andere Boxen sehen nur, dass hier etwas passiert, nie ein Bild.' if lang == 'de' else 'Other boxes only learn that something is happening here, never an image.' }}</div>
+</section>
+<p id="conn" class="conn">Updates every 2 seconds while this page is open.</p>
+<script src="/static/presence.js" defer></script>
+{% endif %}
+{% endblock %}

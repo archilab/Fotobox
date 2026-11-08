@@ -83,7 +83,7 @@ Each milestone stops for the owner's review.
 - [x] **S0** Contract: spec in `docs/`, typed events, TTL rules, message catalog (German and English), state fixtures
 - [x] **S1** Presence backend: events from the real session flow, per-box projection, `GET /api/v1/presence/snapshot`, box labels, kiosk idle screen
 - [x] **P-1** Timed pool consent at the kiosk: a second question, 24 h, its own consent record, pool page in the dashboard
-- [ ] **S2** Dashboard preview of the presence screen with a SIMULATION banner, server-sent events
+- [x] **S2** Dashboard preview of the presence screen with a SIMULATION banner, server-sent events
 - [ ] **S3** Simulator for 2-5 boxes, developer mode only
 - [ ] **L-1** Live matching across boxes: 20 s wait, then pool, then seed; identical strip for both; tested with a second kiosk on the Mac
 - [ ] **L-2** Interactive waiting screen: searching, matched with {location}, the partner's progress

@@ -57,6 +57,9 @@ STATUS_WORDS = {
     "offline": {"en": "OFFLINE", "de": "OFFLINE"},
     "earlier": {"en": "EARLIER", "de": "FRÜHER"},
 }
+# The status word shown beside each message, so the kind of encounter is never left to colour alone.
+BADGES = {"live_match": "session_active", "remote_active": "session_active", "recent_photo": "recent_photo",
+          "earlier_portrait": "earlier", "online_only": "online"}
 PLACEHOLDER = re.compile(r"\{(location|where|elapsed|label)\}")
 
 
@@ -121,4 +124,5 @@ def render(key: str, about: BoxView | None) -> dict:
         if about is not None and about.activity_age_seconds is not None:
             values["elapsed"] = elapsed(about.activity_age_seconds, language)
         rendered[language] = {"hero": fill(hero, values), "support": fill(support, values)}
-    return {"priority": priority, "key": key, "texts": rendered}
+    badge = BADGES.get(key)
+    return {"priority": priority, "key": key, "texts": rendered, "badge": dict(STATUS_WORDS[badge]) if badge else None}
