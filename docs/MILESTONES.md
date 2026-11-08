@@ -86,7 +86,7 @@ Each milestone stops for the owner's review.
 - [x] **S2** Dashboard preview of the presence screen with a SIMULATION banner, server-sent events
 - [x] **S3** Simulator for 2-5 boxes, developer mode only
 - [x] **L-1** Live matching across boxes: 20 s wait, then pool, then seed; identical strip for both; tested with a second kiosk on the Mac
-- [ ] **L-2** Interactive waiting screen: searching, matched with {location}, the partner's progress
+- [x] **L-2** Interactive waiting screen: searching, matched with {location}, the partner's progress
 - [ ] **M-VOICE-0** Messaging contract and simulator, live pairs only
 - [ ] **M-VOICE-1..3** Microphone and local speech-to-text on the Pi (engine benchmarked first), relay, visitor screen
 **S1 acceptance:** a box that is only online is never shown as active, and an ended or expired session loses LIVE at once.

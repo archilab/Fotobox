@@ -24,6 +24,10 @@ CATALOG: dict[str, tuple[str, dict[str, tuple[str, str]]]] = {
         "en": ("You're connected with {location}!", "Two people, one shared photo."),
         "de": ("Du bist mit {location} verbunden!", "Zwei Menschen, ein gemeinsames Foto."),
     }),
+    "partner_waiting": ("P2", {
+        "en": ("Someone {where} is waiting for a shared photo.", "Take yours now to join them."),
+        "de": ("Jemand {where} wartet auf ein gemeinsames Foto.", "Mach jetzt deins und ihr landet auf einem Streifen."),
+    }),
     "remote_active": ("P2", {
         "en": ("Someone is taking a photo {where}.", "Take yours now for a chance to connect."),
         "de": ("Jemand macht gerade ein Foto {where}.", "Mach jetzt deins, vielleicht verbindet ihr euch."),
@@ -58,7 +62,7 @@ STATUS_WORDS = {
     "earlier": {"en": "EARLIER", "de": "FRÜHER"},
 }
 # The status word shown beside each message, so the kind of encounter is never left to colour alone.
-BADGES = {"live_match": "session_active", "remote_active": "session_active", "recent_photo": "recent_photo",
+BADGES = {"live_match": "session_active", "partner_waiting": "session_active", "remote_active": "session_active", "recent_photo": "recent_photo",
           "earlier_portrait": "earlier", "online_only": "online"}
 PLACEHOLDER = re.compile(r"\{(location|where|elapsed|label)\}")
 
@@ -104,6 +108,9 @@ def choose(*, self_unavailable: bool, locations: Sequence[BoxView], earlier_port
     if live_partner is not None:
         return "live_match", live_partner
     online = [view for view in locations if view.device_state == "online"]
+    waiting = next((view for view in online if view.match_available), None)
+    if waiting is not None:
+        return "partner_waiting", waiting
     for state, key in (("session_active", "remote_active"), ("recent_photo", "recent_photo")):
         match = next((view for view in online if view.activity_state == state), None)
         if match is not None:

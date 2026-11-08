@@ -62,7 +62,7 @@
   <div id="sim" class="sim" {{ 'hidden' if not simulated }}>SIMULATION · simulated boxes are marked</div>
   <div class="top"><span>CONNECTED PHOTOBOX</span><span id="self">{{ snapshot.self.label or snapshot.self.box_id }}{{ ' · NOT READY' if snapshot.self.state == 'unavailable' }}</span></div>
   <div class="hero" aria-live="polite">
-    {% set badge_kind = {'live_match': 'live', 'remote_active': 'live', 'recent_photo': 'recent', 'earlier_portrait': 'earlier', 'online_only': 'online'}.get(message.key) %}
+    {% set badge_kind = {'live_match': 'live', 'partner_waiting': 'live', 'remote_active': 'live', 'recent_photo': 'recent', 'earlier_portrait': 'earlier', 'online_only': 'online'}.get(message.key) %}
     <span id="badge" class="badge {{ badge_kind or '' }}" {{ 'hidden' if not message.badge }}>{% if badge_kind == 'live' %}<span class="pulse" aria-hidden="true">●</span> {% endif %}{{ message.badge[lang] if message.badge }}</span>
     <h2 id="hero">{{ message.texts[lang].hero }}</h2>
     <p id="support">{{ message.texts[lang].support }}</p>

@@ -49,7 +49,7 @@ class BoxView:
     device_state: DeviceState
     activity_state: ActivityState
     activity_age_seconds: int | None
-    # A visitor there could be paired live. Always False until live matching exists (milestone L-1).
+    # A visitor there is waiting for a live partner. Set by presence.snapshot from the job queue (ADR-024).
     match_available: bool = False
     simulated: bool = False
 

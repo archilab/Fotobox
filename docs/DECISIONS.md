@@ -136,4 +136,6 @@ When something goes wrong:
 
 The box's status shows `match.kind` (live, pool or seed), the partner's public name and whether it is still waiting, and its start screen says "You're connected with …". `match.live_created` and `match.pool_created` are now emitted.
 
+Implementation of L-2. **Decided by the project owner on 2026-11-08:** the 20 s wait stays the base, but if a visitor at another box has already given live consent, the waiting job keeps waiting for them, up to 60 s in total (`PHOTOBOX_LIVE_MAX_WAIT_SECONDS`, 20-120), because reading the notice and the countdown take about as long as the base wait. It only ever waits on a real, consented visitor. The kiosk shows the server's real time left, never an invented countdown, and says who is on the way. Other boxes' start screens say "Someone in Berlin is waiting for a shared photo" (`match_available`) while that is true, and refresh every 3 s. The moment two visitors are paired, both screens announce it for 3 s and then show their shared progress. If nobody came, the screen says so.
+
 Milestones P-1 (timed pool consent), L-1 (live matching) and L-2 (the interactive waiting screen) follow S1 in `docs/MILESTONES.md`. Voice messages (milestones M-VOICE) stay limited to live pairs and come after L-1.

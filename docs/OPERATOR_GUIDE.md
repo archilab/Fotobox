@@ -21,7 +21,7 @@ How to run the Fotobox day to day. To install it, see [INSTALL.md](../INSTALL.md
 
 | Screen | What the visitor does |
 |---|---|
-| **FOTOBOX – Press ENTER to start** | Presses ENTER. Above it, one line tells what is happening at the other booths, such as "Someone is taking a photo in Hall B", refreshed every 10 seconds (see *Booth names* below). |
+| **FOTOBOX – Press ENTER to start** | Presses ENTER. Above it, one line tells what is happening at the other booths, such as "Someone is taking a photo in Hall B", refreshed every 3 seconds (see *Booth names* below). |
 | **Consent notice** | Reads it, then presses ENTER to agree or ESC to cancel. After 90 seconds without an answer, it cancels. |
 | **Pool question** (only if you set one up) | A second, separate question: may the photo be combined with other visitors' photos until a stated time? ENTER = yes, ESC = no, and the photo is taken either way. No answer for 90 seconds cancels, with no photo. |
 | **3 – 2 – 1** | Looks at the camera. |
@@ -167,7 +167,7 @@ Rules the server enforces:
 
 ## Live encounters between booths
 
-With two or more booths, visitors who take a photo at about the same time can share one strip. They are both in it and both get it. The first visitor's booth waits up to 20 seconds for someone at another booth, and shows "Looking for someone at another photo booth". If nobody comes, the strip is made with a pool photo or a seed as usual. With only one booth online there is no waiting.
+With two or more booths, visitors who take a photo at about the same time can share one strip. They are both in it and both get it. The first visitor's booth waits up to 20 seconds for someone at another booth, and shows "Looking for someone at another photo booth" with the time left. Meanwhile, the other booths' start screens say "Someone in … is waiting for a shared photo". If a visitor at another booth has already agreed to the notice, the wait extends until their photo arrives, up to 60 seconds, and the screen says someone is on the way. When the two are paired, both screens announce it and show the same progress. If nobody comes, the screen says so and the strip is made with a pool photo or a seed as usual. With only one booth online there is no waiting.
 
 **To switch it on:**
 1. Use a consent notice that says so; `consent-notice.live.example.txt` has the wording.
@@ -236,6 +236,7 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 | `PHOTOBOX_POOL_HOURS` | `24` | How long a photo stays in the pool after the visitor agrees (1 to 720). The pool question shows the exact end time, and the photo is deleted then at the latest. |
 | `PHOTOBOX_LIVE_MATCHING` | off | `true` pairs visitors at different booths live. Only with a notice that says so. |
 | `PHOTOBOX_LIVE_WAIT_SECONDS` | `20` | How long a booth waits for someone at another booth (5 to 60). |
+| `PHOTOBOX_LIVE_MAX_WAIT_SECONDS` | `60` | The longest wait while a visitor at another booth has already agreed (20 to 120). |
 | `PHOTOBOX_POOL_NOTICE_FILE` | `pool-notice.txt` | The pool question used until you save one in the dashboard. Without one, the booths do not ask. |
 | `PHOTOBOX_PRESENCE_RECENT_SECONDS` | `180` | How long a photo counts as "just taken" on other booths (30 to 1800). |
 | `PHOTOBOX_PUBLIC_ACTIVITY_DETAIL` | `coarse` | `coarse` shows no times; `detailed` adds how long ago. |

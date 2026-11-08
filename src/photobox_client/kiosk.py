@@ -37,9 +37,10 @@ SETUP_SEQUENCES = (b"\x1b\x13", b"\x93", b"\x13")
 NOTICE_TIMEOUT_SECONDS = 90
 RESULT_SECONDS = 60
 STRIP_SECONDS = 20
+LIVE_MOMENT_SECONDS = 3
 MESSAGE_SECONDS = 10
 # How often the start screen asks the server what is happening at the other boxes (ADR-023).
-PRESENCE_REFRESH_SECONDS = 10
+PRESENCE_REFRESH_SECONDS = 3
 PRESENCE_TILES = 3
 CANCELLED = "Abgebrochen. Es wurde kein Foto gemacht.\nCancelled. No photo was taken."
 START_TEXT = "Druecke ENTER zum Starten.\nPress ENTER to start."
@@ -227,19 +228,37 @@ def presence_text(snapshot: dict | None) -> str:
     return ("\n\n".join(lines) + ("\n\n" + "\n".join(tiles) if tiles else "")).translate(PLAIN_LETTERS)
 
 
-def encounter_text(state: dict) -> str:
-    """Who this visitor's photo meets, exactly as the server knows it (ADR-024). Empty for a seed."""
+def _places(label: str | None) -> tuple[str, str]:
+    return (f"in {label}", f"in {label}") if label else ("an einer anderen Fotobox", "at another photo booth")
+
+
+def live_moment_text(state: dict) -> str:
+    """The screen for the moment two visitors are paired (ADR-024)."""
+    de, en = _places((state.get("match") or {}).get("partner_label"))
+    return (f"* * *   L I V E   * * *\n\nDu und jemand {de}:\nein gemeinsamer Fotostreifen!\n\n"
+            f"You and someone {en}:\none shared photo strip!").translate(PLAIN_LETTERS)
+
+
+def encounter_text(state: dict, waited: bool = False) -> str:
+    """Who this visitor's photo meets, exactly as the server knows it (ADR-024). Empty for a seed nobody waited for."""
     job = state.get("job") or {}
     match = state.get("match") or {}
     if job.get("waiting_for_partner"):
-        return "Wir suchen jemanden an einer anderen Fotobox ...\nLooking for someone at another photo booth ..."
+        left = job.get("wait_seconds_left")
+        clock = f"  (noch {left} s / {left} s left)" if left else ""
+        if job.get("partner_coming"):
+            de, en = _places(job.get("partner_coming_label"))
+            return (f"Jemand {de} macht auch gerade ein Foto. Wir warten darauf!{clock}\n"
+                    f"Someone {en} is taking a photo too. Waiting for it!").translate(PLAIN_LETTERS)
+        return f"Wir suchen jemanden an einer anderen Fotobox ...{clock}\nLooking for someone at another photo booth ..."
     if match.get("kind") == "live":
-        label = match.get("partner_label")
-        de = f"in {label}" if label else "an einer anderen Fotobox"
-        en = f"in {label}" if label else "at another photo booth"
-        return (f"LIVE! Du teilst dein Foto mit jemandem {de}.\nLIVE! You share your photo with someone {en}.").translate(PLAIN_LETTERS)
+        de, en = _places(match.get("partner_label"))
+        return (f"LIVE mit jemandem {de}. Ihr seht beide denselben Fortschritt.\n"
+                f"LIVE with someone {en}. You both see the same progress.").translate(PLAIN_LETTERS)
     if match.get("kind") == "pool":
         return "Dein Foto trifft jemanden, der vorhin hier war.\nYour photo meets someone who was here earlier."
+    if waited and match.get("kind") == "seed":
+        return "Gerade war niemand an einer anderen Fotobox.\nNobody was at another photo booth just now."
     return ""
 
 
@@ -359,6 +378,7 @@ class Kiosk:
     def follow(self, session_id: str, code: str | None) -> str:
         self.report("generating")
         started = self.clock()
+        waited, announced = False, False
         while True:
             try:
                 state = self.api.status(session_id)
@@ -372,7 +392,12 @@ class Kiosk:
                 self.message("Leider hat es nicht geklappt. Bitte melde dich bei der Betreuung.\nSorry, that did not work. Please ask the staff.")
                 return "generation failed"
             frames = f"Bild {job.get('frames_done', 0)} von {job.get('frames_total', '?')}" if job else "In der Warteschlange / Queued"
-            encounter = encounter_text(state)
+            waited = waited or bool(job.get("waiting_for_partner"))
+            if (state.get("match") or {}).get("kind") == "live" and not announced:
+                announced = True
+                self.screen.show(self.banner + live_moment_text(state))
+                self.sleep(LIVE_MOMENT_SECONDS)
+            encounter = encounter_text(state, waited)
             self.screen.show(
                 f"{self.banner}Dein Fotostreifen wird erstellt.\nYour photo strip is being made.\n\n"
                 + (encounter + "\n\n" if encounter else "")

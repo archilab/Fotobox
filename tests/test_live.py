@@ -277,3 +277,155 @@ def test_consent_records_accept_live_and_still_refuse_other_purposes(client):
     import sqlite3
     with db_connect() as db, pytest.raises(sqlite3.IntegrityError):
         db.execute("INSERT INTO consent_records(id,session_id,purpose,policy_version,granted_at,provenance) VALUES('x','s','gallery','v','t','p')")
+
+
+# Waiting for someone who is on the way (milestone L-2)
+
+def agree(c, live_consent=True):
+    sid = c.post("/api/v1/sessions").json()["id"]
+    assert c.post(f"/api/v1/sessions/{sid}/consent", json={"processing": True, "documented_externally": True, "live": live_consent}).status_code == 200
+    return sid
+
+
+def finish_visit(c, sid):
+    assert c.post(f"/api/v1/sessions/{sid}/portrait", files={"image": ("x.jpg", jpeg("#00aa00"), "image/jpeg")}).status_code == 200
+    assert c.post(f"/api/v1/sessions/{sid}/process").status_code == 202
+
+
+def wait_left(c, sid):
+    return status(c, sid)["job"]["wait_seconds_left"]
+
+
+def test_wait_extends_when_a_visitor_at_another_box_agrees(boxes):
+    client, berlin = boxes
+    first = visit(client)
+    assert 15 <= wait_left(client, first) <= 21 and status(client, first)["job"]["partner_coming"] is False
+    agree(berlin)
+    job = status(client, first)["job"]
+    assert 50 <= job["wait_seconds_left"] <= 61 and job["partner_coming"] is True and job["partner_coming_label"] == "Berlin"
+
+
+def test_wait_does_not_extend_without_live_consent_or_from_the_same_box(boxes):
+    client, berlin = boxes
+    first = visit(client)
+    agree(berlin, live_consent=False)
+    agree(client)  # the same box can never be the partner
+    assert wait_left(client, first) <= 21 and status(client, first)["job"]["partner_coming"] is False
+
+
+def test_visitor_already_on_the_way_means_a_long_wait_from_the_start(boxes):
+    client, berlin = boxes
+    agree(berlin)
+    first = visit(client)
+    assert 50 <= wait_left(client, first) <= 61
+
+
+def test_someone_who_agreed_long_ago_is_not_waited_for(boxes):
+    client, berlin = boxes
+    agree(berlin)
+    with db_connect() as db:
+        db.execute("UPDATE sessions SET created_at=?", ((datetime.now(timezone.utc) - timedelta(seconds=61)).isoformat(),))
+    first = visit(client)
+    assert wait_left(client, first) <= 21
+
+
+def test_late_photo_within_the_extended_wait_still_pairs(boxes):
+    client, berlin = boxes
+    first = visit(client)
+    coming = agree(berlin)
+    with db_connect() as db:  # 30 s later: past the 20 s, still within the extended wait
+        db.execute("UPDATE generation_jobs SET created_at=?", ((datetime.now(timezone.utc) - timedelta(seconds=30)).isoformat(),))
+    finish_visit(berlin, coming)
+    assert row(first)["live_partner"] == coming
+
+
+def test_maximum_wait_can_be_configured(boxes, monkeypatch):
+    client, berlin = boxes
+    monkeypatch.setenv("PHOTOBOX_LIVE_MAX_WAIT_SECONDS", "30")
+    first = visit(client)
+    agree(berlin)
+    assert 25 <= wait_left(client, first) <= 31
+    assert live.max_wait_seconds() == 30
+    monkeypatch.setenv("PHOTOBOX_LIVE_WAIT_SECONDS", "40")
+    assert live.max_wait_seconds() == 40  # never shorter than the base wait
+
+
+# What other boxes are told
+
+def test_other_boxes_learn_that_someone_is_waiting(boxes):
+    client, berlin = boxes
+    first = visit(berlin)
+    body = client.get("/api/v1/presence/snapshot").json()
+    assert body["message"]["key"] == "partner_waiting" and body["message"]["badge"]["en"] == "LIVE"
+    assert body["message"]["texts"]["en"]["hero"] == "Someone in Berlin is waiting for a shared photo."
+    assert body["locations"][0]["match_available"] is True
+    # The waiting box is not told about itself.
+    assert berlin.get("/api/v1/presence/snapshot").json()["message"]["key"] != "partner_waiting"
+    visit(client)  # paired: nobody is waiting any more
+    assert client.get("/api/v1/presence/snapshot").json()["locations"][0]["match_available"] is False
+    assert row(first)["live_partner"] is not None
+
+
+def test_a_passed_deadline_is_no_longer_announced(boxes):
+    client, berlin = boxes
+    visit(berlin)
+    pass_deadline()
+    assert client.get("/api/v1/presence/snapshot").json()["locations"][0]["match_available"] is False
+
+
+def test_nothing_is_announced_when_live_matching_is_off(boxes, monkeypatch):
+    client, berlin = boxes
+    visit(berlin)
+    monkeypatch.setenv("PHOTOBOX_LIVE_MATCHING", "false")
+    assert client.get("/api/v1/presence/snapshot").json()["locations"][0]["match_available"] is False
+
+
+# The kiosk's screens
+
+def test_kiosk_shows_the_real_time_left_and_who_is_coming():
+    searching = encounter_text({"job": {"waiting_for_partner": True, "wait_seconds_left": 14}})
+    assert "14 s left" in searching and "Looking for someone" in searching
+    coming = encounter_text({"job": {"waiting_for_partner": True, "wait_seconds_left": 40, "partner_coming": True, "partner_coming_label": "Berlin"}})
+    assert "Someone in Berlin is taking a photo too" in coming and "40 s left" not in coming.splitlines()[1]
+
+
+def test_kiosk_says_when_nobody_came():
+    state = {"job": {}, "match": {"kind": "seed"}}
+    assert "Nobody was at another photo booth" in encounter_text(state, waited=True)
+    assert encounter_text(state, waited=False) == ""
+
+
+def test_kiosk_announces_the_pairing_once_then_shows_shared_progress():
+    from photobox_client.kiosk import ENTER, Kiosk
+
+    class Screen:
+        shown = []
+
+        def show(self, text):
+            self.shown.append(text)
+
+    class Keys:
+        def flush(self):
+            pass
+
+        def wait(self, accepted, timeout):
+            return ENTER
+
+    class FakeApi:
+        states = [
+            {"status": "queued", "job": {"waiting_for_partner": True, "wait_seconds_left": 9}, "match": {"kind": None}},
+            {"status": "queued", "job": {}, "match": {"kind": "live", "partner_label": "Berlin"}},
+            {"status": "processing", "job": {"frames_done": 1, "frames_total": 4}, "match": {"kind": "live", "partner_label": "Berlin"}},
+            {"status": "complete", "job": {}, "match": {"kind": "live", "partner_label": "Berlin"}},
+        ]
+
+        def status(self, sid):
+            return self.states.pop(0)
+
+    slept = []
+    clock = iter(range(1000))
+    kiosk = Kiosk(FakeApi(), lambda: b"", Screen(), Keys(), sleep=slept.append, clock=lambda: next(clock))
+    assert kiosk.follow("sid", "CODE") == "complete"
+    moments = [text for text in Screen.shown if "L I V E" in text]
+    assert len(moments) == 1 and "someone in Berlin" in moments[0] and 3 in slept
+    assert any("LIVE with someone in Berlin. You both see the same progress." in text for text in Screen.shown)

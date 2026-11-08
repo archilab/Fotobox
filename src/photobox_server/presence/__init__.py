@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import re
 import sqlite3
+from dataclasses import replace
 from datetime import datetime, timezone
 from ..config import ConfigError, int_setting
 from . import events, messages
@@ -92,6 +93,10 @@ def snapshot(db: sqlite3.Connection, self_box_id: str, now: datetime | None = No
         from .simulator import simulated_boxes
         boxes += simulated_boxes(db, now)
     views = project(boxes, events.load(db, include_simulated=include_simulated), now, config)
+    from .. import live
+    waiting = live.waiting_boxes(db)
+    views = {box_id: replace(view, match_available=True) if box_id in waiting and view.device_state == "online" else view
+             for box_id, view in views.items()}
     me = next((box for box in boxes if box.box_id == self_box_id), None)
     others = order([view for box_id, view in views.items() if box_id != self_box_id])
     # Any box's pool portrait counts: matching may use one taken at this box too.

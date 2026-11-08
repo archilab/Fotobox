@@ -32,6 +32,11 @@ def wait_seconds() -> int:
     return int_setting("PHOTOBOX_LIVE_WAIT_SECONDS", 20, 5, 60)
 
 
+def max_wait_seconds() -> int:
+    """The longest a job waits while a consented visitor at another box is on the way."""
+    return max(wait_seconds(), int_setting("PHOTOBOX_LIVE_MAX_WAIT_SECONDS", 60, 20, 120))
+
+
 def consented(db: sqlite3.Connection, session_id: str) -> bool:
     return db.execute(
         "SELECT 1 FROM consent_records WHERE session_id=? AND purpose='live' AND withdrawn_at IS NULL", (session_id,)
@@ -48,11 +53,57 @@ def other_box_online(db: sqlite3.Connection, box_id: str) -> bool:
     ).fetchone() is not None
 
 
+def coming(db: sqlite3.Connection, box_id: str) -> sqlite3.Row | None:
+    """A visitor at another box who has agreed to live pairing and whose photo has not been processed yet."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max_wait_seconds())).isoformat()
+    return db.execute(
+        """SELECT s.box_id, d.public_label FROM sessions s JOIN devices d ON d.id = s.box_id
+           JOIN consent_records c ON c.session_id = s.id AND c.purpose = 'live' AND c.withdrawn_at IS NULL
+           WHERE s.box_id != ? AND s.status IN ('awaiting_portrait', 'uploaded') AND s.live_partner IS NULL AND s.created_at > ?
+           ORDER BY s.created_at DESC LIMIT 1""",
+        (box_id, cutoff),
+    ).fetchone()
+
+
 def wait_for(db: sqlite3.Connection, session: sqlite3.Row) -> int:
-    """How long this session's job should wait for a live partner: 0 means start at once."""
-    if not enabled() or not consented(db, session["id"]) or not other_box_online(db, session["box_id"]):
+    """How long this session's job should wait for a live partner: 0 means start at once.
+
+    Longer only for a real visitor who has already agreed at another box, never on a guess.
+    """
+    if not enabled() or not consented(db, session["id"]):
         return 0
-    return wait_seconds()
+    if coming(db, session["box_id"]) is not None:
+        return max_wait_seconds()
+    return wait_seconds() if other_box_online(db, session["box_id"]) else 0
+
+
+def extend_waiting(db: sqlite3.Connection, box_id: str) -> None:
+    """A visitor at `box_id` just agreed: jobs waiting at other boxes keep waiting for them, up to the maximum."""
+    if not enabled():
+        return
+    rows = db.execute(
+        """SELECT j.id, j.created_at, j.next_attempt_at FROM generation_jobs j JOIN sessions s ON s.id = j.session_id
+           WHERE j.status = 'queued' AND j.live_wait = 1 AND j.attempts = 0 AND j.next_attempt_at > ?
+             AND s.box_id != ? AND s.live_partner IS NULL""",
+        (now_iso(), box_id),
+    ).fetchall()
+    for row in rows:
+        latest = (datetime.fromisoformat(row["created_at"]) + timedelta(seconds=max_wait_seconds())).isoformat()
+        if latest > row["next_attempt_at"]:
+            db.execute("UPDATE generation_jobs SET next_attempt_at=? WHERE id=?", (latest, row["id"]))
+
+
+def waiting_boxes(db: sqlite3.Connection) -> set[str]:
+    """Boxes whose visitor is waiting for a live partner right now."""
+    if not enabled():
+        return set()
+    rows = db.execute(
+        """SELECT DISTINCT s.box_id FROM generation_jobs j JOIN sessions s ON s.id = j.session_id
+           JOIN consent_records c ON c.session_id = s.id AND c.purpose = 'live' AND c.withdrawn_at IS NULL
+           WHERE j.status = 'queued' AND j.live_wait = 1 AND j.attempts = 0 AND j.next_attempt_at > ? AND s.live_partner IS NULL""",
+        (now_iso(),),
+    ).fetchall()
+    return {row["box_id"] for row in rows}
 
 
 def find_partner(db: sqlite3.Connection, session: sqlite3.Row) -> sqlite3.Row | None:

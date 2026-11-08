@@ -68,6 +68,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     get_frame_count()
     validate_settings()
     presence.settings()
+    live.max_wait_seconds()
     interval = get_cleanup_interval()
     with db_connect() as db:
         interrupted = recover_after_restart(db)
@@ -290,6 +291,8 @@ def record_consent(session_id: str, body: ConsentRequest, request: Request):
                     audit.record(db, "consent_granted", session_id=session_id, device_id=request.state.device_id, detail=purpose)
                 # Only now, with consent recorded, may other boxes learn that someone is here (ADR-023).
                 presence_events.emit(db, "session.started", request.state.device_id, session_id=session_id)
+                if body.live:
+                    live.extend_waiting(db, request.state.device_id)
                 return {"status": AWAITING_PORTRAIT, "pool_consent": body.pool, "withdrawal_code": code}
             s = get_session(db, session_id, request.state.device_id)
         # A retry of the same request succeeds; anything that would change consent does not.
@@ -467,11 +470,15 @@ def session_status(session_id: str, request: Request):
         status = s["status"]
         if s["live_role"] == live.FOLLOW and status == QUEUED and job is not None and job["status"] == "running":
             status = PROCESSING
+        # Still waiting for a visitor at another box (ADR-024). The time left is the server's real deadline.
+        waiting = job is not None and bool(job["live_wait"]) and job["status"] == "queued" and job["next_attempt_at"] > now_iso() and s["live_partner"] is None
+        visitor = live.coming(db, s["box_id"]) if waiting else None
         progress = None if job is None else {
             "status": job["status"], "frames_done": job["frames_done"], "frames_total": job["frames_total"],
-            "attempts": job["attempts"], "provider": job["provider"],
-            # Still waiting for a visitor at another box (ADR-024).
-            "waiting_for_partner": bool(job["live_wait"]) and job["status"] == "queued" and job["next_attempt_at"] > now_iso() and s["live_partner"] is None,
+            "attempts": job["attempts"], "provider": job["provider"], "waiting_for_partner": waiting,
+            "wait_seconds_left": max(0, int((datetime.fromisoformat(job["next_attempt_at"]) - datetime.now(timezone.utc)).total_seconds()) + 1) if waiting else None,
+            "partner_coming": visitor is not None,
+            "partner_coming_label": presence.messages.clean(visitor["public_label"]) if visitor is not None and visitor["public_label"] else None,
         }
         return {"id": s["id"], "box_id": s["box_id"], "status": status, "error": s["error"], "has_result": bool(s["output_path"]),
                 "job": progress, "match": match_info(db, s)}
