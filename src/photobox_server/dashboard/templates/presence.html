@@ -110,6 +110,26 @@
 {% endif %}
 {% if simulator %}<form method="post" action="/presence/simulator/reset">{{ keep }}<button class="danger">Remove all simulated boxes and events</button></form>{% endif %}
 </div>
+<h2>Simulated encounter with messages</h2>
+<p class="muted">Tries out the text messages two visitors can send while their strip is made. Each card shows only what that box receives. Voice, real boxes and content filtering are not part of this yet.</p>
+{% if simulator | length >= 2 %}
+<style>.bubble { background:#2a2a30; border-radius:8px; padding:.4em .7em; margin:.4em 0; } #encounter { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; color:#f4f4f2; } #encounter p { margin:.4em 0; }</style>
+<div class="panel">
+  <form method="post" action="/presence/simulator/encounter/live">{{ keep }}
+    <label for="first">First box</label><select id="first" name="first">{% for s in simulator %}<option value="{{ s.box_id }}">{{ s.label }}</option>{% endfor %}</select>
+    <label for="second">Second box</label><select id="second" name="second">{% for s in simulator %}<option value="{{ s.box_id }}" {{ 'selected' if loop.index == 2 }}>{{ s.label }}</option>{% endfor %}</select>
+    <p><button>Pair live</button> <button formaction="/presence/simulator/encounter/pool" class="quiet">Match the first box with an earlier portrait</button></p>
+  </form>
+  <form method="post" action="/presence/simulator/encounter/send">{{ keep }}
+    <label for="sender">Send as</label><select id="sender" name="sender">{% for s in simulator %}<option value="{{ s.box_id }}">{{ s.label }}</option>{% endfor %}</select>
+    <label for="messagetext">Typed in place of speech</label><input type="text" id="messagetext" name="text">
+    <p><button>Send</button></p>
+  </form>
+  <form method="post" action="/presence/simulator/encounter/ready">{{ keep }}<button class="quiet">The strip is ready</button></form>
+</div>
+<div id="encounter" aria-live="polite"></div>
+<script src="/static/encounter.js" defer></script>
+{% else %}<p class="muted">Add at least two simulated boxes and press start on each.</p>{% endif %}
 <p class="muted">connect / disconnect: the box reports in or goes silent · start: a visitor gives consent · capture: the photo is uploaded and the strip is being made · finish: the strip is done and the box is back at its start screen · cancel: the visitor cancels or withdraws · expire: five minutes pass without any sign of the session.</p>
 {% endif %}
 {% endblock %}

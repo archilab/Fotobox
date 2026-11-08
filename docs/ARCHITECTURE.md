@@ -12,6 +12,9 @@
 ## Social presence
 `photobox_server/presence/` is separate from matching and generation. The API, the worker and withdrawal record typed events (`presence/events.py`) in the same transaction as their action; `presence/projection.py` turns events and each box's latest status report into states without touching the database or clock; `presence/messages.py` holds the message catalog and its priority rules; `presence.snapshot()` puts them together for `GET /api/v1/presence/snapshot`. The kiosk shows the message on its start screen and refreshes it every 3 s.
 
+## Messages between live pairs
+`photobox_server/messaging.py` is a memory-only relay with no database or log of text (ADR-025). It is used only by the dashboard's developer-mode simulator; no real box is connected to it yet.
+
 ## Feature flags
 `PHOTOBOX_PROVIDER` selects the provider: `mflux-flux2` (FLUX.2 klein 4B, ADR-014) or `mock`, which is not AI, needs `PHOTOBOX_DEVELOPER_MODE=true`, and labels every frame. Any other value stops the server at startup, and so does a missing mflux. Providers live in `photobox_server/providers/`; route handlers never name a model. Strip footers state the origin. Prompts and the 100 micro-stories live in `photobox_server/prompts.py` and `stories.py` (ADR-019). Composition and output profiles live in `photobox_server/strip.py`, which knows nothing about how frames were made (ADR-018).
 

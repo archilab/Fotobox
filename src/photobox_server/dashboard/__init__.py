@@ -29,12 +29,14 @@ from ..prompts import content_version, default_content, prompts_for
 from ..sessions import PROCESSING, QUEUED, UPLOADED, transition
 from ..strip import PROFILES, apply_profile
 from ..withdrawal import remove_from_pool, withdraw_session
+from .encounter import Encounter
 from .security import COOKIE, LOCAL_CLIENTS, LOCAL_HOSTS, SESSION_SECONDS, Sessions, password_is_set, password_matches
 
 ONLINE_SECONDS = 90
 TEMPLATES = Environment(loader=FileSystemLoader(Path(__file__).parent / "templates"), autoescape=select_autoescape(["html"]))
 app = FastAPI(title="Photo booth dashboard", docs_url=None, redoc_url=None, openapi_url=None)
 app.state.sessions = Sessions()
+app.state.encounter = Encounter()
 load_env_file()
 
 PUBLIC = frozenset({"/login"})
@@ -625,6 +627,54 @@ def simulator_add(request: Request):
 @app.post("/presence/simulator/reset")
 def simulator_reset(request: Request):
     return simulate(request, lambda db, sim: sim.reset(db))
+
+
+# A simulated encounter with text messages (ADR-025)
+
+def simulated_box(db, box_id: str):
+    row = db.execute("SELECT * FROM simulated_boxes WHERE box_id=?", (box_id,)).fetchone()
+    if row is None:
+        raise ValueError("choose a simulated box")
+    return row
+
+
+@app.get("/presence/simulator/encounter")
+def encounter_view():
+    from ..presence import simulator
+    if not simulator.enabled():
+        return Response("The simulator needs PHOTOBOX_DEVELOPER_MODE=true.", status_code=404)
+    with db_connect() as db:
+        boxes = [dict(row) for row in simulator.listing(db)]
+    return app.state.encounter.view(boxes)
+
+
+@app.get("/static/encounter.js")
+def encounter_script():
+    return FileResponse(Path(__file__).parent / "static" / "encounter.js", media_type="text/javascript")
+
+
+@app.post("/presence/simulator/encounter/live")
+def encounter_live(request: Request):
+    data = form(request)
+    return simulate(request, lambda db, _sim: app.state.encounter.start_live(
+        simulated_box(db, str(data.get("first", ""))), simulated_box(db, str(data.get("second", "")))))
+
+
+@app.post("/presence/simulator/encounter/pool")
+def encounter_pool(request: Request):
+    data = form(request)
+    return simulate(request, lambda db, _sim: app.state.encounter.start_pool(simulated_box(db, str(data.get("first", "")))))
+
+
+@app.post("/presence/simulator/encounter/send")
+def encounter_send(request: Request):
+    data = form(request)
+    return simulate(request, lambda db, _sim: app.state.encounter.send(simulated_box(db, str(data.get("sender", ""))), str(data.get("text", ""))))
+
+
+@app.post("/presence/simulator/encounter/ready")
+def encounter_ready(request: Request):
+    return simulate(request, lambda _db, _sim: app.state.encounter.close("generation_completed"))
 
 
 @app.post("/presence/simulator/{box_id}/{action}")

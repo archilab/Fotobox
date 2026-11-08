@@ -139,3 +139,13 @@ The box's status shows `match.kind` (live, pool or seed), the partner's public n
 Implementation of L-2. **Decided by the project owner on 2026-11-08:** the 20 s wait stays the base, but if a visitor at another box has already given live consent, the waiting job keeps waiting for them, up to 60 s in total (`PHOTOBOX_LIVE_MAX_WAIT_SECONDS`, 20-120), because reading the notice and the countdown take about as long as the base wait. It only ever waits on a real, consented visitor. The kiosk shows the server's real time left, never an invented countdown, and says who is on the way. Other boxes' start screens say "Someone in Berlin is waiting for a shared photo" (`match_available`) while that is true, and refresh every 3 s. The moment two visitors are paired, both screens announce it for 3 s and then show their shared progress. If nobody came, the screen says so.
 
 Milestones P-1 (timed pool consent), L-1 (live matching) and L-2 (the interactive waiting screen) follow S1 in `docs/MILESTONES.md`. Voice messages (milestones M-VOICE) stay limited to live pairs and come after L-1.
+
+## ADR-025: Ephemeral messages between live pairs, contract first
+Spec section 15, milestone M-VOICE-0. `photobox_server/messaging.py` holds the message relay and its rules; only the dashboard's developer-mode simulator uses it so far, and no real box can send or receive yet.
+
+- A window opens only for a live match with visitors at two different boxes, never for a pool match or seed. It closes at the earliest of the strip being ready, failure, cancellation, a visitor leaving, or 45 s, and the server enforces that deadline.
+- The caller names a match, never a destination. The server resolves recipients and derives the sender's name. An unknown match and someone else's match get the same refusal, so ids cannot be probed.
+- Limits: 160 characters, 3 messages per sender, 3 s between messages, 8 s on screen (`PHOTOBOX_MESSAGE_*`). Text that is too long is refused, never cut. A repeated message id is delivered once. Control characters are removed; HTML stays plain text for the page to escape.
+- Everything is in memory and bounded. Text is never written to the database or a log. An unread message disappears when it expires or its window closes, and nothing is replayed after a disconnect.
+
+The relay runs in whichever process creates it, here the dashboard, so the simulator's messages exist only there. M-VOICE-2 will create the real one in the booth server, tie windows to real jobs, and add message filtering, which the spec requires before visitors can send. **Not implemented yet:** filtering, a box-facing API, microphone capture and speech-to-text. The notice must disclose messaging before any of it goes live.
