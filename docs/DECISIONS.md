@@ -230,3 +230,13 @@ The screen after confirmation, decided by the owner the same day: from the conse
 
 Tested on the real Pi: reboot, a frozen page, a frozen kiosk process. Not tested: a real power cut, a USB reset of a truly stuck camera, the hardware watchdog actually firing, and days of continuous running. `deploy/pi/install-autonomy.sh` installs all of it.
 
+## ADR-033: One installer for a new Pi, with voice and person detection included
+**Decided by the project owner on 2026-11-08.** `scripts/setup_pi.sh` copies the working folder from the Mac to a Pi and runs `deploy/pi/install.sh` there. Voice and person detection are part of the normal install, with no option to leave them out.
+
+- **Installed is not switched on.** The installer places the programs and models, but ADR-029's "off by default" stands: person detection is switched on in the setup menu, with the sign up. The microphone is also chosen there. A later run keeps every existing setting.
+- **Pinned sources.** whisper.cpp is built from tag v1.7.4 and must be commit `8a9ad784`. Both models are checked against SHA-256 values before they are kept; these equal the files tested on the Pi and the sources' published values.
+- **Still done by a person.** Writing the memory card, the setup PIN, pairing and choosing the camera. No PIN or device token passes through a script.
+- **Safe to repeat.** Finished parts are skipped, nothing restarts without `--reboot`, and `--check` only reports. The script stops before changing anything if the user is not `admin`, the code is not in `~/photobox`, or the Pi is not 64-bit, has no network or has under 2 GB free, because the system files name `/home/admin/photobox`.
+
+Tested against stand-ins for the system tools, and `--check` on the real Pi. **Not tested:** a complete run on a freshly written memory card.
+

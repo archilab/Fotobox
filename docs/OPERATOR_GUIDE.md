@@ -267,7 +267,7 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 | **"Could not reach the server"** | The network dropped, or there's no counterpart picture: add one under **Seeds**. |
 | **Only the code appears, not the strip** | The booth couldn't show the picture. The strip is still on the Mac. |
 | **Ctrl+Alt+S does nothing** | It only works on the start screen. Restart the booth and press M within 10 seconds. |
-| **WiFi: "could not save the network"** | The WiFi permission is missing: repeat INSTALL step 2.5. |
+| **WiFi: "could not save the network"** | The WiFi permission is missing: run the installer again (INSTALL step 2.2). |
 | **Camera errors** | Unplug and replug the webcam, then choose it again in **4 Camera**. |
 
 ### On the Mac

@@ -22,7 +22,7 @@ def run(tmp_path, env_file=None, **environment):
         (tmp_path / ".env").write_text(env_file)
     clean = {k: v for k, v in os.environ.items() if k not in ("PHOTOBOX_INTERFACE", "PHOTOBOX_PORT")}
     clean["PATH"] = f"{tools}:{clean['PATH']}"
-    result = subprocess.run(["bash", str(tmp_path / "scripts" / "run_server.sh")], capture_output=True, text=True, env=clean | environment)
+    result = subprocess.run(["bash", str(tmp_path / "scripts" / "run_server.sh")], capture_output=True, text=True, check=False, env=clean | environment)
     assert result.returncode == 0, result.stderr
     return result.stdout
 

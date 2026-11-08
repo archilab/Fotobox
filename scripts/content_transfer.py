@@ -8,11 +8,13 @@ Never touches visitors' photos, strips, sessions, consent records, the audit tra
 on the old server until they expire. Importing does not overwrite anything already there.
 """
 from __future__ import annotations
+
 import json
 import os
 import shutil
 import sys
 from pathlib import Path
+
 from photobox_server.config import load_env_file
 from photobox_server.core import db_connect, storage_root
 

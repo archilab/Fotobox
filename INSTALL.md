@@ -170,41 +170,20 @@ curl -s http://$(ipconfig getifaddr en0):8880/api/v1/health
    - **Services:** turn on **SSH** with password login
 4. Write the card, put it in the Pi, connect the webcam, screen and keyboard, and switch the Pi on. The first start takes a few minutes.
 
-### 2.2 Connect to the Pi from your Mac
+### 2.2 Set up the Pi with one command
+Wait until the Pi has finished its first start. Then run this **on the Mac**, with the Mac's IP address from step 1.9 in place of `MAC_IP_ADDRESS`:
 ```bash
-ssh admin@fotobox.local
+cd ~/photobox-server && scripts/setup_pi.sh admin@fotobox.local --server MAC_IP_ADDRESS --reboot
 ```
-The first time, type `yes` to trust the Pi, then the Pi's password. **You should see** a prompt like `admin@fotobox:~ $`. The following commands in Part 2 run **on the Pi**, in this window.
+The first time, type `yes` to trust the Pi. The Pi's password is asked for, up to three times.
 
-> If `fotobox.local` isn't found, look up the Pi's IP address in your router's device list and use it instead, such as `ssh admin@192.168.1.140`.
+This installs everything the booth needs: the system packages, the booth program, voice and person detection. It takes about 15 minutes, mostly to build the speech program. **You should see** `Finished.` at the end, and then the Pi restarts by itself. ✅ The Pi is ready. Go to the booth itself for the next part.
 
-### 2.3 Install what the booth needs
-```bash
-sudo apt update && sudo apt install -y git python3-venv polkitd && sudo apt install -y --no-install-recommends cage chromium wlr-randr
-```
+> Voice and person detection are installed but **not switched on**. You choose them in the setup menu in Part 3.
 
-### 2.4 Download and install the photo booth
-```bash
-git clone https://github.com/archilab/Fotobox.git ~/photobox && cd ~/photobox && python3 -m venv .venv && .venv/bin/pip install -e '.[client-camera]'
-```
-This takes a few minutes. **You should see** `Successfully installed …` at the end.
+> If `fotobox.local` isn't found, look up the Pi's IP address in your router's device list and use it instead, such as `admin@192.168.1.140`.
 
-> If GitHub asks for a user name, the repository is private: sign in with an access token, or copy the folder over from the Mac as described in the [developer guide](docs/DEVELOPMENT.md#deploying-a-working-copy-without-git).
-
-### 2.5 Let the booth manage WiFi and start by itself
-This lets the setup menu change WiFi:
-```bash
-sudo cp ~/photobox/deploy/pi/50-photobox-network.rules /etc/polkit-1/rules.d/
-```
-This makes the booth start on the screen at every boot, instead of the login prompt:
-```bash
-sudo mkdir -p /etc/chromium/policies/managed && sudo cp ~/photobox/deploy/pi/chromium-policy.json /etc/chromium/policies/managed/photobox.json && sudo sh ~/photobox/deploy/pi/install-autonomy.sh
-```
-Now restart the Pi:
-```bash
-sudo reboot
-```
-Your SSH connection closes; that's expected. ✅ The Pi is ready. Go to the booth itself for the next part.
+> Something went wrong? Read the line starting with `Stopped:`, fix that, and run the command again. Parts that are already done are skipped. To only see what is there, without changing anything, use `--check` in place of `--server MAC_IP_ADDRESS --reboot`.
 
 ---
 
@@ -213,13 +192,17 @@ Your SSH connection closes; that's expected. ✅ The Pi is ready. Go to the boot
 After the restart, the booth's screen shows **FOTOBOX – Starting**. Because nothing is set up yet, the **setup menu** opens by itself. In the menu, press a **number** to choose, **ENTER** to confirm, **ESC** to go back, and **BACKSPACE** to delete a character.
 
 1. **Choose a PIN** of 4 to 8 digits, and enter it twice. It keeps visitors out of the menu. Remember it.
-2. **2 Server address:** type the Mac's IP address from step 1.9, such as `192.168.1.24`, then ENTER.
+2. **2 Server address:** the installer has already filled this in. Change it only if the Mac's address is different now.
 3. **3 Pair with server:** this links the booth to your Mac.
    - On the Mac, open the dashboard (<http://127.0.0.1:8881>), go to **Boxes**, type the name `pi-01` and click **Show pairing code**.
    - Type the 6-digit code at the booth and press ENTER. **You should see** "Paired as pi-01". The code works once, within 5 minutes.
 4. **4 Camera:** choose the webcam. A test picture appears for 5 seconds; it isn't stored.
 5. **5 Test everything:** every line should start with **OK**.
 6. **6 Start photo booth.** The screen shows **FOTOBOX – Press ENTER to start**. ✅
+
+Two more entries are optional, and both can wait:
+- **7 Microphone** chooses the microphone for voice messages. It records nothing here.
+- **8 Person detection** lets the camera notice that someone is at the box. Put up the sign from `person-detection-sign.example.txt` first, where people see it before they come into the camera's view.
 
 The WiFi was already set when you prepared the memory card. To change it later, use **1 WiFi** in this menu. To open the menu again, press **Ctrl+Alt+S** on the start screen, or **M** during the first 10 seconds after the booth restarts.
 

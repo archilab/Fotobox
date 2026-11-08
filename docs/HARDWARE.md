@@ -34,6 +34,8 @@ sed -e "s|REPOSITORY|$PWD|g" -e "s|HOME|$HOME|g" deploy/mac/com.photobox.server.
 To stop it: `launchctl bootout gui/$(id -u)/com.photobox.server`. The log is `~/Library/Logs/photobox-server.log`. macOS may ask once whether Python may accept incoming connections. Exclude `storage/` from Time Machine before real portraits are stored: `tmutil addexclusion storage`.
 
 ### Keyboard kiosk on the Pi's screen (ADR-020)
+A new Pi is set up with `scripts/setup_pi.sh` (ADR-033, `INSTALL.md` step 2.2). The manual steps below show what it does.
+
 On the Mac, copy `consent-notice.example.txt` to `consent-notice.txt` in the folder the server starts from, and replace every `TODO-OPERATOR`. Until then the kiosk shows "not ready". On the Pi, write the settings and install the service, which replaces the login prompt on tty1:
 ```bash
 printf 'PHOTOBOX_SERVER=http://MAC_LAN_IP:8880\nPHOTOBOX_CAMERA=/dev/v4l/by-id/CAMERA_NAME\n' > ~/.photobox-kiosk.env
