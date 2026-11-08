@@ -17,17 +17,17 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from PIL import Image
 from .. import audit
 from ..config import ConfigError, get_provider, load_env_file
-from ..consent_notice import NoticeError, file_notice, load_notice
+from ..consent_notice import NoticeError, check_notice, file_notice, load_notice, pool_hours, stored_pool_notice
 from ..core import db_connect, now_iso, storage_root, strip_images_active
 from ..jobs import ACTIVE_JOB_STATES, cancel_for_session
-from ..library import (ContentError, activate_prompt_version, active_notice, active_prompt_version, notice_versions,
+from ..library import (ContentError, activate_prompt_version, active_notice, deactivate_pool_notice, active_prompt_version, notice_versions,
                        prompt_content, prompt_versions, save_notice, save_prompt_content)
 from ..pairing import VALID_MINUTES, start_pairing
 from ..pool import import_seed, remove_seed
 from ..prompts import content_version, default_content, prompts_for
 from ..sessions import PROCESSING, QUEUED, UPLOADED, transition
 from ..strip import PROFILES, apply_profile
-from ..withdrawal import withdraw_session
+from ..withdrawal import remove_from_pool, withdraw_session
 from .security import COOKIE, LOCAL_CLIENTS, LOCAL_HOSTS, SESSION_SECONDS, Sessions, password_is_set, password_matches
 
 ONLINE_SECONDS = 90
@@ -263,11 +263,85 @@ def consent_version(version: str, request: Request):
 @app.post("/consent/{version}/activate")
 def consent_activate(version: str, request: Request):
     with db_connect() as db:
-        row = db.execute("SELECT text FROM consent_notices WHERE version=?", (version,)).fetchone()
+        row = db.execute("SELECT text, kind FROM consent_notices WHERE version=?", (version,)).fetchone()
         if row is None:
             return back("/consent", "Unknown version.")
-        save_notice(db, row["text"])
-    return back("/consent", f"Active again: {version}.")
+        save_notice(db, row["text"], row["kind"])
+    location = "/pool" if row["kind"] == "pool" else "/consent"
+    return back(location, f"Active again: {version}.")
+
+
+# The pool (ADR-024)
+
+def pool_rows(db) -> list[dict]:
+    now = datetime.now(timezone.utc)
+    rows = db.execute(
+        """SELECT p.session_id, p.created_at, p.expires_at, p.use_count, s.box_id, c.policy_version FROM portraits p
+           JOIN sessions s ON s.id = p.session_id
+           LEFT JOIN consent_records c ON c.session_id = p.session_id AND c.purpose = 'pool' AND c.withdrawn_at IS NULL
+           WHERE p.pool_eligible = 1 ORDER BY p.expires_at"""
+    ).fetchall()
+    result = []
+    for row in rows:
+        left = max(0, int((datetime.fromisoformat(row["expires_at"]) - now).total_seconds()))
+        result.append(dict(row) | {"left": f"{left // 3600} h {left % 3600 // 60:02d} min", "usable": row["policy_version"] is not None and left > 0})
+    return result
+
+
+def pool_page(request: Request, status_code: int = 200, *, text: str | None = None, error: str | None = None) -> HTMLResponse:
+    with db_connect() as db:
+        stored = active_notice(db, "pool")
+        versions = notice_versions(db, "pool")
+        rows = pool_rows(db)
+    source, version = ("dashboard", stored[0]) if stored else ("file", None)
+    if text is None:
+        current = stored_pool_notice()
+        text = current[1] if current else ""
+        if current is None:
+            source = "none"
+    problem = None
+    if text and error is None:
+        try:
+            check_notice(text, "pool")
+        except NoticeError as exc:
+            problem = str(exc)
+    return page(request, "pool.html", status_code, text=text, version=version, source=source, versions=versions, rows=rows,
+                hours=pool_hours(), problem=problem, error=error, message=request.query_params.get("message"))
+
+
+@app.get("/pool", response_class=HTMLResponse)
+def pool(request: Request):
+    return pool_page(request)
+
+
+@app.post("/pool", response_class=HTMLResponse)
+def save_pool_notice(request: Request):
+    text = str(form(request).get("text", ""))
+    try:
+        with db_connect() as db:
+            version = save_notice(db, text, "pool")
+    except ContentError as exc:
+        return pool_page(request, 422, text=text, error=str(exc))
+    return back("/pool", f"Saved and active: {version}. Boxes ask the pool question from their next visitor on.")
+
+
+@app.post("/pool/off")
+def pool_off(request: Request):
+    from ..consent_notice import pool_notice_path
+    with db_connect() as db:
+        deactivate_pool_notice(db)
+    if pool_notice_path().is_file():
+        return back("/pool", f"The dashboard version is off, but {pool_notice_path()} is still asked. Delete that file to stop.")
+    return back("/pool", "The booths no longer ask the pool question. Photos already in the pool stay until their time.")
+
+
+@app.post("/pool/{session_id}/remove")
+def pool_remove(session_id: str, request: Request):
+    with db_connect() as db:
+        strips = remove_from_pool(db, session_id)
+    if strips is None:
+        return back("/pool", "That photo is not in the pool.")
+    return back("/pool", f"Removed from the pool. Strips with it deleted: {strips}.")
 
 
 # Stories and prompts

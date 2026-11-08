@@ -102,6 +102,11 @@ Then save with ⌘S. If TextEdit asks about the format, choose **plain text**.
 
 > The example text is a starting point, not legal advice. Have it checked before you use the booth with the public. You can change it later in the dashboard.
 
+**Optional: the pool.** If visitors should be able to share their photo with later visitors for 24 hours, also set up the pool question. You can skip this and switch it on later on the dashboard's Pool page.
+```bash
+cd ~/photobox-server && cp pool-notice.example.txt pool-notice.txt && open -e pool-notice.txt
+```
+
 ### 1.8 Add counterparts
 Every strip needs a second person next to the visitor. Create a few invented people with the AI model; this takes about a minute each:
 ```bash

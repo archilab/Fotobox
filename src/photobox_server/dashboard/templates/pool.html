@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Pool{% endblock %}
+{% block content %}
+<h1>Pool</h1>
+<p class="muted">After the consent notice, the box can ask a second, separate question: may the photo be combined with other visitors' photos for {{ hours }} hours? Only photos whose visitor said yes are here, each until the exact time the visitor was shown. Other visitors then get a strip with that person in it. Pictures of people are not shown on this page.</p>
+
+<h2>Photos in the pool</h2>
+<div class="panel">
+{% if rows %}
+<table>
+  <tr><th>From box</th><th>Added (UTC)</th><th>Time left</th><th>Used</th><th>Pool notice</th><th></th></tr>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.box_id }}</td>
+    <td class="mono muted">{{ r.created_at[:19].replace('T', ' ') }}</td>
+    <td class="{{ 'ok' if r.usable else 'bad' }}">{{ r.left if r.usable else 'expired or withdrawn, deleted at the next cleanup' }}</td>
+    <td>{{ r.use_count }}×</td>
+    <td class="mono muted">{{ r.policy_version or '—' }}</td>
+    <td><form class="inline" method="post" action="/pool/{{ r.session_id }}/remove"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger">Remove from pool</button></form></td>
+  </tr>
+  {% endfor %}
+</table>
+<p class="muted">"Remove from pool" deletes the pool copy and every strip of other visitors that shows this person. The visitor's own strip stays.</p>
+{% else %}<p class="muted">The pool is empty. Seed images are not part of it; they are on the Seeds page.</p>{% endif %}
+</div>
+
+<h2>The pool question</h2>
+{% if source == 'none' %}<div class="msg">No pool question is set, so the boxes do not ask and no photo enters the pool. Write one below to switch it on, or copy <span class="mono">pool-notice.example.txt</span> to <span class="mono">pool-notice.txt</span>.</div>{% endif %}
+{% if source == 'file' %}<div class="msg">Currently served from <span class="mono">pool-notice.txt</span>. Saving here stores it as a version and serves it from the dashboard from then on.</div>{% endif %}
+{% if problem %}<div class="msg error">The boxes do not ask this question: {{ problem }}.</div>{% endif %}
+{% if error %}<div class="msg error">{{ error }}</div>{% endif %}
+<div class="panel">
+  <form method="post" action="/pool">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="text">Text{% if version %} <span class="muted mono">({{ version }}, active)</span>{% endif %}</label>
+    <p class="muted">Write <span class="mono">{until}</span> where the box shows the end time (required) and <span class="mono">{hours}</span> for the number of hours ({{ hours }}, set by <span class="mono">PHOTOBOX_POOL_HOURS</span>). End with what ENTER and ESC do.</p>
+    <textarea class="tall" id="text" name="text">{{ text or '' }}</textarea>
+    <p><button>Save as new version and activate</button></p>
+  </form>
+  {% if source != 'none' %}<form method="post" action="/pool/off"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger">Stop asking the pool question</button></form>{% endif %}
+</div>
+<h2>Versions</h2>
+<div class="panel">
+{% if versions %}
+<table>
+  <tr><th>Version</th><th>Saved (UTC)</th><th>Consents given</th><th></th></tr>
+  {% for v in versions %}
+  <tr>
+    <td class="mono"><a href="/consent/{{ v.version }}">{{ v.version }}</a>{% if v.active %} <span class="ok">active</span>{% endif %}</td>
+    <td class="mono muted">{{ v.created_at[:19].replace('T', ' ') }}</td>
+    <td>{{ v.consents }}</td>
+    <td>{% if not v.active %}<form class="inline" method="post" action="/consent/{{ v.version }}/activate"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="quiet">Activate</button></form>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p class="muted">No versions saved in the dashboard yet.</p>{% endif %}
+</div>
+{% endblock %}

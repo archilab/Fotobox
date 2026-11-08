@@ -1,0 +1,18 @@
+DEIN FOTO IM POOL? / YOUR PHOTO IN THE POOL?
+
+Darf dein Foto {hours} Stunden lang, bis {until} Uhr, mit Fotos anderer
+Besucherinnen und Besucher kombiniert werden?
+
+- Andere bekommen dann einen KI-Fotostreifen, auf dem du zu sehen bist.
+- Dein Foto selbst wird niemandem gezeigt und bleibt auf diesem Server.
+- Um {until} Uhr wird es automatisch geloescht, mit deinem Widerrufscode
+  auch schon vorher. Dann werden auch die Streifen anderer mit dir geloescht.
+- Freiwillig: Deinen eigenen Streifen bekommst du auch ohne Pool.
+
+May your photo be combined with other visitors' photos for {hours} hours,
+until {until}? Others then get an AI photo strip showing you. Your photo is
+never shown to anyone and is deleted automatically at {until}, or earlier
+with your withdrawal code. Your own strip does not depend on it.
+
+ENTER = Ja, in den Pool / Yes, add it to the pool
+ESC   = Nein, nur mein Streifen / No, just my strip

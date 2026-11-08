@@ -160,10 +160,12 @@ class FakeApi:
         self.calls.append("notice")
         if self.fail == "notice":
             raise httpx.ConnectError("down")
-        return "notice-abc", "NOTICE TEXT"
+        return "notice-abc", "NOTICE TEXT", self.pool
 
-    def start(self, version):
-        self.calls.append(("start", version))
+    pool = None
+
+    def start(self, version, pool=None):
+        self.calls.append(("start", version) if pool is None else ("start", version, pool["version"]))
         return "sid", "CODE-1"
 
     def upload_and_process(self, sid, image):

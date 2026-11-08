@@ -56,3 +56,22 @@ def withdraw_session(db: sqlite3.Connection, session_id: str) -> WithdrawalResul
         audit.record(db, "consent_withdrawn", session_id=session_id)
         presence_events.emit(db, "session.ended", row["box_id"], session_id=session_id)
     return WithdrawalResult(session_id, already, len(portraits), strips)
+
+
+def remove_from_pool(db: sqlite3.Connection, session_id: str) -> int | None:
+    """Withdraw only a session's pool consent: delete its pool copy and every strip that used it.
+
+    The visitor's own strip stays. Returns the number of strips deleted, or None if the session
+    has nothing in the pool.
+    """
+    portraits = db.execute("SELECT id, path FROM portraits WHERE session_id = ? AND pool_eligible = 1", (session_id,)).fetchall()
+    consent = db.execute("SELECT 1 FROM consent_records WHERE session_id = ? AND purpose = 'pool' AND withdrawn_at IS NULL", (session_id,)).fetchone()
+    if not portraits and consent is None:
+        return None
+    db.execute("UPDATE consent_records SET withdrawn_at = ? WHERE session_id = ? AND purpose = 'pool' AND withdrawn_at IS NULL", (now_iso(), session_id))
+    discard_frames_using(db, [portrait["id"] for portrait in portraits])
+    for portrait in portraits:
+        delete_portrait(db, portrait, "removed from pool", session_id)
+    strips = purge_stale_strips(db)
+    audit.record(db, "pool_consent_withdrawn", session_id=session_id)
+    return strips

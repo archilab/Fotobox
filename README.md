@@ -41,6 +41,7 @@ The stories are written to be friendly between strangers: nothing romantic, no w
 | **Deletion on request** | Each visitor gets a code, and one command deletes their pictures everywhere. |
 | **Dashboard for you** | A web page on the Mac showing the booth, the queue and the strips, where you can also edit the consent notice and the stories. |
 | **Setup at the booth** | WiFi, server and camera are set up with the booth's own keyboard, protected by a PIN. |
+| **Meet earlier visitors** | Optionally, visitors can agree, as a separate question, that their photo is combined with other visitors' photos for 24 hours. The end time is shown, and the photo is deleted then. |
 | **Booths that know about each other** | Each booth's start screen tells what is happening at the others, such as "Someone is taking a photo in Hall B", only ever from what really happened. |
 | **Runs on its own** | Everything starts automatically after a restart, and unfinished strips continue. |
 

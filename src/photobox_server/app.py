@@ -18,9 +18,9 @@ from pydantic import BaseModel, Field
 from . import audit, presence, throttle
 from .presence import events as presence_events
 from .auth import authenticate
-from .consent_notice import NoticeError, load_notice
+from .consent_notice import NoticeError, load_notice, load_pool_notice, pool_hours
 from .pairing import complete_pairing
-from .config import get_cleanup_interval, get_frame_count, get_provider, load_env_file
+from .config import ConfigError, get_cleanup_interval, get_frame_count, get_provider, load_env_file
 from .core import cleanup_expired, db_connect, now_iso, save_portrait, storage_root, strip_images_active, validate_image
 from .jobs import Worker, cancel_for_session, cleanup_job_folders, enqueue, job_for_session, recover_after_restart, wake
 from .pool import select_match
@@ -131,6 +131,9 @@ class ConsentRequest(BaseModel):
     method: Literal["operator_attestation", "participant_screen"] = "operator_attestation"
     # For participant_screen: the version of the notice that was shown.
     notice_version: str | None = Field(default=None, max_length=40)
+    # For participant_screen with pool: the pool notice's version and the end time it showed (ADR-024).
+    pool_notice_version: str | None = Field(default=None, max_length=40)
+    pool_until: datetime | None = None
     # A reference to the outside consent document, such as a form number. Never personal data.
     evidence_ref: str | None = Field(default=None, max_length=64, pattern=r"^[A-Za-z0-9._:-]+$")
 
@@ -170,12 +173,17 @@ def pair_device(body: PairRequest, request: Request):
 
 @app.get("/api/v1/consent-notice")
 def consent_notice():
-    """The text a box shows before taking a photo, and its version to send back with the consent."""
+    """The text a box shows before taking a photo, and its version to send back with the consent.
+
+    `pool` is the separate second question, or null when pool use is not offered (ADR-024).
+    """
     try:
         version, text = load_notice()
     except NoticeError as exc:
         raise HTTPException(503, str(exc)) from exc
-    return {"version": version, "text": text}
+    pool = load_pool_notice()
+    return {"version": version, "text": text, "pool": None if pool is None else {
+        "version": pool.version, "text": pool.text, "until": pool.until.isoformat(), "until_text": pool.until_text}}
 
 
 @app.get("/api/v1/presence/snapshot")
@@ -222,6 +230,25 @@ def active_consent(db, session_id: str, purpose: str):
     ).fetchone()
 
 
+def screen_pool_consent(body: ConsentRequest) -> tuple[str, str]:
+    """Check a pool consent given on the box's screen. Returns its policy version and end time.
+
+    The visitor answered a separate question that named an end time; the photo may stay in the
+    pool until that time and no longer (ADR-024).
+    """
+    pool = load_pool_notice()
+    if pool is None:
+        raise HTTPException(403, "pool use is not offered on this server")
+    if body.pool_notice_version != pool.version:
+        raise HTTPException(409, "the pool notice has changed; show the current one")
+    if body.pool_until is None or body.pool_until.tzinfo is None:
+        raise HTTPException(422, "pool_until with a time zone is required")
+    now = datetime.now(timezone.utc)
+    if not now < body.pool_until <= now + timedelta(hours=pool_hours(), minutes=1):
+        raise HTTPException(422, "pool_until is outside the allowed time")
+    return pool.version, body.pool_until.astimezone(timezone.utc).isoformat()
+
+
 @app.post("/api/v1/sessions/{session_id}/consent")
 def record_consent(session_id: str, body: ConsentRequest, request: Request):
     with db_connect() as db:
@@ -231,11 +258,11 @@ def record_consent(session_id: str, body: ConsentRequest, request: Request):
                 current_version, _ = load_notice()
             except NoticeError as exc:
                 raise HTTPException(503, str(exc)) from exc
-            if body.pool:
-                raise HTTPException(403, "the screen notice does not cover pool use")
             policy_version = current_version
+            pool_policy, pool_expiry = screen_pool_consent(body) if body.pool else (None, None)
         else:
             policy_version = CONSENT_POLICY_VERSION
+            pool_policy, pool_expiry = CONSENT_POLICY_VERSION, None
         if s["status"] == AWAITING_CONSENT:
             if body.method == "participant_screen":
                 if not body.processing:
@@ -248,10 +275,11 @@ def record_consent(session_id: str, body: ConsentRequest, request: Request):
                 granted = now_iso()
                 code, code_hash = new_code()
                 db.execute("UPDATE sessions SET withdrawal_hash=? WHERE id=?", (code_hash, session_id))
-                for purpose in ("processing", "pool") if body.pool else ("processing",):
+                purposes = [("processing", policy_version, None)] + ([("pool", pool_policy, pool_expiry)] if body.pool else [])
+                for purpose, version, expiry in purposes:
                     db.execute(
-                        "INSERT INTO consent_records(id,session_id,purpose,policy_version,granted_at,provenance,evidence_ref) VALUES(?,?,?,?,?,?,?)",
-                        (str(uuid.uuid4()), session_id, purpose, policy_version, granted, body.method, body.evidence_ref),
+                        "INSERT INTO consent_records(id,session_id,purpose,policy_version,granted_at,provenance,evidence_ref,expires_at) VALUES(?,?,?,?,?,?,?,?)",
+                        (str(uuid.uuid4()), session_id, purpose, version, granted, body.method, body.evidence_ref, expiry),
                     )
                     audit.record(db, "consent_granted", session_id=session_id, device_id=request.state.device_id, detail=purpose)
                 # Only now, with consent recorded, may other boxes learn that someone is here (ADR-023).
@@ -288,9 +316,10 @@ def replay_upload(db, session_id: str, key: str | None, digest: str) -> dict:
 # every other request. Concurrency between those threads is handled by transition().
 @app.post("/api/v1/sessions/{session_id}/portrait")
 def upload_portrait(session_id: str, request: Request, image: UploadFile = File(...)):
-    hours = int(os.getenv("PHOTOBOX_POOL_HOURS", "24"))
-    if not 1 <= hours <= 720:
-        raise HTTPException(500, "invalid pool retention configuration")
+    try:
+        hours = pool_hours()
+    except ConfigError as exc:
+        raise HTTPException(500, "invalid pool retention configuration") from exc
     key = idempotency_key(request)
     device_id = request.state.device_id
     limit = upload_limit()
@@ -311,7 +340,8 @@ def upload_portrait(session_id: str, request: Request, image: UploadFile = File(
             # Taking the state first holds the write lock, so the file and its record commit together.
             if not transition(db, session_id, AWAITING_PORTRAIT, UPLOADED):
                 return replay_upload(db, session_id, key, digest)
-            pool = active_consent(db, session_id, "pool") is not None
+            pool_consent = active_consent(db, session_id, "pool")
+            pool = pool_consent is not None
             photo_id = str(uuid.uuid4())
             saved.append(save_portrait(img, photo_id))
             now = datetime.now(timezone.utc)
@@ -325,7 +355,7 @@ def upload_portrait(session_id: str, request: Request, image: UploadFile = File(
                 saved.append(save_portrait(img, pool_id, "pool_portraits"))
                 db.execute(
                     "INSERT INTO portraits(id,session_id,path,pool_eligible,created_at,expires_at) VALUES(?,?,?,1,?,?)",
-                    (pool_id, session_id, str(saved[1]), now_iso(), (now+timedelta(hours=hours)).isoformat()),
+                    (pool_id, session_id, str(saved[1]), now_iso(), pool_expiry(now, hours, pool_consent["expires_at"])),
                 )
             db.execute("UPDATE sessions SET portrait_id=? WHERE id=?", (photo_id, session_id))
             presence_events.emit(db, "portrait.captured", device_id, session_id=session_id)
@@ -335,6 +365,14 @@ def upload_portrait(session_id: str, request: Request, image: UploadFile = File(
             path.unlink(missing_ok=True)
         raise
     return {"portrait_id": photo_id, "status": UPLOADED}
+
+
+def pool_expiry(now: datetime, hours: int, shown: str | None) -> str:
+    """The configured time, but never later than the end time the visitor was shown."""
+    expiry = now + timedelta(hours=hours)
+    if shown is not None:
+        expiry = min(expiry, datetime.fromisoformat(shown))
+    return expiry.isoformat()
 
 
 def accepted(session_id: str, status: str, job_id: str) -> dict:

@@ -104,6 +104,11 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
         "CREATE INDEX presence_events_time ON presence_events(occurred_at)",
         "ALTER TABLE devices ADD COLUMN public_label TEXT",
     ),
+    # 8: timed pool consent at the kiosk (ADR-024): a separate pool notice, and the end time that was shown.
+    (
+        "ALTER TABLE consent_notices ADD COLUMN kind TEXT NOT NULL DEFAULT 'processing'",
+        "ALTER TABLE consent_records ADD COLUMN expires_at TEXT",
+    ),
 )
 
 

@@ -51,30 +51,39 @@ def prompt_versions(db: sqlite3.Connection) -> list[sqlite3.Row]:
     return db.execute("SELECT version, created_at, active FROM prompt_sets ORDER BY created_at DESC").fetchall()
 
 
-def active_notice(db: sqlite3.Connection) -> tuple[str, str] | None:
-    row = db.execute("SELECT version, text FROM consent_notices WHERE active=1").fetchone()
+def active_notice(db: sqlite3.Connection, kind: str = "processing") -> tuple[str, str] | None:
+    row = db.execute("SELECT version, text FROM consent_notices WHERE active=1 AND kind=?", (kind,)).fetchone()
     return (row["version"], row["text"]) if row else None
 
 
-def save_notice(db: sqlite3.Connection, text: str) -> str:
-    """Validate, store and activate a consent notice. Returns its version."""
-    from .consent_notice import NoticeError, check_notice, notice_version
+def save_notice(db: sqlite3.Connection, text: str, kind: str = "processing") -> str:
+    """Validate, store and activate a consent notice of one kind. Returns its version."""
+    from .consent_notice import NoticeError, check_notice, notice_version, pool_version
     try:
-        check_notice(text)
+        check_notice(text, kind)
     except NoticeError as exc:
         raise ContentError(str(exc)) from exc
     text = text.strip()
-    version = notice_version(text)
+    version = pool_version(text) if kind == "pool" else notice_version(text)
     if db.execute("SELECT 1 FROM consent_notices WHERE version=?", (version,)).fetchone() is None:
-        db.execute("INSERT INTO consent_notices(version,text,created_at,active) VALUES(?,?,?,0)", (version, text, now_iso()))
-    db.execute("UPDATE consent_notices SET active = (version = ?)", (version,))
-    audit.record(db, "notice_activated", detail=version)
+        db.execute("INSERT INTO consent_notices(version,text,created_at,active,kind) VALUES(?,?,?,0,?)", (version, text, now_iso(), kind))
+    db.execute("UPDATE consent_notices SET active = (version = ?) WHERE kind = ?", (version, kind))
+    audit.record(db, "pool_notice_activated" if kind == "pool" else "notice_activated", detail=version)
     return version
 
 
-def notice_versions(db: sqlite3.Connection) -> list[sqlite3.Row]:
+def notice_versions(db: sqlite3.Connection, kind: str = "processing") -> list[sqlite3.Row]:
+    # A pool consent names the text's version plus the hours, such as pool-abc-24h.
     return db.execute(
         """SELECT n.version, n.created_at, n.active,
-                  (SELECT COUNT(*) FROM consent_records c WHERE c.policy_version = n.version) AS consents
-           FROM consent_notices n ORDER BY n.created_at DESC"""
+                  (SELECT COUNT(*) FROM consent_records c WHERE c.policy_version = n.version
+                       OR c.policy_version LIKE n.version || '-%h') AS consents
+           FROM consent_notices n WHERE n.kind = ? ORDER BY n.created_at DESC""",
+        (kind,),
     ).fetchall()
+
+
+def deactivate_pool_notice(db: sqlite3.Connection) -> None:
+    """Stop asking the pool question from the dashboard. A `pool-notice.txt` would still be served."""
+    db.execute("UPDATE consent_notices SET active = 0 WHERE kind = 'pool'")
+    audit.record(db, "pool_notice_deactivated")

@@ -41,6 +41,7 @@ MESSAGE_SECONDS = 10
 # How often the start screen asks the server what is happening at the other boxes (ADR-023).
 PRESENCE_REFRESH_SECONDS = 10
 PRESENCE_TILES = 3
+CANCELLED = "Abgebrochen. Es wurde kein Foto gemacht.\nCancelled. No photo was taken."
 START_TEXT = "Druecke ENTER zum Starten.\nPress ENTER to start."
 COUNTDOWN = (3, 2, 1)
 BIG_DIGITS = {
@@ -151,18 +152,24 @@ class Api:
     def __init__(self, client: httpx.Client) -> None:
         self.client = client
 
-    def notice(self) -> tuple[str, str]:
+    def notice(self) -> tuple[str, str, dict | None]:
+        """The consent notice's version and text, and the separate pool question or None (ADR-024)."""
         response = self.client.get("/api/v1/consent-notice")
         response.raise_for_status()
         body = response.json()
-        return body["version"], body["text"]
+        return body["version"], body["text"], body.get("pool")
 
-    def start(self, notice_version: str) -> tuple[str, str | None]:
-        """Create a session and record the participant's consent. Returns (session id, withdrawal code)."""
+    def start(self, notice_version: str, pool: dict | None = None) -> tuple[str, str | None]:
+        """Create a session and record the participant's consent. Returns (session id, withdrawal code).
+
+        `pool` is the pool question the participant agreed to, or None if they did not see or agree to it.
+        """
         response = post_with_retry(self.client, "/api/v1/sessions", headers=idempotency_header())
         response.raise_for_status()
         session_id = response.json()["id"]
-        consent = {"processing": True, "pool": False, "method": "participant_screen", "notice_version": notice_version}
+        consent = {"processing": True, "pool": pool is not None, "method": "participant_screen", "notice_version": notice_version}
+        if pool is not None:
+            consent |= {"pool_notice_version": pool["version"], "pool_until": pool["until"]}
         response = post_with_retry(self.client, f"/api/v1/sessions/{session_id}/consent", json=consent)
         response.raise_for_status()
         return session_id, response.json().get("withdrawal_code")
@@ -267,6 +274,7 @@ class Kiosk:
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
         self.banner = "TEST MODE - no camera\n\n" if test_mode else ""
+        self.pooled_until: str | None = None
 
     def ask(self, text: str, accepted: set[str], timeout: float | None) -> str | None:
         self.keys.flush()
@@ -296,15 +304,23 @@ class Kiosk:
             return "setup"
         self.report("consent")
         try:
-            version, text = self.api.notice()
+            version, text, pool = self.api.notice()
         except httpx.HTTPError:
             self.message("Die Fotobox ist gerade nicht bereit.\nThe photo booth is not ready right now.")
             return "not ready"
         if self.ask(text, {ENTER, ESC}, NOTICE_TIMEOUT_SECONDS) != ENTER:
-            self.message("Abgebrochen. Es wurde kein Foto gemacht.\nCancelled. No photo was taken.")
+            self.message(CANCELLED)
             return "declined"
+        if pool is not None:
+            # A separate question, so one key press never covers two purposes (ADR-024).
+            answer = self.ask(pool["text"], {ENTER, ESC}, NOTICE_TIMEOUT_SECONDS)
+            if answer is None:
+                self.message(CANCELLED)
+                return "declined"
+            pool = pool if answer == ENTER else None
+        self.pooled_until = pool["until_text"] if pool else None
         try:
-            session_id, code = self.api.start(version)
+            session_id, code = self.api.start(version, pool)
             self.report("capturing")
             for number in COUNTDOWN:
                 self.screen.show(self.banner + "Schau in die Kamera / Look at the camera" + big(number))
@@ -345,6 +361,9 @@ class Kiosk:
         self.show_strip(session_id, code)
         withdraw = (f"Dein Widerrufscode / Your withdrawal code:\n\n        {code}\n\nNotiere ihn, um deine Bilder loeschen zu lassen.\nWrite it down to have your images deleted."
                     if code else "Zum Loeschen deiner Bilder wende dich an die Betreuung.\nTo have your images deleted, ask the staff.")
+        if self.pooled_until:
+            withdraw += (f"\n\nDein Foto bleibt bis {self.pooled_until} im Pool. Der Code loescht es auch dort."
+                         f"\nYour photo stays in the pool until {self.pooled_until}. The code deletes it there too.")
         self.ask(f"Fertig! Done!\n\n{withdraw}\n\nENTER", {ENTER}, RESULT_SECONDS)
         return "complete"
 
