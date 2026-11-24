@@ -113,6 +113,11 @@ async def require_device_token(request: Request, call_next):
     return await call_next(request)
 
 
+def printing_enabled() -> bool:
+    """Boxes print strips only when the operator switches this on, once the notices say so (ADR-035)."""
+    return os.getenv("PHOTOBOX_PRINTING", "").strip().lower() in {"1", "true", "yes"}
+
+
 DEVICE_STATES = ("idle", "consent", "capturing", "generating", "showing", "setup", "not ready")
 
 
@@ -126,6 +131,8 @@ class BoxHealth(BaseModel):
     screen: Literal["browser", "text"] | None = None
     browser_restarts: int | None = Field(default=None, ge=0)
     camera_failures: int | None = Field(default=None, ge=0)
+    printer: Literal["none", "ready", "no paper", "error"] | None = None
+    print_failures: int | None = Field(default=None, ge=0)
 
 
 class StatusReport(BaseModel):
@@ -221,7 +228,8 @@ def consent_notice():
         raise HTTPException(503, str(exc)) from exc
     pool = load_pool_notice()
     # live_matching: the notice above covers being paired live with a visitor at another box (ADR-024).
-    return {"version": version, "text": text, "live_matching": live.enabled(), "pool": None if pool is None else {
+    # printing: the operator has switched printing on, after saying so in the notices (ADR-035).
+    return {"version": version, "text": text, "live_matching": live.enabled(), "printing": printing_enabled(), "pool": None if pool is None else {
         "version": pool.version, "text": pool.text, "until": pool.until.isoformat(), "until_text": pool.until_text}}
 
 

@@ -250,3 +250,13 @@ Tested against stand-ins for the system tools, and `--check` on the real Pi. **N
 
 Tested against stand-ins for the system tools, and `--check` on the MacBook and the Mac Studio. **Not tested:** a complete run on a Mac that has nothing installed.
 
+## ADR-035: Printing the strip on the box's receipt printer
+**Decided by the project owner on 2026-11-24**, bringing printing forward from phase 3. A box prints the strip on a USB receipt printer instead of showing it. The owner chose: the Epson TM-m30III that is connected (80 mm paper), every strip including those with a pool portrait or a live partner, and printing instead of showing.
+
+- **Off until the notices say so.** A printout cannot be withdrawn, and it may show another real visitor. The server switch `PHOTOBOX_PRINTING` is off by default; the operator turns it on after adding printing to the consent and pool notices. The server sends it with the consent notice, so a visit prints only if printing was on when its notice was shown.
+- **On the box** (`photobox_client/printer.py`): the first printer the kiosk may write to, `/dev/usb/lp*`, through the kernel's usblp driver; the kiosk service gets the group `lp`. The strip is fetched as `profile=thermal`, held in memory, centred on 576 dots, sent as ESC/POS raster bands and cut. Nothing is written to disk.
+- **Once, with a fallback.** Each strip is printed once. If there is no paper (asked with DLE EOT 4 before printing), the printer fails or takes longer than 30 s, the strip is shown on the screen as before. The box reports the printer's state and failures with its other health figures, and the dashboard lists problems.
+- **The withdrawal code stays on the screen only**, so it is not on paper that can be lost.
+
+Tested with drawn images against files standing in for the printer, and on 2026-11-24 with one drawn test strip on the real TM-m30III: paper status "ready", 55 KB sent in 0.16 s, centred, smooth gradient and cut as intended. Right after printing, the paper query got no answer, so a paper problem may only show as a failed print. **Not tested:** a real visit with printing switched on, a full roll, paper running out during a strip.
+

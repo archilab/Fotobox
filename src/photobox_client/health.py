@@ -62,6 +62,7 @@ class Counters:
 
     def __init__(self, screen: str = "text") -> None:
         self.screen, self.browser_restarts, self.camera_failures = screen, 0, 0
+        self.printer, self.print_failures = "none", 0  # ADR-035
 
 
 def _read_number(path: str) -> float | None:
@@ -106,4 +107,6 @@ def collect(counters: Counters, runner: Callable[..., subprocess.CompletedProces
         "screen": counters.screen,
         "browser_restarts": counters.browser_restarts,
         "camera_failures": counters.camera_failures,
+        "printer": counters.printer,
+        "print_failures": counters.print_failures,
     }

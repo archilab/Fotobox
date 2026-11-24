@@ -124,6 +124,7 @@ echo "== 5/5 Starting by itself"
 sudo install -m 644 deploy/pi/50-photobox-network.rules /etc/polkit-1/rules.d/50-photobox-network.rules
 sudo install -d -m 755 /etc/chromium/policies/managed
 sudo install -m 644 deploy/pi/chromium-policy.json /etc/chromium/policies/managed/photobox.json
+sudo usermod -aG lp admin  # the receipt printer (ADR-035); the kiosk service also gets it by itself
 sudo sh deploy/pi/install-autonomy.sh
 
 if [ -n "$SERVER" ]; then

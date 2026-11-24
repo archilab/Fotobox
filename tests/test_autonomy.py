@@ -233,7 +233,7 @@ def test_health_holds_machine_figures_only():
     counters = Counters("browser")
     counters.camera_failures = 2
     health = collect(counters, runner=vcgencmd)
-    assert set(health) == {"temperature_c", "throttled", "disk_free_mb", "memory_available_mb", "uptime_seconds", "screen", "browser_restarts", "camera_failures"}
+    assert set(health) == {"temperature_c", "throttled", "disk_free_mb", "memory_available_mb", "uptime_seconds", "screen", "browser_restarts", "camera_failures", "printer", "print_failures"}
     assert health["throttled"] is True and health["camera_failures"] == 2 and health["screen"] == "browser"
 
 

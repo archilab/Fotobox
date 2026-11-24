@@ -185,6 +185,12 @@ def box_problems(row, online: bool, health: dict) -> list[str]:
         problems.append(f"browser restarted {health['browser_restarts']} times since the kiosk started")
     if health.get("camera_failures"):
         problems.append(f"camera failed {health['camera_failures']} times since the kiosk started")
+    if health.get("printer") == "no paper":
+        problems.append("printer has no paper")
+    elif health.get("printer") == "error":
+        problems.append("printer failed")
+    if health.get("print_failures"):
+        problems.append(f"printing failed {health['print_failures']} times since the kiosk started; those strips were shown on the screen")
     return problems
 
 

@@ -67,7 +67,7 @@
 - [ ] Test 50 sessions, including upload errors, AI failures, server restart, cleanup
 - [ ] Operator runbook / logs without personal info
 - [ ] Performance report: camera capture, upload, queue, AI generation, PNG render, end-to-end latency
-- [ ] No touchscreen, no printer, no additional Pi in this phase
+- [ ] No touchscreen and no additional Pi in this phase; printing brought forward by ADR-035
 **Acceptance:** one Pi produces photographic AI PNG strip via Mac backend repeatedly under test conditions.
 
 ## Brought forward from phase 2 (ADR-020)
@@ -75,7 +75,7 @@
 - [x] Finished strip shown on the screen for 20 s while no printer is connected
 - [x] Setup menu on the box: WiFi, server address, pairing with a code, camera, PIN (ADR-021)
 - [x] Operator dashboard on the Mac: boxes, queue, strips, versioned consent notice and stories, seeds, pairing, audit (ADR-022)
-- [ ] Print instead of showing when a printer is connected (needs the printer's model, connection and paper width)
+- [x] Print instead of showing when a printer is connected and the server has printing on (ADR-035, Epson TM-m30III on 80 mm paper). Not yet tested: a full roll, paper running out during a strip, long runs
 - [ ] Accessibility (larger text, languages, refusal path reviewed), legal review of the notice
 
 ## Social presence and live encounters (ADR-023, ADR-024; spec in `docs/INTERACTION_EXTENSION.md`)

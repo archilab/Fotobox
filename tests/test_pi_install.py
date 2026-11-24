@@ -78,6 +78,7 @@ def test_voice_and_person_detection_are_part_of_the_plain_install(pi):
     for package in ("alsa-utils", "cmake", "chromium", "cage", "polkitd"):
         assert package in calls
     assert "install-autonomy.sh" in calls and "--branch v1.7.4" in calls
+    assert "usermod -aG lp admin" in calls
 
 
 def test_private_folders_for_models(pi):
@@ -178,7 +179,7 @@ def wrapper(tmp_path, *arguments, ssh_fails=False):
     tools.mkdir()
     log = tmp_path.resolve() / "mac.log"
     tool(tools, "git", "echo README.md")
-    tool(tools, "tar", "echo archive")
+    tool(tools, "tar", "cat > /dev/null; echo archive")
     tool(tools, "ssh", f'cat > /dev/null; printf "%s\\n" "$*" >> {log}\n{"exit 7" if ssh_fails else ""}')
     result = subprocess.run(["bash", str(folder / "scripts" / "setup_pi.sh"), *arguments], capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL, env=os.environ | {"PATH": f"{tools}:{os.environ['PATH']}"})
     return result, log.read_text().splitlines() if log.exists() else []

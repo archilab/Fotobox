@@ -187,6 +187,24 @@ If one of the two cancels or deletes their pictures before the strip is done, th
 
 ---
 
+## Printing strips
+
+A booth with a USB receipt printer can print the strip instead of showing it on the screen (ADR-035). Tested with an Epson TM-m30III on 80 mm paper; printers that understand the same ESC/POS commands should work too.
+
+**A printout is a copy the booth cannot take back.** The withdrawal code deletes the stored pictures, but not a strip someone has taken home. And a strip can show a second real visitor: someone from the pool, or a live partner at another booth. Say this in the notices before you switch printing on.
+
+**To switch it on:**
+1. Add printing to the consent notice on the dashboard's Consent page, and to the pool notice if you use the pool. For example:
+   - Consent: *Dein Fotostreifen wird ausgedruckt und gehört dir. Ein Ausdruck lässt sich nicht zurückholen; der Widerrufscode löscht nur die gespeicherten Bilder. / Your strip is printed for you to keep. A printout cannot be taken back; the withdrawal code deletes only the stored pictures.*
+   - Pool: *Spätere Besucher bekommen ihren Streifen mit deinem Bild ausgedruckt. / Later visitors get their strip, which shows you, printed out.*
+   - With live encounters, the consent notice must also say that the other visitor gets the shared strip printed.
+2. Set `PHOTOBOX_PRINTING=true` in `.env`.
+3. Restart the server.
+
+The booth notices a printer by itself when the next visitor starts; set the strip width to the paper's width in dots (`PHOTOBOX_STRIP_WIDTH`, at most 576 for 80 mm paper). If the paper runs out or printing fails, the strip is shown on the screen as before, and the dashboard's **Needs attention** box says so. Each strip is printed once.
+
+---
+
 ## Booth names
 
 Other booths' start screens name the place where something is happening, such as "A photo was just taken in Hall B". Give each booth a public name in the dashboard under **Boxes** (or with `… admin device label pi-01 "Hall B"`). Use a place, never a person's name. A booth without a name is shown as "another Photobox".
@@ -239,6 +257,7 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 | `PHOTOBOX_CLEANUP_INTERVAL_SECONDS` | `300` | How often expired pictures are deleted. |
 | `PHOTOBOX_POOL_HOURS` | `24` | How long a photo stays in the pool after the visitor agrees (1 to 720). The consent screen shows the exact end time, and the photo is deleted then at the latest. |
 | `PHOTOBOX_LIVE_MATCHING` | off | `true` pairs visitors at different booths live. Only with a notice that says so. |
+| `PHOTOBOX_PRINTING` | off | `true` lets booths with a receipt printer print the strip instead of showing it. Only after the notices say so. |
 | `PHOTOBOX_MESSAGING` | off | `true` lets live pairs send each other short voice messages as text. Only with a notice that says so. |
 | `PHOTOBOX_LIVE_WAIT_SECONDS` | `20` | How long a booth waits for someone at another booth (5 to 60). |
 | `PHOTOBOX_LIVE_MAX_WAIT_SECONDS` | `60` | The longest wait while a visitor at another booth has already agreed (20 to 120). |

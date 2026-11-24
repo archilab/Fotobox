@@ -24,7 +24,7 @@
 - Session images (`portraits`) and reusable pool copies (`pool_portraits`) are separate files with separate lifetimes (ADR-016).
 - Never use an image from the same session as matched counterpart.
 - Anonymous temporary portrait pool; avoid face embeddings or identification features.
-- Rendered artifact PNG and single request; print only in a later phase.
+- Rendered artifact PNG and single request. The box prints it on a USB receipt printer when the server has printing on (ADR-035).
 - Persistence: SQLite metadata and a durable job queue (ADR-017).
 - Seed images must be authorized and curated; they enter only through `admin seed add`.
 

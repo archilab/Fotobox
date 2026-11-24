@@ -4,8 +4,9 @@ ENTER starts and shows the server's consent notice, with the pool question if on
 ENTER confirms both, and only then is consent recorded and the photo taken, after a countdown. Doing nothing
 for 45 seconds cancels. While the strip
 is generated, a timer runs on screen. At the end the finished strip is shown on the screen for 20
-seconds, and then the withdrawal code for 10 seconds; ENTER gives more time, up to a minute. Printing is not implemented yet:
-it needs the printer's specifications (docs/MILESTONES.md), so for now the strip is always shown.
+seconds, and then the withdrawal code for 10 seconds; ENTER gives more time, up to a minute. When the server
+has printing switched on and a printer is connected, the strip is printed instead of shown (ADR-035); if that
+fails, it is shown as before.
 
     python -m photobox_client.kiosk
 
@@ -37,6 +38,7 @@ from .browser import BROWSER_FAILED, CONNECT_SECONDS, BrowserWatch
 from .conversation import Conversation, speech_talker
 from .health import Counters, Heartbeat, collect
 from .live_feed import PersonReporter, PresenceFeed
+from .printer import NoPaper, PrinterError, UsbPrinter, find_printer
 
 ENTER, ESC, BACKSPACE, SETUP = "enter", "esc", "backspace", "setup"
 # Ctrl+Alt+S, as the console sends it with Alt as an ESC prefix or as the eighth bit, and Ctrl+S alone.
@@ -53,6 +55,8 @@ FEED_CHECK_SECONDS = 0.2  # how often the start screen looks at the live feed
 PRESENCE_TILES = 3
 CANCELLED = "Abgebrochen. Es wurde kein Foto gemacht.\nCancelled. No photo was taken."
 START_TEXT = "Druecke ENTER zum Starten.\nPress ENTER to start."
+PRINTING = "Dein Fotostreifen wird gedruckt.\nYour photo strip is being printed."
+PRINT_SECONDS = 5  # time to take the strip from the printer before the code appears
 COUNTDOWN = (3, 2, 1)
 BIG_DIGITS = {
     3: ("#####", "    #", " ####", "    #", "#####"),
@@ -169,6 +173,8 @@ class Api:
         body = response.json()
         # The notice covers live pairing when the server has it switched on (ADR-024).
         self.live_matching = bool(body.get("live_matching"))
+        # Printing is switched on at the server only once the notices say that strips are printed (ADR-035).
+        self.printing = bool(body.get("printing"))
         return body["version"], body["text"], body.get("pool")
 
     def start(self, notice_version: str, pool: dict | None = None) -> tuple[str, str | None]:
@@ -208,8 +214,8 @@ class Api:
         response.raise_for_status()
         return response.json()
 
-    def strip(self, session_id: str) -> bytes:
-        response = self.client.get(f"/api/v1/sessions/{session_id}/result")
+    def strip(self, session_id: str, profile: str = "color") -> bytes:
+        response = self.client.get(f"/api/v1/sessions/{session_id}/result", params={"profile": profile})
         response.raise_for_status()
         return response.content
 
@@ -332,7 +338,9 @@ class Kiosk:
                  report: Callable[..., None] = lambda *_args: None,
                  make_conversation: Callable[[str], "Conversation"] | None = None,
                  detector: "PersonDetector | None" = None, feed: "PresenceFeed | None" = None,
-                 heartbeat: Callable[[], None] = lambda: None, on_camera_error: Callable[[], None] = lambda: None) -> None:
+                 heartbeat: Callable[[], None] = lambda: None, on_camera_error: Callable[[], None] = lambda: None,
+                 printer: Callable[[], UsbPrinter | None] = lambda: None,
+                 on_print: Callable[[str], None] = lambda _state: None) -> None:
         self.api, self.camera, self.screen, self.keys, self.report = api, camera, screen, keys, report
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
@@ -341,6 +349,7 @@ class Kiosk:
         self.make_conversation = make_conversation
         self.detector, self.feed = detector, feed
         self.heartbeat, self.on_camera_error = heartbeat, on_camera_error
+        self.printer, self.on_print = printer, on_print
         self.label: str | None = None
 
     def present(self, state: dict) -> None:
@@ -462,7 +471,8 @@ class Kiosk:
                 conversation.wait(1)
             else:
                 self.sleep(1)
-        self.show_strip(session_id, code)
+        if not self.print_strip(session_id):
+            self.show_strip(session_id, code)
         withdraw = (f"Dein Widerrufscode / Your withdrawal code:\n\n        {code}\n\nNotiere ihn, um deine Bilder loeschen zu lassen.\nWrite it down to have your images deleted."
                     if code else "Zum Loeschen deiner Bilder wende dich an die Betreuung.\nTo have your images deleted, ask the staff.")
         if self.pooled_until:
@@ -475,6 +485,32 @@ class Kiosk:
                 break
         return "complete"
 
+
+    def print_strip(self, session_id: str) -> bool:
+        """Print the strip once, if the server allows printing and a printer is connected (ADR-035).
+
+        Returns False when nothing was printed, so the strip is shown on the screen instead.
+        """
+        if not getattr(self.api, "printing", False):
+            return False
+        printer = self.printer()
+        if printer is None:
+            return False
+        self.report("showing")
+        self.present(views.message(PRINTING))
+        try:
+            if printer.status() == "no paper":
+                raise NoPaper("no paper")
+            printer.print_strip(self.api.strip(session_id, profile="thermal"))
+        except NoPaper:
+            self.on_print("no paper")
+            return False
+        except (PrinterError, httpx.HTTPError):
+            self.on_print("error")
+            return False
+        self.on_print("ready")
+        self.sleep(PRINT_SECONDS)
+        return True
 
     def show_strip(self, session_id: str, code: str | None) -> bool:
         """Show the finished strip on the screen. Returns False if it could not be shown."""
@@ -579,6 +615,11 @@ def main(argv: list[str] | None = None) -> None:
     # The browser draws the strip itself, and has the screen to itself.
     display = None if args.no_display or web is not None else FramebufferDisplay.open()
 
+    def printed(state: str) -> None:
+        counters.printer = state
+        if state != "ready":
+            counters.print_failures += 1
+
     def camera_trouble(camera_name: str) -> None:
         counters.camera_failures += 1
         reset_usb(camera_name)
@@ -638,10 +679,13 @@ def main(argv: list[str] | None = None) -> None:
                     person_reporter = PersonReporter(post_person).start()
                     detector = create_detector(settings.camera, settings.person_area, person_reporter)
                 feed = PresenceFeed(settings.server, token).start()
+                connected = find_printer()
+                counters.printer = "none" if connected is None else {"no paper": "no paper"}.get(connected.status(), "ready")
                 kiosk = Kiosk(api, camera, screen, keys, wait_seconds=args.wait_seconds,
                               test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds, report=report,
                               make_conversation=conversation, detector=detector, feed=feed, heartbeat=heartbeat.beat,
-                              on_camera_error=lambda camera_name=settings.camera: camera_trouble(camera_name))
+                              on_camera_error=lambda camera_name=settings.camera: camera_trouble(camera_name),
+                              printer=find_printer, on_print=printed)
                 outcome = kiosk.run_once()
                 feed.stop()
                 if person_reporter is not None:
