@@ -193,6 +193,22 @@ A box can have a push button that works like ENTER while visitors use it: to sta
 
 To use it, set the button's GPIO number in the box's settings, `PHOTOBOX_BUTTON=25` in `~/.photobox-kiosk.env`, and restart the kiosk. If your notices say "Mit ENTER", change them to name the button too.
 
+**Status lights.** With RGB lights, `PHOTOBOX_LIGHTS=18,23,24` (red, green, blue), the booth shows what it is doing:
+
+| Light | Meaning |
+|---|---|
+| green | ready for the next visitor |
+| violet | ready, while someone is live at another booth |
+| green, blinking fast | waiting for a press, such as agreeing |
+| white | countdown and photo |
+| blue, blinking slowly | the strip is being made |
+| violet | paired with someone at another booth while the strip is made |
+| cyan | printing |
+| green, blinking slowly | done; the strip or the code is on the screen |
+| violet, blinking slowly | the same after a live pairing with another booth |
+| red | not ready, or something failed: look at the screen and the dashboard |
+| off | setup menu, or the kiosk is not running |
+
 ---
 
 ## Printing strips

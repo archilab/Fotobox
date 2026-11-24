@@ -2,6 +2,7 @@
 
 ## Deployment
 - Pi OS 64-bit: USB UVC camera + CLI (OpenCV uses V4L2); no display dependency.
+- Optional hardware on the Pi, each in its own client module and off unless configured: a USB receipt printer (`printer.py`, ADR-035), a push button and RGB status lights over GPIO (`button.py`, `lights.py`, ADR-036). The server learns about the printer only from the box's health figures; button and lights stay on the box.
 - Mac Studio M3 Ultra (target): FastAPI API, SQLite, local file storage, later AI provider worker. Development currently runs on a MacBook Pro M3 (see ADR-008).
 - HTTP polling is sufficient for MVP. Social presence (ADR-023) is polled by the boxes; the dashboard's preview receives server-sent events. Live matching across boxes is planned (ADR-024).
 - Connection in controlled local test network with per-device tokens (ADR-010); secure remote deployment needs encryption through NetBird, Tailscale or TLS, plus hardening.

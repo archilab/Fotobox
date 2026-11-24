@@ -17,9 +17,11 @@ Keys pressed before a question appears are discarded, so a double press can neve
 """
 from __future__ import annotations
 import argparse
+import atexit
 import os
 import select
 import shutil
+import signal
 import sys
 import termios
 import textwrap
@@ -40,6 +42,7 @@ from .health import Counters, Heartbeat, collect
 from .live_feed import PersonReporter, PresenceFeed
 from .printer import NoPaper, PrinterError, UsbPrinter, find_printer
 from .button import Button, open_button
+from .lights import light_for, open_lights
 
 ENTER, ESC, BACKSPACE, SETUP = "enter", "esc", "backspace", "setup"
 # Ctrl+Alt+S, as the console sends it with Alt as an ESC prefix or as the eighth bit, and Ctrl+S alone.
@@ -353,7 +356,8 @@ class Kiosk:
                  detector: "PersonDetector | None" = None, feed: "PresenceFeed | None" = None,
                  heartbeat: Callable[[], None] = lambda: None, on_camera_error: Callable[[], None] = lambda: None,
                  printer: Callable[[], UsbPrinter | None] = lambda: None,
-                 on_print: Callable[[str], None] = lambda _state: None, button: bool = False) -> None:
+                 on_print: Callable[[str], None] = lambda _state: None, button: bool = False,
+                 light: Callable[[str | None], None] = lambda _name: None) -> None:
         self.api, self.camera, self.screen, self.keys, self.report = api, camera, screen, keys, report
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
@@ -364,10 +368,16 @@ class Kiosk:
         self.heartbeat, self.on_camera_error = heartbeat, on_camera_error
         self.printer, self.on_print = printer, on_print
         self.button = button  # a push button works like ENTER, and the screens say so (ADR-036)
+        self.light = light  # the status lights follow the screens (ADR-036)
+        self.live_visit = False  # this visitor was paired live with someone at another booth
         self.label: str | None = None
 
-    def present(self, state: dict) -> None:
-        """Show a screen. Every screen carries the box's name and whether this is a test."""
+    def present(self, state: dict, light: str | None = None) -> None:
+        """Show a screen. Every screen carries the box's name and whether this is a test.
+
+        `light` names the status light where the screen alone does not say, as for messages.
+        """
+        self.light(light or light_for(state, self.live_visit))
         self.label = state.get("label", self.label)
         self.heartbeat()
         plain = self.banner + state["plain"]
@@ -375,13 +385,13 @@ class Kiosk:
             plain = plain.replace("ENTER", "KNOPF/ENTER")
         views.present(self.screen, state | {"label": self.label, "test_mode": bool(self.banner), "button": self.button, "plain": plain})
 
-    def ask(self, state: dict, accepted: set[str], timeout: float | None) -> str | None:
+    def ask(self, state: dict, accepted: set[str], timeout: float | None, light: str | None = None) -> str | None:
         self.keys.flush()
-        self.present(state)
+        self.present(state, light)
         return self.keys.wait(accepted, timeout)
 
-    def message(self, text: str) -> None:
-        self.ask(views.message(text, key=True), {ENTER}, MESSAGE_SECONDS)
+    def message(self, text: str, light: str = "error") -> None:
+        self.ask(views.message(text, key=True), {ENTER}, MESSAGE_SECONDS, light)
 
     def start_screen(self) -> str:
         """Wait for ENTER or the setup keys, refreshing what is happening at the other boxes."""
@@ -425,9 +435,10 @@ class Kiosk:
             return "not ready"
         # One question and one key, for the photo and the pool together; doing nothing cancels (ADR-030).
         if self.ask(views.consent(text, pool, CONSENT_SECONDS), {ENTER}, CONSENT_SECONDS) != ENTER:
-            self.message(CANCELLED)
+            self.message(CANCELLED, light="ready")
             return "declined"
         self.pooled_until = pool["until_text"] if pool else None
+        self.live_visit = False
         try:
             session_id, code = self.api.start(version, pool)
             self.report("capturing")
@@ -461,6 +472,8 @@ class Kiosk:
                 state = {"status": "unknown", "job": None}
             elapsed = int(self.clock() - started)
             job = state.get("job") or {}
+            if (state.get("match") or {}).get("kind") == "live":
+                self.live_visit = True  # also when the first answer already says complete
             if state["status"] == "complete":
                 break
             if state["status"] in {"failed", "withdrawn", "uploaded"} or elapsed >= self.wait_seconds:
@@ -514,7 +527,7 @@ class Kiosk:
         if printer is None:
             return False
         self.report("showing")
-        self.present(views.message(PRINTING))
+        self.present(views.message(PRINTING), light="printing")
         try:
             if printer.status() == "no paper":
                 raise NoPaper("no paper")
@@ -656,11 +669,23 @@ def main(argv: list[str] | None = None) -> None:
         menu = SetupMenu(screen, keys, settings_path=args.config, token_path=args.token_file, pin=Pin(args.pin_file), wifi=wifi, display=display)
         button: Button | None = None
         button_gpio = None
+        lights = open_lights(current()[0].lights)
+        light = lights.show if lights is not None else (lambda _name: None)
+        if lights is not None:
+            # systemd stops the kiosk with SIGTERM, and the end of its login session on tty1 sends SIGHUP.
+            # Ending through SystemExit lets the lights go dark; a released line keeps its last level.
+            for stop in (signal.SIGTERM, signal.SIGHUP):
+                signal.signal(stop, lambda *_args: sys.exit(0))
+            atexit.register(lights.stop)
+
+        def in_menu(during) -> None:
+            light("off")
+            heartbeat.hold(during)
         keys.flush()
         screen.show(f"FOTOBOX\n\nStarting ...\n\nM = Einrichtung / setup  ({BOOT_SETUP_SECONDS} s)")
         heartbeat.beat()
         if keys.wait({"m", "M", SETUP}, BOOT_SETUP_SECONDS):
-            heartbeat.hold(menu.run)
+            in_menu(menu.run)
         while True:
             heartbeat.beat()
             settings, token = current()
@@ -674,17 +699,18 @@ def main(argv: list[str] | None = None) -> None:
             problem = blocking_problem(checks)
             if problem:
                 report("not ready", problem[:120])
+                light("error")
                 # Only a person can fix these. A network or server that is away may come back, so the box
                 # must not sit waiting for a PIN when nobody is there.
                 if requires_setup(checks):
-                    heartbeat.hold(lambda reason=f"The photo booth cannot start. {problem}": menu.run(reason=reason))
+                    in_menu(lambda reason=f"The photo booth cannot start. {problem}": menu.run(reason=reason))
                     settings, token = current()
                     problem = blocking_problem(diagnose(settings, token, wifi, httpx.Client))
                 if problem:
                     keys.flush()
                     screen.show(f"FOTOBOX\n\nNicht bereit / Not ready\n{problem}\n\nCtrl+Alt+S = Einrichtung / setup")
                     if keys.wait({SETUP}, NOT_READY_RETRY_SECONDS) == SETUP:
-                        heartbeat.hold(menu.run)
+                        in_menu(menu.run)
                     continue
             if args.test_image:
                 camera = lambda: args.test_image.read_bytes()
@@ -719,14 +745,14 @@ def main(argv: list[str] | None = None) -> None:
                               test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds, report=report,
                               make_conversation=conversation, detector=detector, feed=feed, heartbeat=heartbeat.beat,
                               on_camera_error=lambda camera_name=settings.camera: camera_trouble(camera_name),
-                              printer=find_printer, on_print=printed, button=button is not None)
+                              printer=find_printer, on_print=printed, button=button is not None, light=light)
                 outcome = serve(kiosk, button)
                 feed.stop()
                 if person_reporter is not None:
                     person_reporter.stop()
                 if outcome == "setup":
                     report("setup")
-                    heartbeat.hold(menu.run)
+                    in_menu(menu.run)
             if args.once:
                 return
 

@@ -131,6 +131,12 @@ Two more entries are optional, and both can wait:
 - **7 Microphone** chooses the microphone for voice messages. It records nothing here.
 - **8 Person detection** lets the camera notice that someone is at the box. Put up the sign from `person-detection-sign.example.txt` first, where people see it before they come into the camera's view.
 
+**Optional: a push button and status lights.** If a button and RGB lights are wired to the Pi as in `docs/HARDWARE.md`, switch them on over SSH:
+```bash
+printf 'PHOTOBOX_BUTTON=25\nPHOTOBOX_LIGHTS=18,23,24\n' >> ~/.photobox-kiosk.env && sudo systemctl restart photobox-kiosk
+```
+The button then works like ENTER and the screens call it KNOPF; the [operator guide](docs/OPERATOR_GUIDE.md#the-push-button) lists what the colours mean.
+
 The WiFi was already set when you prepared the memory card. To change it later, use **1 WiFi** in this menu. To open the menu again, press **Ctrl+Alt+S** on the start screen, or **M** during the first 10 seconds after the booth restarts.
 
 ---

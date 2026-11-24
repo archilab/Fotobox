@@ -109,6 +109,12 @@ Each milestone stops for the owner's review. Off by default.
 - [x] **D3** `person_nearby` on the server, sent to the other boxes in real time. Measured over HTTP on 2026-11-08: about 0.2 s; not yet on real boxes
 - [x] **D4** Start screen wording, detection area and calibration at the box, activity on the dashboard. Switched on at the Pi on 2026-11-08 and reports reached the server; not yet watched on a second real box
 
+## Push button and status lights (ADR-036)
+- [x] **B1** Wiring measured on the box: button on GPIO25 to ground, red, green and blue on GPIO18, 23 and 24 lit when high
+- [x] **B2** Button works like ENTER while serving visitors, screens name it, the notice's last-page rule applies, one press per push. Real visit on 2026-11-24
+- [x] **B3** Status lights follow the booth, in the owner's colours, dark when the kiosk stops. Watched through a real visit on 2026-11-24
+- [ ] **B4** Setup menu test for button and lights, button and lights on the dashboard, stuck button under "Needs attention"
+
 ## Unattended running (ADR-032)
 - [x] Pi: starts at boot, recovers from a frozen browser, kiosk or system, restarts nightly, reports its health to the dashboard
 - [ ] Mac: recovery after a power cut, stable address, disk guard (later phase)

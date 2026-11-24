@@ -35,7 +35,8 @@ The stories are written to be friendly between strangers: nothing romantic, no w
 
 | | |
 |---|---|
-| **Simple for visitors** | Only ENTER; a clean black and white screen in German and English that turns white to light the photo. |
+| **Simple for visitors** | One button, or ENTER; a clean black and white screen in German and English that turns white to light the photo. Optional coloured lights show what the booth is doing. |
+| **Printed strips** | With a receipt printer, the strip is printed and cut instead of shown, once the notices say so. |
 | **Consent first** | Your consent notice is shown before every photo, and each agreement is recorded together with the exact text that was shown. |
 | **Private by design** | Everything stays on your network, photos are deleted after an hour, and no face recognition is used. |
 | **Deletion on request** | Each visitor gets a code, and one command deletes their pictures everywhere. |
@@ -77,7 +78,8 @@ This is a development version. Please keep these limits in mind:
 - **A key press is not an identity check.** The booth records that the notice was confirmed, not who confirmed it or how old they are.
 - **The deletion code appears on screen,** where people nearby may see it.
 - **Not tested enough with real visitors.** How well two real people stay recognizable in the current stories has not been measured yet.
-- **Not yet available:** printing, a touchscreen, and several booths at once.
+- **A printout cannot be taken back.** The deletion code removes the stored pictures, not a strip someone took home.
+- **Not yet available:** a touchscreen.
 
 ## License
 
