@@ -45,6 +45,18 @@ sudo cp ~/photobox/deploy/pi/photobox-kiosk.service /etc/systemd/system/ && sudo
 ```
 The screen is a browser since ADR-028: `deploy/pi/run-kiosk.sh` starts the kiosk with Chromium under Cage at 1920 x 1080 (`sudo apt install --no-install-recommends cage chromium wlr-randr`), and starts the text kiosk instead if the browser cannot run. Measured on the Pi 5 with 4 GB: the page is ready 1 to 3 s after the browser starts, with about 3.4 GB of memory still available. For unattended running, `sudo sh ~/photobox/deploy/pi/install-autonomy.sh` starts the booth at boot and installs the watchdogs (ADR-032). To get the login prompt back: `sudo systemctl disable --now photobox-kiosk && sudo systemctl start getty@tty1`. To try the kiosk without the camera, run `python -m photobox_client.kiosk --server URL --token-file ~/.photobox.token --test-image FILE --once` in a terminal.
 
+### Button and status lights (measured 2026-11-24, ADR-036)
+On the box `newbox`, a push button and an RGB light with series resistors are wired to the header, all on `gpiochip0` (`pinctrl-rp1`):
+
+| Part | GPIO | Measured |
+|---|---|---|
+| Push button | 25 | Connects to ground: reads 1 at rest with the internal pull-up, 0 while pressed. Bounces for under 1 ms when pressed; the release was clean. |
+| Red | 18 | Lights when the pin is high |
+| Green | 23 | Lights when the pin is high |
+| Blue | 24 | Lights when the pin is high |
+
+`admin` is in the group `gpio`, which may use `/dev/gpiochip0`. Measured with the system's `gpiomon`, `gpioget` and `gpioset` (libgpiod 2.2); afterwards all four pins were inputs again.
+
 ### Tested setup (2026-11-07)
 `scripts/m1_acceptance.sh` passed once, with 20 of 20 uploads, on this setup:
 - Raspberry Pi 5 (4GB), Debian 13 (trixie), 64-bit, Python 3.13.5, OpenCV 5.0.0

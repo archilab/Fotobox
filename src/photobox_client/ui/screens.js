@@ -15,7 +15,9 @@
 
   const screen = (extra, ...children) => el("div", "screen " + (extra || ""), ...children);
   const top = (label) => el("div", "top", el("span", "", "MEET A STRANGER"), el("span", "", label || ""));
-  const key = (name, quiet) => el("span", "key" + (quiet ? " quiet" : ""), name);
+  // With a push button, the key that agrees and goes on is the button (ADR-036); ENTER still works.
+  let buttonLabel = null;
+  const key = (name, quiet) => el("span", "key" + (quiet ? " quiet" : ""), name === "ENTER" && buttonLabel ? buttonLabel : name);
   const action = (name, de, en, quiet) => el("div", "action", key(name, quiet), el("div", "", de, el("small", "", en)));
 
   function badge(state) {
@@ -88,7 +90,7 @@
       body.scrollLeft = page * step;
       seenAll = seenAll || page === count - 1;
       if (enter) enter.classList.toggle("locked", !seenAll);
-      pages.textContent = count === 1 ? "" : `Seite ${page + 1} von ${count}` + (seenAll ? "   ↑ ↓" : " · weiter mit ↓");
+      pages.textContent = count === 1 ? "" : `Seite ${page + 1} von ${count}` + (seenAll ? "   ↑ ↓" : buttonLabel ? " · weiter mit dem Knopf" : " · weiter mit ↓");
       pages.classList.remove("nudge");
     };
     show();
@@ -249,6 +251,7 @@
   let currentName = null;
 
   function render(stage, state) {
+    buttonLabel = state.button ? "KNOPF" : null;
     const node = views[state.screen](state);
     if (state.test_mode) node.append(el("div", "test-mode", "TESTMODUS · KEINE KAMERA"));
     if (state.screen === currentName) node.classList.add("instant");  // a redraw of the same screen must not flicker

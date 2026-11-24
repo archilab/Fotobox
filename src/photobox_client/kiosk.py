@@ -39,6 +39,7 @@ from .conversation import Conversation, speech_talker
 from .health import Counters, Heartbeat, collect
 from .live_feed import PersonReporter, PresenceFeed
 from .printer import NoPaper, PrinterError, UsbPrinter, find_printer
+from .button import Button, open_button
 
 ENTER, ESC, BACKSPACE, SETUP = "enter", "esc", "backspace", "setup"
 # Ctrl+Alt+S, as the console sends it with Alt as an ESC prefix or as the eighth bit, and Ctrl+S alone.
@@ -123,6 +124,8 @@ class TerminalKeys:
     def __init__(self, fd: int) -> None:
         self.fd = fd
         self.pending: list[str] = []
+        self.wake_read, self.wake_write = os.pipe()  # the button wakes a waiting read (ADR-036)
+        os.set_blocking(self.wake_read, False)
 
     def __enter__(self):
         self.saved = termios.tcgetattr(self.fd)
@@ -140,9 +143,19 @@ class TerminalKeys:
         self.pending.clear()
         termios.tcflush(self.fd, termios.TCIFLUSH)
 
+    def button(self) -> None:
+        """The push button: the text screen has no pages, so it is ENTER."""
+        self.pending.append(ENTER)
+        os.write(self.wake_write, b"!")
+
     def _read(self, timeout: float | None) -> bytes:
-        ready, _, _ = select.select([self.fd], [], [], timeout)
-        return os.read(self.fd, 32) if ready else b""
+        ready, _, _ = select.select([self.fd, self.wake_read], [], [], timeout)
+        if self.wake_read in ready:
+            try:
+                os.read(self.wake_read, 64)
+            except BlockingIOError:
+                pass
+        return os.read(self.fd, 32) if self.fd in ready else b""
 
     def read_key(self, timeout: float | None) -> str | None:
         deadline = None if timeout is None else time.monotonic() + timeout
@@ -340,7 +353,7 @@ class Kiosk:
                  detector: "PersonDetector | None" = None, feed: "PresenceFeed | None" = None,
                  heartbeat: Callable[[], None] = lambda: None, on_camera_error: Callable[[], None] = lambda: None,
                  printer: Callable[[], UsbPrinter | None] = lambda: None,
-                 on_print: Callable[[str], None] = lambda _state: None) -> None:
+                 on_print: Callable[[str], None] = lambda _state: None, button: bool = False) -> None:
         self.api, self.camera, self.screen, self.keys, self.report = api, camera, screen, keys, report
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
@@ -350,13 +363,17 @@ class Kiosk:
         self.detector, self.feed = detector, feed
         self.heartbeat, self.on_camera_error = heartbeat, on_camera_error
         self.printer, self.on_print = printer, on_print
+        self.button = button  # a push button works like ENTER, and the screens say so (ADR-036)
         self.label: str | None = None
 
     def present(self, state: dict) -> None:
         """Show a screen. Every screen carries the box's name and whether this is a test."""
         self.label = state.get("label", self.label)
         self.heartbeat()
-        views.present(self.screen, state | {"label": self.label, "test_mode": bool(self.banner), "plain": self.banner + state["plain"]})
+        plain = self.banner + state["plain"]
+        if self.button:
+            plain = plain.replace("ENTER", "KNOPF/ENTER")
+        views.present(self.screen, state | {"label": self.label, "test_mode": bool(self.banner), "button": self.button, "plain": plain})
 
     def ask(self, state: dict, accepted: set[str], timeout: float | None) -> str | None:
         self.keys.flush()
@@ -532,6 +549,17 @@ class Kiosk:
         return True
 
 
+def serve(kiosk: Kiosk, button: Button | None) -> str:
+    """One visitor, with the push button working only meanwhile: never in the setup menu (ADR-036)."""
+    if button is not None:
+        button.enabled.set()
+    try:
+        return kiosk.run_once()
+    finally:
+        if button is not None:
+            button.enabled.clear()
+
+
 BOOT_SETUP_SECONDS = 10
 NOT_READY_RETRY_SECONDS = 30
 
@@ -626,6 +654,8 @@ def main(argv: list[str] | None = None) -> None:
 
     with (nullcontext(web) if web is not None else TerminalKeys(sys.stdin.fileno())) as keys:
         menu = SetupMenu(screen, keys, settings_path=args.config, token_path=args.token_file, pin=Pin(args.pin_file), wifi=wifi, display=display)
+        button: Button | None = None
+        button_gpio = None
         keys.flush()
         screen.show(f"FOTOBOX\n\nStarting ...\n\nM = Einrichtung / setup  ({BOOT_SETUP_SECONDS} s)")
         heartbeat.beat()
@@ -661,6 +691,10 @@ def main(argv: list[str] | None = None) -> None:
             else:
                 capture = CaptureSettings(width=args.width, height=args.height, rotation=args.rotate)
                 camera = lambda: capture_jpeg(settings.camera, capture)
+            if settings.button != button_gpio:
+                if button is not None:
+                    button.stop()
+                button, button_gpio = open_button(settings.button, keys.button), settings.button
             with httpx.Client(base_url=settings.server, timeout=60, headers={"Authorization": f"Bearer {token}"}) as client:
                 api = Api(client)
                 talker = speech_talker(settings.microphone, keys, screen)
@@ -685,8 +719,8 @@ def main(argv: list[str] | None = None) -> None:
                               test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds, report=report,
                               make_conversation=conversation, detector=detector, feed=feed, heartbeat=heartbeat.beat,
                               on_camera_error=lambda camera_name=settings.camera: camera_trouble(camera_name),
-                              printer=find_printer, on_print=printed)
-                outcome = kiosk.run_once()
+                              printer=find_printer, on_print=printed, button=button is not None)
+                outcome = serve(kiosk, button)
                 feed.stop()
                 if person_reporter is not None:
                     person_reporter.stop()

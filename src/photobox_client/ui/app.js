@@ -27,6 +27,14 @@
     }).catch(() => {});  // the kiosk carries on; a lost key press is simply pressed again
   }
 
+  // The push button (ADR-036): only for the screen showing when it was pressed, and under the same rule as
+  // ENTER, so a notice must be read to its last page. Until then the button turns the page.
+  events.addEventListener("button", (event) => {
+    if (JSON.parse(event.data).id !== screenId) return;
+    if (window.PhotoboxScreens.canConfirm()) return send("enter");
+    window.PhotoboxScreens.page(1);
+  });
+
   // A frozen page stops sending this, and the kiosk then restarts the browser.
   setInterval(() => {
     fetch("/alive", { method: "POST", headers: { "X-Photobox-Token": token } }).catch(() => {});

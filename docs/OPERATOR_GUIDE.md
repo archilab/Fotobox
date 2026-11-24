@@ -187,6 +187,14 @@ If one of the two cancels or deletes their pictures before the strip is done, th
 
 ---
 
+## The push button
+
+A box can have a push button that works like ENTER while visitors use it: to start, to agree, for more time and to talk (ADR-036). Every screen then names the button as KNOPF. On a notice of several pages the button turns the page until the last one has been shown, and only then agrees. The keyboard keeps working, and the setup menu needs the keyboard.
+
+To use it, set the button's GPIO number in the box's settings, `PHOTOBOX_BUTTON=25` in `~/.photobox-kiosk.env`, and restart the kiosk. If your notices say "Mit ENTER", change them to name the button too.
+
+---
+
 ## Printing strips
 
 A booth with a USB receipt printer can print the strip instead of showing it on the screen (ADR-035). Tested with an Epson TM-m30III on 80 mm paper; printers that understand the same ESC/POS commands should work too.

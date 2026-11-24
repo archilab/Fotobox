@@ -103,13 +103,13 @@ build_whisper() {
 sudo -v
 echo "== 1/5 System packages"
 sudo apt-get update
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git curl python3-venv polkitd alsa-utils v4l-utils build-essential cmake
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git curl python3-venv python3-dev polkitd alsa-utils v4l-utils build-essential cmake
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cage chromium wlr-randr
 
 echo "== 2/5 Photo booth program"
 cd "$REPOSITORY"
 [ -x "$PYTHON" ] || python3 -m venv .venv
-"$PYTHON" -m pip install --quiet -e '.[client-camera]'
+"$PYTHON" -m pip install --quiet -e '.[client-camera,client-gpio]'
 
 echo "== 3/5 Voice"
 install -d -m 700 "$SPEECH"

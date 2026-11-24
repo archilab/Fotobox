@@ -60,6 +60,8 @@ class WebUI:
         self.server: ThreadingHTTPServer | None = None
         self.connected = threading.Event()  # a browser has opened the screen
         self.alive_at: float | None = None
+        self.button_presses = 0  # ADR-036
+        self.button_screen = 0
 
     # Lifecycle
 
@@ -118,6 +120,14 @@ class WebUI:
             self.image = None
 
     # The kiosk's keyboard
+
+    def button(self) -> None:
+        """The push button. The page decides what it means, like ENTER: turn the notice's page or agree."""
+        with self.changed:
+            self.button_presses += 1
+            self.button_screen = self.revision
+            self.version += 1
+            self.changed.notify_all()
 
     def press(self, screen_id: int, key: str) -> bool:
         """A key from the page. False if it was meant for a screen that is no longer showing."""
@@ -231,7 +241,7 @@ def _handler(ui: WebUI) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.close_connection = True
             ui.connected.set()
-            seen = -1
+            seen, shown_state, buttons = -1, None, None
             try:
                 while True:
                     with ui.changed:
@@ -241,9 +251,14 @@ def _handler(ui: WebUI) -> type[BaseHTTPRequestHandler]:
                             return
                         state, changed = ui.state, ui.version != seen
                         seen = ui.version
-                    if state is not None and changed:
+                        pressed = buttons is not None and ui.button_presses != buttons
+                        buttons, button_screen = ui.button_presses, ui.button_screen
+                    if state is not None and changed and state is not shown_state:
                         self.wfile.write(f"event: state\ndata: {json.dumps(state, ensure_ascii=False)}\n\n".encode())
-                    elif not changed:
+                        shown_state = state
+                    if pressed:
+                        self.wfile.write(f"event: button\ndata: {json.dumps({'id': button_screen})}\n\n".encode())
+                    if not changed:
                         self.wfile.write(b": keep-alive\n\n")
                     self.wfile.flush()
             except OSError:

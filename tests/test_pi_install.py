@@ -75,7 +75,8 @@ def test_voice_and_person_detection_are_part_of_the_plain_install(pi):
     assert (pi.home / "photobox-speech" / "ggml-base.bin").read_text() == "whisper\n"
     assert (pi.home / "photobox-person" / "nanodet.onnx").read_text() == "person\n"
     calls = pi.calls()
-    for package in ("alsa-utils", "cmake", "chromium", "cage", "polkitd"):
+    # python3-dev: gpiod is compiled on the Pi, which needs Python.h (ADR-036).
+    for package in ("alsa-utils", "cmake", "chromium", "cage", "polkitd", "python3-dev"):
         assert package in calls
     assert "install-autonomy.sh" in calls and "--branch v1.7.4" in calls
     assert "usermod -aG lp admin" in calls
