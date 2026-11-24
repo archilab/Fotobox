@@ -213,7 +213,7 @@ To use it, set the button's GPIO number in the box's settings, `PHOTOBOX_BUTTON=
 
 ## Printing strips
 
-A booth with a USB receipt printer can print the strip instead of showing it on the screen (ADR-035). Tested with an Epson TM-m30III on 80 mm paper; printers that understand the same ESC/POS commands should work too.
+A booth with a USB receipt printer can print the strip instead of showing it on the screen (ADR-035). Tested with a Netum NT-H861 on 80 mm paper, which reports itself as an Epson TM-m30II; printers that understand the same ESC/POS commands should work too.
 
 **A printout is a copy the booth cannot take back.** The withdrawal code deletes the stored pictures, but not a strip someone has taken home. And a strip can show a second real visitor: someone from the pool, or a live partner at another booth. Say this in the notices before you switch printing on.
 

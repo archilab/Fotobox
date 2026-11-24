@@ -1,6 +1,6 @@
 """Printing the finished strip on a USB receipt printer with ESC/POS commands (ADR-035).
 
-Measured with an Epson TM-m30III on 80 mm paper: 576 dots per line at 203 dpi. The kernel's usblp driver
+Measured with a Netum NT-H861 on 80 mm paper, which reports itself over USB as an Epson TM-m30II: 576 dots per line at 203 dpi. The kernel's usblp driver
 makes it /dev/usb/lp0. The strip comes from the server already as 1-bit (`profile=thermal`), is held in
 memory only, and goes straight to the printer: nothing is written to disk.
 

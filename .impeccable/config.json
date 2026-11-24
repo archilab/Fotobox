@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-11-24T20:01:45.828Z",
+        "reason": "project owner decided: ADR-028 in docs/DECISIONS.md specifies a minimalist black and white screen in Inter, kept locally under OFL"
+      }
+    ]
+  }
+}
