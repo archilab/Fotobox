@@ -76,6 +76,21 @@ def test_printing_writes_the_raster_to_the_device(tmp_path):
     assert device.read_bytes() == raster(Image.open(io.BytesIO(png(560, 10))))
 
 
+def test_the_device_stays_open_until_the_last_write_with_the_cut_is_taken(tmp_path, monkeypatch):
+    """Closing too early lost the cut on the real printer: usblp cancels a write still in flight."""
+    import photobox_client.printer as printer_module
+    events, real_select = [], printer_module.select.select
+    monkeypatch.setattr(printer_module.os, "write", lambda fd, chunk: events.append(("write", chunk)) or len(chunk))
+    monkeypatch.setattr(printer_module.os, "close", lambda fd: events.append(("close", None)))
+    monkeypatch.setattr(printer_module.select, "select", lambda r, w, x, t: events.append(("wait", None)) or real_select(r, w, x, 0))
+    device = tmp_path / "lp0"
+    device.touch()
+    UsbPrinter(device).print_strip(png(560, 10))
+    last_write = max(i for i, (kind, _) in enumerate(events) if kind == "write")
+    assert events[last_write][1].endswith(FEED_AND_CUT)
+    assert [kind for kind, _ in events[last_write + 1:]] == ["wait", "close"]
+
+
 def test_a_printer_that_cannot_be_opened_is_an_error(tmp_path):
     fifo = tmp_path / "lp0"
     os.mkfifo(fifo)  # nobody reads it, like a printer that is gone

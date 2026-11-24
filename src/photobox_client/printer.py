@@ -115,6 +115,11 @@ class UsbPrinter:
                     sent += os.write(fd, data[sent:sent + 4096])
                 except BlockingIOError:
                     continue
+            # usblp cancels a write still in flight when the device is closed. The last write carries
+            # the cut, so wait until the printer has taken it: the device is writable again then.
+            while not select.select([], [fd], [], max(0.0, deadline - self.clock()))[1]:
+                if self.clock() >= deadline:
+                    raise PrinterError("the printer did not finish in time")
         except OSError as exc:
             raise PrinterError(f"printing failed: {exc.strerror}") from exc
         finally:
