@@ -1,13 +1,10 @@
 #!/bin/sh
-# Shows one address full screen at 1920 x 1080, with Cage as the only window manager (ADR-028).
+# Shows one address full screen in the display's own mode, with Cage as the only window manager (ADR-028).
+# The booth's 7-inch panel runs at 1280 x 800, which the page is laid out for; it scales itself to any other screen.
 if [ "$1" != "--inside" ]; then
     exec cage -d -- "$0" --inside "$1"
 fi
 address=$2
-
-# 1080p is what the screen is designed for. If the display refuses, the page scales itself to fit.
-output=$(wlr-randr | awk '/^[^ ]/ { print $1; exit }')
-[ -n "$output" ] && wlr-randr --output "$output" --mode 1920x1080
 
 # A throwaway profile in memory: nothing about a visit stays on the disk.
 profile="${XDG_RUNTIME_DIR:-/tmp}/photobox-browser"

@@ -101,9 +101,10 @@ def test_fallback_script_starts_the_text_kiosk_on_the_failure_code():
     assert f'"$code" -eq {BROWSER_FAILED}' in script and "--ui text" in script and "--ui web" in script
 
 
-def test_launcher_keeps_the_screen_private_and_at_1080p():
+def test_launcher_keeps_the_screen_private_in_the_displays_own_mode():
     script = (PI / "start-browser.sh").read_text(encoding="utf-8")
-    assert "--mode 1920x1080" in script and "--incognito" in script and "XDG_RUNTIME_DIR" in script
+    # Forcing 1920 x 1080 failed on the 7-inch panel, which offers at most 1280 x 800.
+    assert "--mode" not in script and "--incognito" in script and "XDG_RUNTIME_DIR" in script
     assert "cage" in script and "--remote-debugging" not in script
 
 

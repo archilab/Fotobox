@@ -282,8 +282,8 @@
     if (node.after_mount) document.fonts.ready.then(node.after_mount);
   }
 
-  // The canvas in ui.css, drawn to fit: at half size on the box's 1920 x 1080 screen.
-  const CANVAS_WIDTH = 3840, CANVAS_HEIGHT = 2160;
+  // The canvas in ui.css, drawn to fit: at half size on the box's 7-inch panel at 1280 x 800.
+  const CANVAS_WIDTH = 2560, CANVAS_HEIGHT = 1600;
 
   function fit(stage) {
     const scale = Math.min(window.innerWidth / CANVAS_WIDTH, window.innerHeight / CANVAS_HEIGHT);

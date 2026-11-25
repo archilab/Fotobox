@@ -286,3 +286,13 @@ Tested with a fake line replaying the measured bounce, with the browser and text
 
 **Switched on and tested with a real booth on 2026-11-25 (J3, J4).** Live matching was switched on at the Studio after the owner approved a consent notice that covers live pairing, invitations and printing for both. The real box `newbox`, with button, lights and printer, was tested against a kiosk window on the Mac with a drawn face, in both directions, with the owner as the only visitor. Mac first: `newbox` blinked violet fast and showed the invitation; the owner joined 12.7 s into it, the two were paired as soon as the photo arrived, the shared FLUX.2 strip took 86 s and was printed and cut. `newbox` first: the Mac booth showed the invitation with 16 s left, joined, and the shared strip was done 80 s after pairing. The test booth also agreed to the pool, so its drawn face was taken out of the pool afterwards; no strip was deleted. **Not tested yet:** two real Pis, and visitors other than the owner.
 
+## ADR-038: The booth screen is laid out for its 7-inch panel
+**Decided by the project owner on 2026-11-25**, after an audit of the booth screen. ADR-028 designed the screen for a 1920 x 1080 television. The booth's real screen is a 7-inch touch panel that offers at most 1280 x 800 (16:10); it showed the 16:9 canvas at a third of its size with bars, and the smallest text came out at 9-10 px, about 1 mm.
+
+- **Canvas** 2560 x 1600, twice the panel, so the panel shows it at exactly half size; any other screen gets the same layout scaled to fit, with bars.
+- **Minimum text** 36 px on the canvas, 18 px on the panel, for everything visitors read; margins reduced from 192 to 112 px.
+- **Display mode:** `start-browser.sh` no longer forces 1920 x 1080, which the panel does not offer, and uses the display's own mode.
+- Checked at 1280 x 800 for all sixteen screens of the prototype, by eye and by measuring that nothing extends past the canvas; the photo strip was the only screen that did and now fits the panel's height. A 1920 x 1080 screen still shows it correctly.
+
+**Not changed:** the panel also reports touch, which the screen ignores; whether a tap should work like the button is a decision of its own. The consent notice is larger but still the operator's full text, now shown at 20 px.
+

@@ -96,6 +96,7 @@ Each milestone stops for the owner's review.
 ## Browser screen on the box (ADR-028)
 Each milestone stops for the owner's review.
 - [x] **U0** Design prototype: every screen in HTML at 1920 x 1080, checked in a browser
+- [x] **U5** Laid out again for the booth's 7-inch panel at 1280 x 800, text at least 18 px on the panel (ADR-038)
 - [x] **U1** The kiosk describes screens as states; the text kiosk is unchanged
 - [x] **U2** Local UI server on 127.0.0.1 and the live page, a whole visit with a test image on the Mac
 - [x] **U3** Chromium and Cage on the Pi, service, fallback to the text kiosk (tested), start time and memory measured
