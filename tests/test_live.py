@@ -429,3 +429,88 @@ def test_kiosk_announces_the_pairing_once_then_shows_shared_progress():
     moments = [text for text in Screen.shown if "L I V E" in text]
     assert len(moments) == 1 and "someone in Berlin" in moments[0] and 3 in slept
     assert any("LIVE with someone in Berlin. You both see the same progress." in text for text in Screen.shown)
+
+
+# The invitation to join (ADR-037): from the moment the first visitor agrees
+
+def snap_of(c):
+    return c.get("/api/v1/presence/snapshot").json()
+
+
+def seconds_left(snapshot):
+    message = snapshot["message"]
+    return (datetime.fromisoformat(message["until"]) - datetime.fromisoformat(snapshot["generated_at"])).total_seconds()
+
+
+def backdate_agreement(seconds):
+    with db_connect() as db:
+        earlier = (datetime.now(timezone.utc) - timedelta(seconds=seconds)).isoformat()
+        db.execute("UPDATE consent_records SET granted_at=? WHERE purpose='live'", (earlier,))
+
+
+def test_other_boxes_are_invited_as_soon_as_the_first_visitor_agrees(boxes):
+    client, berlin = boxes
+    agree(berlin)  # agreed, the photo is not taken yet
+    body = snap_of(client)
+    assert body["message"]["key"] == "partner_waiting" and 18 <= seconds_left(body) <= 20
+    assert body["locations"][0]["invite_until"] == body["message"]["until"]
+    assert "until" not in snap_of(berlin)["message"]  # never invited to join itself
+
+
+def test_the_invitation_lasts_twenty_seconds_from_agreeing(boxes):
+    client, berlin = boxes
+    agree(berlin)
+    backdate_agreement(21)
+    body = snap_of(client)
+    assert body["message"]["key"] != "partner_waiting" and body["locations"][0]["match_available"] is False
+
+
+def test_the_first_visitors_strip_waits_only_for_what_is_left_of_the_invitation(boxes):
+    client, berlin = boxes
+    sid = agree(berlin)
+    backdate_agreement(12)  # the photo took 12 s
+    finish_visit(berlin, sid)
+    assert 6 <= wait_left(berlin, sid) <= 9
+    body = snap_of(client)  # the invitation ends when the strip starts: one end for both
+    assert body["message"]["until"] == body["locations"][0]["invite_until"] and 6 <= seconds_left(body) <= 9
+
+
+def test_a_photo_after_the_invitation_ended_starts_at_once(boxes):
+    _, berlin = boxes
+    sid = agree(berlin)
+    backdate_agreement(25)
+    finish_visit(berlin, sid)
+    assert status(berlin, sid)["job"]["waiting_for_partner"] is False
+
+
+def test_someone_who_joins_extends_the_invitation_and_shares_the_strip(boxes):
+    client, berlin = boxes
+    first = agree(berlin)
+    joining = agree(client)  # pressed to join and agreed while invited
+    finish_visit(berlin, first)
+    assert 50 <= wait_left(berlin, first) <= 61  # waiting for the one on the way, as before
+    finish_visit(client, joining)
+    assert row(first)["live_partner"] == joining and "until" not in snap_of(client)["message"]
+
+
+@pytest.mark.parametrize("end", ["withdraw", "cancel", "offline"])
+def test_the_invitation_ends_when_the_first_visitor_leaves(boxes, end):
+    client, berlin = boxes
+    sid = agree(berlin)
+    if end == "withdraw":
+        with db_connect() as db:
+            withdraw_session(db, sid)
+    elif end == "cancel":
+        finish_visit(berlin, sid)
+        assert berlin.post(f"/api/v1/sessions/{sid}/cancel").status_code == 200
+    else:
+        with db_connect() as db:
+            db.execute("UPDATE device_status SET reported_at=? WHERE device_id='box-berlin'",
+                       ((datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat(),))
+    assert snap_of(client)["message"]["key"] != "partner_waiting"
+
+
+def test_without_live_consent_nobody_is_invited(boxes):
+    client, berlin = boxes
+    agree(berlin, live_consent=False)
+    assert snap_of(client)["message"]["key"] != "partner_waiting"

@@ -53,6 +53,7 @@ class BoxView:
     activity_age_seconds: int | None
     # A visitor there is waiting for a live partner. Set by presence.snapshot from the job queue (ADR-024).
     match_available: bool = False
+    invite_until: str | None = None  # when the invitation to join this box's visitor ends (ADR-037)
     simulated: bool = False
 
 

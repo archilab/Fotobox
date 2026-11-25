@@ -82,7 +82,7 @@ def _public(view: BoxView) -> dict:
     return {
         "box_id": view.box_id, "label": view.label, "device_state": view.device_state,
         "activity_state": view.activity_state, "activity_age_seconds": view.activity_age_seconds,
-        "match_available": view.match_available, "simulated": view.simulated,
+        "match_available": view.match_available, "invite_until": view.invite_until, "simulated": view.simulated,
         "status": messages.status_word(view),
     }
 
@@ -100,9 +100,9 @@ def snapshot(db: sqlite3.Connection, self_box_id: str, now: datetime | None = No
         boxes += simulated_boxes(db, now)
     views = project(boxes, events.load(db, include_simulated=include_simulated), now, config)
     from .. import live
-    waiting = live.waiting_boxes(db)
-    views = {box_id: replace(view, match_available=True) if box_id in waiting and view.device_state == "online" else view
-             for box_id, view in views.items()}
+    inviting = live.invitations(db, now)
+    views = {box_id: replace(view, match_available=True, invite_until=inviting[box_id])
+             if box_id in inviting and view.device_state == "online" else view for box_id, view in views.items()}
     me = next((box for box in boxes if box.box_id == self_box_id), None)
     others = order([view for box_id, view in views.items() if box_id != self_box_id])
     # Any box's pool portrait counts: matching may use one taken at this box too.
@@ -118,5 +118,5 @@ def snapshot(db: sqlite3.Connection, self_box_id: str, now: datetime | None = No
         "locations": [_public(view) for view in others[:MAX_LOCATIONS]],
         "more_locations": max(0, len(others) - MAX_LOCATIONS),
         "earlier_portrait_available": earlier,
-        "message": messages.render(key, about),
+        "message": messages.render(key, about) | ({"until": about.invite_until} if key == "partner_waiting" and about else {}),
     }

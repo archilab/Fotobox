@@ -283,7 +283,7 @@ Settings are in `~/photobox-server/.env`. After a change, restart the server. A 
 | `PHOTOBOX_LIVE_MATCHING` | off | `true` pairs visitors at different booths live. Only with a notice that says so. |
 | `PHOTOBOX_PRINTING` | off | `true` lets booths with a receipt printer print the strip instead of showing it. Only after the notices say so. |
 | `PHOTOBOX_MESSAGING` | off | `true` lets live pairs send each other short voice messages as text. Only with a notice that says so. |
-| `PHOTOBOX_LIVE_WAIT_SECONDS` | `20` | How long a booth waits for someone at another booth (5 to 60). |
+| `PHOTOBOX_LIVE_WAIT_SECONDS` | `20` | How long the other booths are invited to join, counted from the moment a visitor agrees, and how long that visitor's strip waits (5 to 60). |
 | `PHOTOBOX_LIVE_MAX_WAIT_SECONDS` | `60` | The longest wait while a visitor at another booth has already agreed (20 to 120). |
 | `PHOTOBOX_POOL_NOTICE_FILE` | `pool-notice.txt` | The pool text used until you save one in the dashboard. Without one, the booths take photos only. |
 | `PHOTOBOX_PRESENCE_RECENT_SECONDS` | `180` | How long a photo counts as "just taken" on other booths (30 to 1800). |

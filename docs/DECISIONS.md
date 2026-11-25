@@ -273,3 +273,12 @@ Tested with drawn images against files standing in for the printer, and on 2026-
 
 Tested with a fake line replaying the measured bounce, with the browser and text screens, and on 2026-11-24 with a real visit on the box using only the button. The lights were watched through a real visit the same day, and going dark on SIGTERM and SIGHUP was checked on the pins; the violet variants need a second booth and are tested only in code. Building `gpiod` on the Pi needs the Python headers, so the installer adds `python3-dev`.
 
+## ADR-037: Inviting the other booths to a shared strip
+**Decided by the project owner on 2026-11-25**, building on live encounters (ADR-024). When a visitor at one booth agrees, the other booths that are idle invite their visitors to join within a few seconds, and two people share one strip. The owner chose: the invitation starts when the first visitor **agrees**, not at the first press, so only people who agreed are announced (ADR-023 unchanged); **two** people per strip, as the stories and the model are made for two; a **20 s** window; a **big invitation** with a countdown and violet lights on idle booths only.
+
+- **One end for invitation and wait (milestone J1).** The invitation runs `PHOTOBOX_LIVE_WAIT_SECONDS` (20 s) from the live consent, and the first visitor's strip waits only for what is left of it after the photo, so the invitation ends when the strip starts. Once someone at another booth has agreed, the wait stretches to `PHOTOBOX_LIVE_MAX_WAIT_SECONDS` (60 s) as before. Before this, the 20 s were counted from the photo, so the first visitor waited longer and the other booths heard of it later.
+- **What other booths receive.** The location gets `invite_until`, and the message `partner_waiting` gets `until`. Only an end time and the booth's public name: nothing about the visitor. The booth counts down from `until` minus `generated_at`, both from the server's clock, so the clocks of Pi and Mac need not agree, and the live stream sends nothing new each second.
+- **It ends** when the visitor is paired, cancels, withdraws or their booth goes offline, and when the time is up.
+
+**Not built yet:** the booths' invitation screen and lights (J2), a test with two booths (J3).
+

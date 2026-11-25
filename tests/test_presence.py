@@ -375,7 +375,7 @@ def test_snapshot_reveals_no_addresses_paths_or_people(client, berlin):  # 12
     process(berlin, sid)
     text = json.dumps(snap(client))
     assert sid not in text and "storage" not in text and "127.0.0.1" not in text and "testclient" not in text
-    assert set(location(snap(client))) == {"box_id", "label", "device_state", "activity_state", "activity_age_seconds", "match_available", "simulated", "status"}
+    assert set(location(snap(client))) == {"box_id", "label", "device_state", "activity_state", "activity_age_seconds", "match_available", "invite_until", "simulated", "status"}
 
 
 def test_detail_setting(client, berlin, monkeypatch):

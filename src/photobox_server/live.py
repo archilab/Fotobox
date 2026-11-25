@@ -12,6 +12,7 @@ switched live matching on (PHOTOBOX_LIVE_MATCHING=true) and the notice says so. 
 paired with itself. Pairing happens under the database's write lock, so a visitor is paired once.
 """
 from __future__ import annotations
+import math
 import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -65,16 +66,31 @@ def coming(db: sqlite3.Connection, box_id: str) -> sqlite3.Row | None:
     ).fetchone()
 
 
+def agreed_at(db: sqlite3.Connection, session_id: str) -> datetime | None:
+    """When this session's visitor agreed to live pairing, or None."""
+    row = db.execute("SELECT granted_at FROM consent_records WHERE session_id=? AND purpose='live' AND withdrawn_at IS NULL",
+                     (session_id,)).fetchone()
+    return datetime.fromisoformat(row["granted_at"]) if row else None
+
+
 def wait_for(db: sqlite3.Connection, session: sqlite3.Row) -> int:
     """How long this session's job should wait for a live partner: 0 means start at once.
 
-    Longer only for a real visitor who has already agreed at another box, never on a guess.
+    The invitation to the other boxes runs from the moment the visitor agreed (ADR-037), so the job waits
+    only for what is left of it. Longer only for a real visitor who has already agreed at another box,
+    never on a guess.
     """
     if not enabled() or not consented(db, session["id"]):
         return 0
     if coming(db, session["box_id"]) is not None:
         return max_wait_seconds()
-    return wait_seconds() if other_box_online(db, session["box_id"]) else 0
+    if not other_box_online(db, session["box_id"]):
+        return 0
+    agreed = agreed_at(db, session["id"])
+    if agreed is None:
+        return 0
+    left = (agreed + timedelta(seconds=wait_seconds()) - datetime.now(timezone.utc)).total_seconds()
+    return max(0, math.ceil(left))
 
 
 def extend_waiting(db: sqlite3.Connection, box_id: str) -> None:
@@ -104,6 +120,38 @@ def waiting_boxes(db: sqlite3.Connection) -> set[str]:
         (now_iso(),),
     ).fetchall()
     return {row["box_id"] for row in rows}
+
+
+def invitations(db: sqlite3.Connection, now: datetime | None = None) -> dict[str, str]:
+    """Boxes inviting the others to a shared strip, with when the invitation ends (ADR-037).
+
+    An invitation starts when a visitor agrees to live pairing. Until their strip is queued it lasts
+    PHOTOBOX_LIVE_WAIT_SECONDS from that moment; once queued, it lasts as long as the job waits, which
+    ends at the same time, or later if someone else has already agreed. It ends at once when the visitor
+    is paired, cancels or withdraws.
+    """
+    if not enabled():
+        return {}
+    now = now or datetime.now(timezone.utc)
+    oldest = (now - timedelta(seconds=max_wait_seconds())).isoformat()
+    rows = db.execute(
+        """SELECT s.box_id, c.granted_at, j.status AS job_status, j.live_wait, j.attempts, j.next_attempt_at
+           FROM sessions s JOIN consent_records c ON c.session_id = s.id AND c.purpose = 'live' AND c.withdrawn_at IS NULL
+           LEFT JOIN generation_jobs j ON j.session_id = s.id
+           WHERE s.live_partner IS NULL AND s.status IN ('awaiting_portrait', 'uploaded', 'queued') AND c.granted_at > ?""",
+        (oldest,),
+    ).fetchall()
+    found: dict[str, str] = {}
+    for row in rows:
+        if row["job_status"] is None:
+            until = datetime.fromisoformat(row["granted_at"]) + timedelta(seconds=wait_seconds())
+        elif row["job_status"] == "queued" and row["live_wait"] and row["attempts"] == 0:
+            until = datetime.fromisoformat(row["next_attempt_at"])
+        else:
+            continue  # the strip is being made without a partner
+        if until > now and until.isoformat() > found.get(row["box_id"], ""):
+            found[row["box_id"]] = until.isoformat()
+    return found
 
 
 def find_partner(db: sqlite3.Connection, session: sqlite3.Row) -> sqlite3.Row | None:
