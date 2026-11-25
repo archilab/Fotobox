@@ -118,7 +118,7 @@ Each milestone stops for the owner's review. Off by default.
 ## Invitations to a shared strip (ADR-037)
 - [x] **J1** The invitation starts when a visitor agrees and lasts 20 s; the visitor's strip waits for what is left of it; other booths get the end time
 - [x] **J2** Idle booths show a big invitation with a countdown and violet blinking lights; a press starts an ordinary visit
-- [ ] **J3** Two booths together: first with a second kiosk on the Mac, then with two Pis
+- [ ] **J3** Two booths together. Done on 2026-11-25 with two kiosks on the Mac (joined and shared one strip; nobody joined and the strip started 20 s after agreeing). Open: two Pis
 - [ ] **J4** Switched on at the Studio with a consent notice that covers live pairing
 
 ## Unattended running (ADR-032)

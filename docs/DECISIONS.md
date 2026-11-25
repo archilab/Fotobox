@@ -282,5 +282,5 @@ Tested with a fake line replaying the measured bounce, with the browser and text
 
 - **The invitation on an idle booth (milestone J2).** Its start screen becomes a big invitation: the LIVE badge, the message in German and English, the seconds left in large figures, counted down by the page itself, and the key "Mitmachen / Join" (KNOPF with a button). The lights blink violet fast. A press starts an ordinary visit, with the consent notice to read and agree to; nothing is skipped. A booth in the middle of a visit is not interrupted, because only the start screen turns into the invitation. Without an end time, as from an older server, the start screen stays as before.
 
-**Not done yet:** a test with two booths (J3).
+**Tested on the Mac on 2026-11-25 (J3, first part)** with a test server, live matching on, the mock generator and two browser-screen kiosks "Essen" and "Wien" using drawn test images. The invitation appeared at Wien 2 s after Essen agreed, during Essen's countdown, with 19 s left. Wien joined 10 s into the invitation, the two were paired as soon as Wien's photo arrived, and both received the same strip. When nobody joined, the invitation disappeared after 20 s and Essen's strip started 20.1 s after agreeing, with an invented counterpart. **Not tested yet:** two real Pis with buttons and lights, and real people.
 
