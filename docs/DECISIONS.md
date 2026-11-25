@@ -280,5 +280,7 @@ Tested with a fake line replaying the measured bounce, with the browser and text
 - **What other booths receive.** The location gets `invite_until`, and the message `partner_waiting` gets `until`. Only an end time and the booth's public name: nothing about the visitor. The booth counts down from `until` minus `generated_at`, both from the server's clock, so the clocks of Pi and Mac need not agree, and the live stream sends nothing new each second.
 - **It ends** when the visitor is paired, cancels, withdraws or their booth goes offline, and when the time is up.
 
-**Not built yet:** the booths' invitation screen and lights (J2), a test with two booths (J3).
+- **The invitation on an idle booth (milestone J2).** Its start screen becomes a big invitation: the LIVE badge, the message in German and English, the seconds left in large figures, counted down by the page itself, and the key "Mitmachen / Join" (KNOPF with a button). The lights blink violet fast. A press starts an ordinary visit, with the consent notice to read and agree to; nothing is skipped. A booth in the middle of a visit is not interrupted, because only the start screen turns into the invitation. Without an end time, as from an older server, the start screen stays as before.
+
+**Not done yet:** a test with two booths (J3).
 

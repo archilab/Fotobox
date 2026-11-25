@@ -176,6 +176,27 @@
       el("div", "actions", action("ENTER", "Zum Starten drücken", "Press to start")),
       s.camera_note && el("div", "camera-note", s.camera_note.de, el("br"), el("span", "en", s.camera_note.en))),
 
+    // Another booth invites this one to a shared strip (ADR-037): the seconds are counted down here.
+    invite: (s) => {
+      const number = el("div", "invite-number", s.seconds);
+      const ends = performance.now() + s.seconds * 1000;
+      let shown = false;
+      const tick = () => {
+        number.textContent = Math.max(0, Math.ceil((ends - performance.now()) / 1000));
+        shown = shown || number.isConnected;
+        if (!shown || number.isConnected) setTimeout(tick, 250);  // stops once the screen has been replaced
+      };
+      tick();
+      return screen("invite", top(s.label),
+        el("div", "fill"),
+        badge({ kind: "live", de: "LIVE", en: "LIVE" }),
+        el("div", "invite-body",
+          el("div", "", ...hero(s.hero), el("p", "lead", s.support.de), el("p", "lead-en en", s.support.en)),
+          el("div", "invite-time", number, el("small", "", "Sekunden / seconds"))),
+        el("div", "fill"),
+        el("div", "actions", action("ENTER", "Mitmachen", "Join")));
+    },
+
     consent: (s) => {
       const node = noticeScreen(s, s.until && el("div", "until", s.until, el("small", "", "Danach wird dein Foto gelöscht / Your photo is deleted after that")));
       addTimeLeft(node, s.seconds);

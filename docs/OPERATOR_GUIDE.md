@@ -199,6 +199,7 @@ To use it, set the button's GPIO number in the box's settings, `PHOTOBOX_BUTTON=
 |---|---|
 | green | ready for the next visitor |
 | violet | ready, while someone is live at another booth |
+| violet, blinking fast | another booth invites this one to a shared strip; the screen counts down |
 | green, blinking fast | waiting for a press, such as agreeing |
 | white | countdown and photo |
 | blue, blinking slowly | the strip is being made |

@@ -37,7 +37,7 @@ SECURITY_HEADERS = {
     "Cache-Control": "no-store",
 }
 # These redraw often. A key pressed a moment ago still belongs to what the visitor is looking at.
-UPDATING = frozenset({"start", "making", "listening", "menu"})
+UPDATING = frozenset({"start", "invite", "making", "listening", "menu"})
 NAMED_KEYS = frozenset({"enter", "esc", "backspace", "setup"})
 MAX_PENDING_KEYS = 32
 MAX_BODY = 256

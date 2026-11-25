@@ -75,6 +75,11 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 .time-left { font-size: 52px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: 48px; }
 
 /* Countdown */
+.invite-body { display: flex; align-items: center; gap: 120px; }
+.invite-body > div:first-child { flex: 1; }
+.invite-time { display: flex; flex-direction: column; align-items: center; }
+.invite-number { font-size: 400px; line-height: .9; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.invite-time small { font-size: 40px; font-weight: 600; margin-top: 24px; }
 .countdown { align-items: center; justify-content: center; text-align: center; }
 .number { font-size: 660px; line-height: .9; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; animation: pop .9s ease-out both; }
 @keyframes pop { from { transform: scale(1.18); opacity: 0; } 25% { opacity: 1; } to { transform: scale(1); } }

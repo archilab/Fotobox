@@ -5,7 +5,9 @@ other fields are its content, with real umlauts. `plain` is the same screen as c
 kiosk keeps working as the fallback when no browser is available. Nothing here decides what happens next.
 """
 from __future__ import annotations
+import math
 import re
+from datetime import datetime
 
 ICONS = {"live": "●", "nearby": "◐", "recent": "◔", "online": "○", "offline": "×"}
 LIVE_KEYS = {"live_match", "partner_waiting", "remote_active"}
@@ -36,8 +38,35 @@ CAMERA_NOTE = {"de": "Die Kamera erkennt, ob jemand da ist. Kein Bild wird gespe
                "en": "The camera detects whether someone is here. No image is stored or sent."}
 
 
+def invitation_seconds(snapshot: dict | None) -> int:
+    """Seconds left to join a shared strip at another booth, or 0 (ADR-037).
+
+    Both times come from the server's clock, so the box's own clock does not matter.
+    """
+    message = (snapshot or {}).get("message") or {}
+    if message.get("key") != "partner_waiting" or not message.get("until") or not (snapshot or {}).get("generated_at"):
+        return 0
+    try:
+        left = (datetime.fromisoformat(message["until"]) - datetime.fromisoformat(snapshot["generated_at"])).total_seconds()
+    except (TypeError, ValueError):
+        return 0
+    return max(0, math.ceil(left))
+
+
 def start(snapshot: dict | None, plain: str, max_tiles: int = 3, *, detecting: bool = False) -> dict:
-    """`detecting` says the camera is looking right now, which visitors must be able to read (ADR-029)."""
+    """`detecting` says the camera is looking right now, which visitors must be able to read (ADR-029).
+
+    While another booth invites this one to a shared strip, the start screen becomes the big invitation.
+    """
+    seconds = invitation_seconds(snapshot)
+    if seconds:
+        texts = snapshot["message"]["texts"]
+        label = ((snapshot.get("self") or {}).get("label") or "").upper() or None
+        state = {"screen": "invite", "hero": {"de": texts["de"]["hero"], "en": texts["en"]["hero"]},
+                 "support": {"de": texts["de"]["support"], "en": texts["en"]["support"]}, "seconds": seconds,
+                 "plain": f"{texts['de']['hero']}\n{texts['en']['hero']}\n\n{texts['de']['support']}\n{texts['en']['support']}"
+                          f"\n\n        Noch {seconds} s / {seconds} s left\n\nENTER = Mitmachen / Join"}
+        return state | ({"label": label} if label else {})
     state = {"screen": "start", "hero": dict(IDLE_HERO), "support": dict(IDLE_SUPPORT), "tiles": [], "badge": None, "camera_note": None, "plain": plain}
     if detecting:
         state["camera_note"] = dict(CAMERA_NOTE)

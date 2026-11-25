@@ -19,6 +19,7 @@ WHITE, VIOLET, CYAN, DARK = (True, True, True), (True, False, True), (False, Tru
 PATTERNS: dict[str, tuple[tuple[bool, bool, bool], float, float]] = {
     "ready": (GREEN, 1, 0),            # the start screen
     "ready_live": (VIOLET, 1, 0),      # the start screen, while someone is live at another booth
+    "invite": (VIOLET, FAST, FAST),    # another booth invites this one to a shared strip (ADR-037)
     "press": (GREEN, FAST, FAST),      # the booth waits for a press, such as agreeing
     "photo": (WHITE, 1, 0),            # countdown and photo
     "making": (BLUE, SLOW, SLOW),      # the strip is being made
@@ -31,7 +32,7 @@ PATTERNS: dict[str, tuple[tuple[bool, bool, bool], float, float]] = {
 }
 
 # Most screens say which light they need; message screens are named by the kiosk (kiosk.py).
-SCREEN_LIGHTS = {"start": "ready", "consent": "press", "countdown": "photo", "flash": "photo", "making": "making",
+SCREEN_LIGHTS = {"start": "ready", "invite": "invite", "consent": "press", "countdown": "photo", "flash": "photo", "making": "making",
                  "live_moment": "live", "listening": "live", "converting": "live", "strip": "done", "done": "done"}
 
 

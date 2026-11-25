@@ -41,6 +41,7 @@ ESC = Nein, nur mein Streifen / No, just my strip`;
       camera_note: { de: "Die Kamera erkennt, ob jemand da ist. Kein Bild wird gespeichert oder gesendet.", en: "The camera detects whether someone is here. No image is stored or sent." } },
     { screen: "start", label: LABEL, badge: { kind: "live", de: "LIVE", en: "LIVE" }, hero: { de: "Jemand in Essen wartet auf ein gemeinsames Foto.", en: "Someone in Essen is waiting for a shared photo." }, support: { de: "Mach jetzt deins und ihr landet auf einem Streifen.", en: "Take yours now to join them." },
       tiles: [{ kind: "live", label: "Essen", status: "● LIVE" }, { kind: "recent", label: "London", status: "◔ GERADE EBEN" }, { kind: "online", label: "Wien", status: "○ ONLINE" }] },
+    { screen: "invite", label: LABEL, hero: { de: "Jemand in Essen wartet auf ein gemeinsames Foto.", en: "Someone in Essen is waiting for a shared photo." }, support: { de: "Mach jetzt deins und ihr landet auf einem Streifen.", en: "Take yours now to join them." }, seconds: 17 },
     { screen: "consent", label: LABEL, text: CONSENT.split("ENTER =")[0] + POOL.split("ENTER =")[0] + "ENTER = Ich stimme zu: Foto und Pool / I agree: photo and pool", until: "09.11. 17:42", seconds: 45 },
     { screen: "countdown", number: 3 },
     { screen: "flash" },

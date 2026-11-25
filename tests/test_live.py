@@ -514,3 +514,11 @@ def test_without_live_consent_nobody_is_invited(boxes):
     client, berlin = boxes
     agree(berlin, live_consent=False)
     assert snap_of(client)["message"]["key"] != "partner_waiting"
+
+
+def test_an_idle_booth_shows_the_big_invitation_from_real_server_data(boxes):
+    from photobox_client import views as client_views
+    client, berlin = boxes
+    agree(berlin)
+    state = client_views.start(snap_of(client), "")
+    assert state["screen"] == "invite" and 18 <= state["seconds"] <= 20 and "Berlin" in state["hero"]["de"]

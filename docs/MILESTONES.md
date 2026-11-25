@@ -115,6 +115,12 @@ Each milestone stops for the owner's review. Off by default.
 - [x] **B3** Status lights follow the booth, in the owner's colours, dark when the kiosk stops. Watched through a real visit on 2026-11-24
 - [ ] **B4** Setup menu test for button and lights, button and lights on the dashboard, stuck button under "Needs attention"
 
+## Invitations to a shared strip (ADR-037)
+- [x] **J1** The invitation starts when a visitor agrees and lasts 20 s; the visitor's strip waits for what is left of it; other booths get the end time
+- [x] **J2** Idle booths show a big invitation with a countdown and violet blinking lights; a press starts an ordinary visit
+- [ ] **J3** Two booths together: first with a second kiosk on the Mac, then with two Pis
+- [ ] **J4** Switched on at the Studio with a consent notice that covers live pairing
+
 ## Unattended running (ADR-032)
 - [x] Pi: starts at boot, recovers from a frozen browser, kiosk or system, restarts nightly, reports its health to the dashboard
 - [ ] Mac: recovery after a power cut, stable address, disk guard (later phase)
