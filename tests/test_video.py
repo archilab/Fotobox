@@ -137,3 +137,46 @@ def test_the_link_record_holds_nothing_about_a_person():
     with db_connect() as db:
         columns = {row["name"] for row in db.execute("PRAGMA table_info(video_links)")}
     assert columns == {"id", "caller", "callee", "status", "created_at", "answer_by", "connected_at", "ends_at", "ended_at", "end_reason"}
+
+
+# Setting up picture and sound (V2): messages pass between the two boxes, in memory only
+
+def connected(boxes):
+    client, berlin = boxes
+    link = agreed(client).json()["link"]
+    berlin.post(f"/api/v1/video/calls/{link['id']}/accept", json={"agreed": True})
+    return client, berlin, link["id"]
+
+
+def test_setup_messages_reach_only_the_other_box(boxes):
+    client, berlin, link_id = connected(boxes)
+    assert client.post(f"/api/v1/video/calls/{link_id}/signals", json={"kind": "offer", "data": "v=0 offer"}).status_code == 204
+    assert client.post(f"/api/v1/video/calls/{link_id}/signals", json={"kind": "candidate", "data": "{}"}).status_code == 204
+    got = berlin.get(f"/api/v1/video/calls/{link_id}/signals").json()["signals"]
+    assert [(s["kind"], s["data"]) for s in got] == [("offer", "v=0 offer"), ("candidate", "{}")]
+    assert berlin.get(f"/api/v1/video/calls/{link_id}/signals", params={"after": got[-1]["n"]}).json()["signals"] == []
+    assert client.get(f"/api/v1/video/calls/{link_id}/signals").json()["signals"] == []  # never its own
+    berlin.post(f"/api/v1/video/calls/{link_id}/signals", json={"kind": "answer", "data": "v=0 answer"})
+    assert [s["kind"] for s in client.get(f"/api/v1/video/calls/{link_id}/signals").json()["signals"]] == ["answer"]
+
+
+def test_no_setup_messages_before_both_agreed_or_after_the_end(boxes):
+    client, berlin = boxes
+    link_id = agreed(client).json()["link"]["id"]
+    assert client.post(f"/api/v1/video/calls/{link_id}/signals", json={"kind": "offer", "data": "x"}).status_code == 409
+    berlin.post(f"/api/v1/video/calls/{link_id}/accept", json={"agreed": True})
+    client.post(f"/api/v1/video/calls/{link_id}/signals", json={"kind": "offer", "data": "x"})
+    client.post(f"/api/v1/video/calls/{link_id}/end")
+    assert berlin.get(f"/api/v1/video/calls/{link_id}/signals").json()["signals"] == []  # dropped with the link
+    assert client.post(f"/api/v1/video/calls/{link_id}/signals", json={"kind": "offer", "data": "x"}).status_code == 409
+
+
+def test_setup_messages_are_limited_and_private(boxes):
+    client, berlin, link_id = connected(boxes)
+    assert client.post(f"/api/v1/video/calls/{link_id}/signals", json={"kind": "video", "data": "x"}).status_code == 409
+    assert client.post(f"/api/v1/video/calls/{link_id}/signals", json={"kind": "offer", "data": "x" * 20_001}).status_code == 422
+    third = box_client("box-wien", "Wien")
+    assert third.get(f"/api/v1/video/calls/{link_id}/signals").status_code == 404
+    with db_connect() as db:  # nothing of them in the database
+        tables = [r["name"] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+        assert not any("signal" in name for name in tables)

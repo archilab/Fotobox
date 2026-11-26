@@ -479,10 +479,23 @@
       el("h1", "hero", s.hero.de), el("p", "hero-en en", s.hero.en),
       press("Abbrechen", "Cancel")),
 
-    video_link: (s) => screen("center",
-      el("h1", "hero", s.hero.de),
-      s.pending && el("p", "info", s.pending.de, el("br"), s.pending.en),
-      press("Beenden", "End", { ring: s.seconds, talk: true })),
+    // The other person fills the screen, this booth's own picture small in the corner (video.js, V2).
+    video_link: (s) => {
+      if (!s.media) return screen("center",
+        el("h1", "hero", s.hero.de),
+        s.pending && el("p", "info", s.pending.de, el("br"), s.pending.en),
+        press("Beenden", "End", { ring: s.seconds, talk: true }));
+      const remote = el("video", "remote");
+      const self = el("video", "self");
+      for (const v of [remote, self]) { v.autoplay = true; v.playsInline = true; }
+      self.muted = true;  // never hear yourself
+      return screen("video",
+        remote, self,
+        el("div", "video-place", el("span", "", "LIVE"), s.place || ""),
+        el("p", "video-wait", "Verbinde …"),
+        el("p", "video-failed", "Bild und Ton konnten nicht starten."),
+        press("Beenden", "End", { ring: s.seconds, talk: true }));
+    },
 
     // The pool's end time is in the pool sentence itself; the ring around the button shows the time left.
     consent: (s) => noticeScreen(s),

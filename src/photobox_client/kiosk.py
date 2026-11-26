@@ -61,6 +61,7 @@ FEED_CHECK_SECONDS = 0.2  # how often the start screen looks at the live feed
 PRESENCE_TILES = 3
 VIDEO_ASK_SECONDS = 30  # to read the video notice and agree; doing nothing cancels
 VIDEO_POLL_SECONDS = 1.0
+VIDEO_SIGNAL_SECONDS = 0.25  # how often setup messages are carried while a link starts
 IDLE_MINUTES = 5  # the start screen rests after this long without a press (ADR-041)
 REST_REFRESH_SECONDS = 5  # how often the resting screen looks whether someone is live elsewhere, for the light
 RESTING = "resting"  # the detail the dashboard shows while the booth rests
@@ -265,6 +266,15 @@ class Api:
 
     def video_end(self, link_id: str) -> None:
         self.client.post(f"/api/v1/video/calls/{link_id}/end", timeout=5)
+
+    def video_send(self, link_id: str, kind: str, data: str) -> None:
+        """A message that sets up picture and sound, for the other box (V2)."""
+        self.client.post(f"/api/v1/video/calls/{link_id}/signals", json={"kind": kind, "data": data}, timeout=5).raise_for_status()
+
+    def video_signals(self, link_id: str, after: int) -> list[dict]:
+        response = self.client.get(f"/api/v1/video/calls/{link_id}/signals", params={"after": after}, timeout=5)
+        response.raise_for_status()
+        return response.json()["signals"]
 
     def messaging_events(self) -> list[dict]:
         response = self.client.get("/api/v1/messaging/events", timeout=5)
@@ -582,23 +592,44 @@ class Kiosk:
         return self.video_live(accepted)
 
     def video_live(self, answer: dict) -> str:
-        """The link, until either side ends it or its time is up."""
+        """The link, until either side ends it or its time is up.
+
+        Picture and sound go directly between the two boxes' browsers; this only carries the messages that set
+        them up, between this box's page and the server (V2). The camera is free: the start screen let it go.
+        """
         link = answer["link"]
         seconds = views.seconds_until(link, answer["now"])
         ends = self.clock() + seconds
-        self.present(views.video_link(link.get("place"), seconds))
-        while True:
-            left = ends - self.clock()
-            if left <= 0:
-                return "video done"
-            if self.keys.wait({ENTER}, min(VIDEO_POLL_SECONDS, left)) == ENTER:
-                self.api.video_end(link["id"])
-                return "video ended"
-            try:
-                if self.api.video_link(link["id"])["link"]["status"] == "ended":
+        page = self.screen if hasattr(self.screen, "take_signals") else None
+        if page is not None:
+            page.clear_signals()
+        self.present(views.video_link(link.get("place"), seconds, link["id"], link["role"], media=page is not None))
+        received, next_check = 0, 0.0
+        try:
+            while True:
+                now = self.clock()
+                left = ends - now
+                if left <= 0:
                     return "video done"
-            except httpx.HTTPError:
-                pass  # the time limit still ends it
+                if self.keys.wait({ENTER}, min(VIDEO_SIGNAL_SECONDS, left)) == ENTER:
+                    self.api.video_end(link["id"])
+                    return "video ended"
+                try:
+                    if page is not None:
+                        for signal in page.take_signals():
+                            self.api.video_send(link["id"], signal["kind"], signal["data"])
+                        for signal in self.api.video_signals(link["id"], received):
+                            page.push_signal({"kind": signal["kind"], "data": signal["data"]})
+                            received = max(received, signal["n"])
+                    if now >= next_check:
+                        next_check = now + VIDEO_POLL_SECONDS
+                        if self.api.video_link(link["id"])["link"]["status"] == "ended":
+                            return "video done"
+                except httpx.HTTPError:
+                    pass  # the time limit still ends it
+        finally:
+            if page is not None:
+                page.clear_signals()
 
     def run_once(self) -> str:
         """One participant from start to finish. Returns how it ended."""

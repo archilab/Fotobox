@@ -182,7 +182,7 @@ def test_one_signature_colour_used_only_while_paired_live():
     colour = re.search(r"--live:\s*(#[0-9a-fA-F]{6})", CSS).group(1)
     assert (_luminance(colour) + 0.05) / 0.05 >= 4.5  # readable on black, also for a message
     uses = [line for line in CSS.splitlines() if "var(--live)" in line]
-    assert len(uses) == 5 and all(line.startswith(".screen.live ") for line in uses)
+    assert len(uses) == 7 and all(line.startswith(".screen.live") for line in uses)
     # no other colour than white, greys and the signature colour on the screen itself
     others = set(re.findall(r"#[0-9a-fA-F]{3,6}\b", CSS)) - {colour, "#000", "#fff", "#9a9aa0", "#2e2e33", "#141416", "#555"}
     assert not others, others
@@ -221,5 +221,5 @@ def test_the_colour_goes_to_the_pair_only(tmp_path):
 
 
 def test_only_the_talk_button_is_marked_for_the_colour():
-    assert SCREENS.count("talk: true") == 3  # "Sprechen", "Fertig" while listening, and "Beenden" in a video link
+    assert SCREENS.count("talk: true") == 4  # "Sprechen", "Fertig" while listening, and "Beenden" in a video link (browser and text)
     assert 'press("Mehr Zeit", "More time", { ring: s.seconds })' in SCREENS

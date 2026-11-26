@@ -1,3 +1,6 @@
 {
-  "TranslateEnabled": false
+  "TranslateEnabled": false,
+  "VideoCaptureAllowedUrls": ["http://127.0.0.1:8765"],
+  "AudioCaptureAllowedUrls": ["http://127.0.0.1:8765"],
+  "AutoplayAllowed": true
 }

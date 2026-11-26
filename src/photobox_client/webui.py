@@ -27,6 +27,7 @@ STATIC = {
     "/ui.css": ("ui.css", "text/css; charset=utf-8"),
     "/screens.js": ("screens.js", "text/javascript; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+    "/video.js": ("video.js", "text/javascript; charset=utf-8"),
     "/fonts/inter-latin-wght-normal.woff2": ("fonts/inter-latin-wght-normal.woff2", "font/woff2"),
     # The logos on the resting screen (ADR-041), from the footer of midap.space.
     **{f"/logos/{name}.svg": (f"logos/{name}.svg", "image/svg+xml") for name in ("midap", "stil", "folkwang", "udk")},
@@ -43,6 +44,8 @@ UPDATING = frozenset({"start", "invite", "resting", "making", "listening", "menu
 NAMED_KEYS = frozenset({"enter", "esc", "backspace", "setup", "video"})
 MAX_PENDING_KEYS = 32
 MAX_BODY = 256
+MAX_SIGNAL_BODY = 24_000  # one WebRTC setup message (V2, ADR-045)
+SIGNAL_KINDS = frozenset({"offer", "answer", "candidate"})
 KEEPALIVE_SECONDS = 15
 
 
@@ -64,6 +67,8 @@ class WebUI:
         self.alive_at: float | None = None
         self.button_presses = 0  # ADR-036
         self.button_screen = 0
+        self.signals_in: list[dict] = []  # from the other box, for the page (ADR-045)
+        self.signals_out: deque[dict] = deque(maxlen=200)  # from the page, for the other box
 
     # Lifecycle
 
@@ -135,6 +140,27 @@ class WebUI:
         """The button held for 5 s on the start screen (ADR-045): a key of its own, not the page's to decide."""
         with self.changed:
             self.pending.append("video")
+            self.changed.notify_all()
+
+    # The video link's setup messages (ADR-045, V2). Picture and sound go between the browsers themselves.
+
+    def push_signal(self, signal: dict) -> None:
+        with self.changed:
+            self.signals_in.append(signal)
+            self.version += 1
+            self.changed.notify_all()
+
+    def take_signals(self) -> list[dict]:
+        with self.changed:
+            out = list(self.signals_out)
+            self.signals_out.clear()
+            return out
+
+    def clear_signals(self) -> None:
+        with self.changed:
+            self.signals_in.clear()
+            self.signals_out.clear()
+            self.version += 1
             self.changed.notify_all()
 
     def press(self, screen_id: int, key: str) -> bool:
@@ -226,6 +252,8 @@ def _handler(ui: WebUI) -> type[BaseHTTPRequestHandler]:
             if parts.path == "/alive":
                 ui.alive_at = time.monotonic()
                 return self._send(204)
+            if parts.path == "/signal":
+                return self._signal()
             if parts.path != "/key":
                 return self._send(404)
             length = self.headers.get("Content-Length", "")
@@ -240,6 +268,24 @@ def _handler(ui: WebUI) -> type[BaseHTTPRequestHandler]:
                 return self._send(400)
             return self._send(200 if ui.press(screen_id, key) else 409)
 
+        def _signal(self) -> None:
+            """A setup message from the page, only while the video link's screen shows."""
+            length = self.headers.get("Content-Length", "")
+            if not length.isdigit() or int(length) > MAX_SIGNAL_BODY:
+                return self._send(400)
+            try:
+                body = json.loads(self.rfile.read(int(length)))
+                kind, data = body["kind"], body["data"]
+            except (ValueError, KeyError, TypeError):
+                return self._send(400)
+            if kind not in SIGNAL_KINDS or not isinstance(data, str):
+                return self._send(400)
+            with ui.changed:
+                if not ui.state or ui.state.get("screen") != "video_link":
+                    return self._send(409)
+                ui.signals_out.append({"kind": kind, "data": data})
+            return self._send(204)
+
         def _events(self) -> None:
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -249,7 +295,7 @@ def _handler(ui: WebUI) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.close_connection = True
             ui.connected.set()
-            seen, shown_state, buttons = -1, None, None
+            seen, shown_state, buttons, signals_sent = -1, None, None, 0
             try:
                 while True:
                     with ui.changed:
@@ -261,11 +307,17 @@ def _handler(ui: WebUI) -> type[BaseHTTPRequestHandler]:
                         seen = ui.version
                         pressed = buttons is not None and ui.button_presses != buttons
                         buttons, button_screen = ui.button_presses, ui.button_screen
+                        if len(ui.signals_in) < signals_sent:
+                            signals_sent = 0  # cleared for a new link
+                        new_signals = ui.signals_in[signals_sent:]
+                        signals_sent = len(ui.signals_in)
                     if state is not None and changed and state is not shown_state:
                         self.wfile.write(f"event: state\ndata: {json.dumps(state, ensure_ascii=False)}\n\n".encode())
                         shown_state = state
                     if pressed:
                         self.wfile.write(f"event: button\ndata: {json.dumps({'id': button_screen})}\n\n".encode())
+                    for signal in new_signals:
+                        self.wfile.write(f"event: signal\ndata: {json.dumps(signal)}\n\n".encode())
                     if not changed:
                         self.wfile.write(b": keep-alive\n\n")
                     self.wfile.flush()

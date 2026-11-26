@@ -16,6 +16,7 @@
     const state = JSON.parse(event.data);
     screenId = state.id;
     window.PhotoboxScreens.render(stage, state);
+    window.PhotoboxVideo.follow(state, stage.firstElementChild, sendSignal);  // the hidden video link (ADR-045)
   });
 
   function send(key) {
@@ -26,6 +27,16 @@
       body: JSON.stringify({ id: screenId, key }),
     }).catch(() => {});  // the kiosk carries on; a lost key press is simply pressed again
   }
+
+  // The video link's setup messages, both ways through the booth (ADR-045, V2).
+  function sendSignal(kind, data) {
+    fetch("/signal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Photobox-Token": token },
+      body: JSON.stringify({ kind, data }),
+    }).catch(() => {});
+  }
+  events.addEventListener("signal", (event) => window.PhotoboxVideo.receive(JSON.parse(event.data)));
 
   // The push button (ADR-036): only for the screen showing when it was pressed, and under the same rule as
   // ENTER, so a notice must be read to its last page. Until then the button turns the page.

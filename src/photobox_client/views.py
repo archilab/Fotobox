@@ -182,13 +182,16 @@ def video_calling(place: str | None) -> dict:
             "plain": f"{hero['de']}\n{hero['en']}\n\nENTER = Abbrechen / Cancel".translate(_PLAIN)}
 
 
-def video_link(place: str | None, seconds: int) -> dict:
-    """The link itself. Step V1 has no picture or sound yet, and the screen says so."""
+def video_link(place: str | None, seconds: int, link_id: str = "", role: str = "caller", media: bool = True) -> dict:
+    """The link. With `media` the page shows the other person and sends its own picture and sound (WebRTC, V2);
+    the text screen cannot, and says so."""
     de, en = _place(place)
     hero = {"de": f"Live mit jemandem {de}", "en": f"Live with someone {en}"}
-    pending = {"de": "Bild und Ton kommen im nächsten Schritt.", "en": "Picture and sound come in the next step."}
-    return {"screen": "video_link", "place": place, "hero": hero, "seconds": seconds, "pending": pending,
-            "plain": f"{hero['de']}\n{hero['en']}\n\n{pending['de']}\n\nENTER = Beenden / End".translate(_PLAIN)}
+    state = {"screen": "video_link", "place": place, "hero": hero, "seconds": seconds, "link": link_id, "role": role, "media": media,
+             "plain": f"{hero['de']}\n{hero['en']}\n\nENTER = Beenden / End".translate(_PLAIN)}
+    if not media:
+        state["pending"] = {"de": "Bild und Ton gibt es nur auf dem Browser-Bildschirm.", "en": "Picture and sound need the browser screen."}
+    return state
 
 
 def consent(text: str, pool_question: dict | None = None, seconds: int = 45) -> dict:

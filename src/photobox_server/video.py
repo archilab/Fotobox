@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import secrets
 import sqlite3
+import threading
 from datetime import datetime, timedelta, timezone
 
 from . import audit
@@ -25,6 +26,14 @@ CALLER, CALLEE = "caller", "callee"
 REQUEST_SECONDS = 20
 KEEP_HOURS = 24  # who called whom, then deleted
 END_REASONS = ("caller", "callee", "time", "unanswered", "cancelled")
+# The messages that set up picture and sound between the two boxes (WebRTC: offer, answer, network
+# candidates, step V2). They hold the boxes' network addresses, so they live in memory only, never in the
+# database or the log, and are dropped when the link ends. Picture and sound themselves never come here.
+SIGNAL_KINDS = ("offer", "answer", "candidate")
+MAX_SIGNAL_LENGTH = 20_000
+MAX_SIGNALS = 200  # per link: far more than a connection needs
+_signals: dict[str, list[tuple[str, str, str]]] = {}  # link id -> [(sender box, kind, data)]
+_signals_lock = threading.Lock()
 
 
 def enabled() -> bool:
@@ -126,7 +135,39 @@ def end(db: sqlite3.Connection, link_id: str, box: str) -> sqlite3.Row | None:
     if row["status"] != ENDED:
         reason = "cancelled" if row["status"] == REQUESTED else (CALLER if box == row["caller"] else CALLEE)
         db.execute("UPDATE video_links SET status=?, ended_at=?, end_reason=? WHERE id=?", (ENDED, now.isoformat(), reason, link_id))
+    forget_signals(link_id)
     return db.execute("SELECT * FROM video_links WHERE id=?", (link_id,)).fetchone()
+
+
+def send_signal(db: sqlite3.Connection, link_id: str, box: str, kind: str, data: str) -> bool:
+    """Pass a setup message to the other box of a connected link. False if the link is not this box's or not live."""
+    row = latest(db, link_id, box)
+    if row is None or row["status"] != CONNECTED or kind not in SIGNAL_KINDS or len(data) > MAX_SIGNAL_LENGTH:
+        return False
+    with _signals_lock:
+        queue = _signals.setdefault(link_id, [])
+        if len(queue) >= MAX_SIGNALS:
+            return False
+        queue.append((box, kind, data))
+    return True
+
+
+def signals(db: sqlite3.Connection, link_id: str, box: str, after: int) -> list[dict] | None:
+    """The other box's setup messages after position `after`, each with its position. None if not this box's link."""
+    row = latest(db, link_id, box)
+    if row is None:
+        return None
+    with _signals_lock:
+        if row["status"] != CONNECTED:
+            _signals.pop(link_id, None)
+            return []
+        queue = list(_signals.get(link_id, []))
+    return [{"n": n, "kind": kind, "data": data} for n, (sender, kind, data) in enumerate(queue, 1) if n > after and sender != box]
+
+
+def forget_signals(link_id: str) -> None:
+    with _signals_lock:
+        _signals.pop(link_id, None)
 
 
 def peek(db: sqlite3.Connection, box: str, now: datetime | None = None) -> sqlite3.Row | None:

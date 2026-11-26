@@ -261,6 +261,31 @@ def video_accept(link_id: str, body: VideoAgreement, request: Request):
         return video_answer(db, row, request.state.device_id)
 
 
+class VideoSignal(BaseModel):
+    kind: str = Field(max_length=16)
+    data: str = Field(max_length=video.MAX_SIGNAL_LENGTH)
+
+
+@app.post("/api/v1/video/calls/{link_id}/signals", status_code=204)
+def video_send_signal(link_id: str, body: VideoSignal, request: Request):
+    """A message that sets up picture and sound, for the other box only; held in memory, never stored."""
+    require_video()
+    with db_connect() as db:
+        if not video.send_signal(db, link_id, request.state.device_id, body.kind, body.data):
+            raise HTTPException(409, "the link is not live")
+    return Response(status_code=204)
+
+
+@app.get("/api/v1/video/calls/{link_id}/signals")
+def video_get_signals(link_id: str, request: Request, after: int = 0):
+    require_video()
+    with db_connect() as db:
+        found = video.signals(db, link_id, request.state.device_id, after)
+    if found is None:
+        raise HTTPException(404, "no such link")
+    return {"signals": found}
+
+
 @app.post("/api/v1/video/calls/{link_id}/end")
 def video_end(link_id: str, request: Request):
     require_video()

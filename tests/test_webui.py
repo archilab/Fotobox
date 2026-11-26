@@ -244,3 +244,81 @@ def test_a_damaged_strip_is_skipped_and_the_visit_ends_normally(ui):
     kiosk = Kiosk(Api(b"broken"), lambda: b"jpeg", ui, ui, sleep=lambda _s: None)
     visitor(ui, ENTER, ENTER, screens=["start", "consent"])
     assert kiosk.run_once() == "complete"
+
+
+# The video link's setup messages (ADR-045, V2)
+
+def send_signal(ui, body, token=True):
+    headers = {"X-Photobox-Token": ui.token} if token else {}
+    with client(ui, **headers) as c:
+        return c.post("/signal", json=body)
+
+
+def test_the_page_sends_setup_messages_only_while_the_link_shows(ui):
+    ui.view({"screen": "start", "plain": "x"})
+    assert send_signal(ui, {"kind": "offer", "data": "v=0"}).status_code == 409
+    ui.view({"screen": "video_link", "link": "L1", "role": "caller", "media": True, "plain": "x"})
+    assert send_signal(ui, {"kind": "offer", "data": "v=0"}, token=False).status_code == 403
+    assert send_signal(ui, {"kind": "video", "data": "x"}).status_code == 400
+    assert send_signal(ui, {"kind": "offer", "data": 5}).status_code == 400
+    with client(ui, **{"X-Photobox-Token": ui.token}) as c:
+        assert c.post("/signal", content=b"{" + b"x" * 30_000 + b"}", headers={"Content-Type": "application/json"}).status_code == 400
+    assert send_signal(ui, {"kind": "offer", "data": "v=0"}).status_code == 204
+    assert send_signal(ui, {"kind": "candidate", "data": "{}"}).status_code == 204
+    assert ui.take_signals() == [{"kind": "offer", "data": "v=0"}, {"kind": "candidate", "data": "{}"}]
+    assert ui.take_signals() == []
+
+
+def test_setup_messages_from_the_other_booth_reach_the_page(ui):
+    ui.view({"screen": "video_link", "link": "L1", "role": "callee", "media": True, "plain": "x"})
+    ui.push_signal({"kind": "offer", "data": "v=0 from essen"})
+    found, signal = None, False
+    with client(ui) as c, c.stream("GET", "/events", params={"t": ui.token}) as response:
+        for line in response.iter_lines():
+            if line == "event: signal":
+                signal = True
+            elif signal and line.startswith("data: "):
+                found = json.loads(line[6:])
+                break
+    assert found == {"kind": "offer", "data": "v=0 from essen"}
+
+
+def test_the_video_script_is_served_from_the_booth(ui):
+    with client(ui) as c:
+        script = c.get("/video.js")
+        page = c.get("/")
+    assert script.status_code == 200 and "RTCPeerConnection" in script.text and "getUserMedia" in script.text
+    assert '<script src="video.js"></script>' in page.text
+    assert "iceServers: []" in script.text  # no outside server is asked for addresses
+
+
+def test_the_kiosk_carries_setup_messages_both_ways(ui):
+    from photobox_client.kiosk import VIDEO_SIGNAL_SECONDS  # noqa: F401  (the relay's pace)
+
+    class Api:
+        def __init__(self):
+            self.sent, self.polls = [], 0
+
+        def video_send(self, link_id, kind, data):
+            self.sent.append((link_id, kind, data))
+
+        def video_signals(self, link_id, after):
+            return [{"n": 1, "kind": "answer", "data": "v=0 answer"}] if after == 0 else []
+
+        def video_link(self, link_id):
+            self.polls += 1
+            return {"link": {"status": "ended" if self.polls > 1 else "connected"}}
+
+        def video_end(self, link_id):
+            pass
+
+    api = Api()
+    kiosk = Kiosk(api, lambda: b"", ui, ui, sleep=lambda _s: None)
+    now = "2026-11-26T12:00:00+00:00"
+    answer = {"link": {"id": "L1", "role": "caller", "status": "connected", "place": "Wien", "until": "2026-11-26T12:02:00+00:00"}, "now": now}
+    ui.signals_out.append({"kind": "offer", "data": "v=0 offer"})
+    threading.Timer(0.05, lambda: ui.signals_out.append({"kind": "offer", "data": "v=0 offer"})).start()
+    assert kiosk.video_live(answer) == "video done"
+    assert ("L1", "offer", "v=0 offer") in api.sent
+    assert ui.state["screen"] == "video_link" and ui.state["role"] == "caller" and ui.state["media"] is True
+    assert ui.signals_in == [] and not ui.signals_out  # nothing kept after the link

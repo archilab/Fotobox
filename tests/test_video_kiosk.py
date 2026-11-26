@@ -169,9 +169,11 @@ def test_lights_for_the_video_screens():
     assert light_for(views.video_link("Mac", 120)) == "live"
 
 
-def test_the_link_screen_says_picture_and_sound_are_not_built_yet():
-    state = views.video_link("Mac", 120)
-    assert "nächsten Schritt" in state["pending"]["de"]
+def test_the_link_screen_carries_picture_and_sound_on_the_browser_screen_only():
+    browser = views.video_link("Mac", 120, "L1", "callee", media=True)
+    assert browser["media"] and browser["link"] == "L1" and browser["role"] == "callee" and "pending" not in browser
+    text = views.video_link("Mac", 120, "L1", "callee", media=False)
+    assert "Browser" in text["pending"]["de"]  # the text screen says it cannot
 
 
 def test_the_page_and_terminal_turn_the_hold_into_its_own_key():

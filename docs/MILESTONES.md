@@ -132,7 +132,7 @@ Each milestone stops for the owner's review. Off by default.
 
 ## Hidden video link (ADR-045)
 - [x] **V1** The 5 s hold on the start screen, the notice and agreeing on both sides, the request at a free box, ending and time limits, the server switch `PHOTOBOX_VIDEO_LINK` (off), both agreements in the audit trail. No picture or sound yet, and the screen says so
-- [ ] **V2** Picture and sound with WebRTC directly between two booths on the Mac
+- [x] **V2** Picture and sound with WebRTC directly between two booths, tested with two test booths on the Mac (drawn test picture and tone, no camera); setup messages through the Studio in memory only
 - [ ] **V3** On newbox and the Mac with speakers; notice and sign approved; switched on at the Studio
 
 ## Unattended running (ADR-032)

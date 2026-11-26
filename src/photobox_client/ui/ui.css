@@ -173,4 +173,21 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 .screen.live .press.talk .track { stroke: var(--live); }
 .screen.live .press.talk .cap { fill: var(--live); }
 
+/* The video link (ADR-045): the other person fills the screen; this booth's own picture small, mirrored like a mirror */
+.screen.video { padding: 0; background: var(--bg); }
+.screen.video video.remote { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: var(--bg); }
+.screen.video video.self { position: absolute; right: var(--margin); bottom: var(--margin); width: 560px; height: 315px; object-fit: cover;
+  transform: scaleX(-1); border-radius: 20px; border: 4px solid var(--line); background: var(--panel); }
+.screen.live.video video.self { border-color: var(--live); }
+.video-place { position: absolute; left: var(--margin); top: 72px; font-size: 44px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--fg); text-shadow: 0 2px 16px rgba(0, 0, 0, .8); display: flex; gap: 24px; }
+.screen.live .video-place span { color: var(--live); }
+.video-wait, .video-failed { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 64px; font-weight: 600; }
+.video-failed { display: none; }
+.screen.video.connected .video-wait, .screen.video.failed .video-wait { display: none; }
+.screen.video.failed .video-failed { display: flex; }
+.screen.video .slot { left: var(--margin); bottom: var(--margin); }
+.screen.video .press > div { text-shadow: 0 2px 16px rgba(0, 0, 0, .8); }
+.screen.video .test-mode { top: 72px; bottom: auto; }
+
 @media (prefers-reduced-motion: reduce) { .screen, .number, .live-word, .press.pulse .cap { animation: none; } }
