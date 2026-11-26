@@ -246,7 +246,7 @@ What the start screen says is always based on what really happened:
 - **LIVE** appears only after a visitor has agreed to the consent notice, and ends when that booth returns to its start screen.
 - **JEMAND DA / NEARBY** appears only if you switched on person detection at that booth, and means its camera seems to see someone. It can be wrong and never counts as LIVE.
 - **RECENT** lasts 3 minutes after a photo.
-- "Someone left a photo for you" appears only while a visitor's shared pool photo exists, never for your seed images.
+- The start screen's "MEET A STRANGER" with the EARLIER label (formerly "Someone left a photo for you") appears only while a visitor's shared pool photo exists, never for your seed images.
 
 Your consent notice must tell visitors that other booths show when someone takes a photo here; the example notice has a line for it.
 

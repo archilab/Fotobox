@@ -37,10 +37,12 @@ ESC = Nein, nur mein Streifen / No, just my strip`;
   const CODE = "kQ3xV9mTzL7pRw2YbN4hJA";
 
   const screens = [
-    { screen: "start", label: LABEL, hero: { de: "Deine nächste Begegnung beginnt hier.", en: "Your next encounter starts here." }, support: { de: "Mach ein Foto, um anzufangen.", en: "Take a photo to begin." }, tiles: [],
+    { screen: "start", label: LABEL, badge: { kind: "earlier", de: "FRÜHER", en: "EARLIER" }, hero: { de: "MEET A STRANGER", en: "MEET A STRANGER" }, support: { de: "Mach deins für eine überraschende Begegnung.", en: "Take yours to create an unexpected encounter." }, tiles: [],
+      credit: { de: "Konzept: Aida Salmanipour und Calvin Leonard Kröger" },
       camera_note: { de: "Die Kamera erkennt nur, ob jemand da ist, ohne Bild.", en: "The camera only notices someone is here, no image kept." } },
     { screen: "start", label: LABEL, badge: { kind: "live", de: "LIVE", en: "LIVE" }, hero: { de: "Jemand in Essen wartet auf ein gemeinsames Foto.", en: "Someone in Essen is waiting for a shared photo." }, support: { de: "Mach jetzt deins und ihr landet auf einem Streifen.", en: "Take yours now to join them." },
-      tiles: [{ kind: "live", label: "Essen", word: "LIVE" }, { kind: "recent", label: "London", word: "GERADE EBEN" }, { kind: "online", label: "Wien", word: "ONLINE" }] },
+      tiles: [{ kind: "live", label: "Essen", word: "LIVE" }, { kind: "recent", label: "London", word: "GERADE EBEN" }, { kind: "online", label: "Wien", word: "ONLINE" }],
+      credit: { de: "Konzept: Aida Salmanipour und Calvin Leonard Kröger" } },
     { screen: "invite", label: LABEL, place: "Essen", hero: { de: "Essen wartet auf dich.", en: "Essen is waiting for you." }, support: { de: "Mach jetzt deins und ihr landet auf einem Streifen.", en: "Take yours now to join them." }, seconds: 17 },
     { screen: "consent", label: LABEL, text: CONSENT.split("ENTER =")[0] + POOL.split("ENTER =")[0] + "ENTER = Ich stimme zu: Foto und Pool / I agree: photo and pool", until: "09.11. 17:42", seconds: 45 },
     { screen: "countdown", number: 3 },

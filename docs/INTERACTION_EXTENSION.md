@@ -81,7 +81,7 @@ All copy must be stored in a localization-ready message catalog, not embedded in
 | P1 | Live match established | "You're connected with {location}!" | "Two people, one shared photo." | Strong short transition |
 | P2 | Remote eligible session is active | "Someone is taking a photo in {location}." | "Take yours now for a chance to connect." | Distinct LIVE status |
 | P3 | Photo was captured elsewhere recently | "A photo was just taken in {location}." | "Add yours to the story." | RECENT, not LIVE |
-| P4 | Valid earlier pool portrait exists | "Someone left a photo for you." | "Take yours to create an unexpected encounter." | EARLIER portrait label |
+| P4 | Valid earlier pool portrait exists | "MEET A STRANGER" (owner, 2026-11-26; formerly "Someone left a photo for you.") | "Take yours to create an unexpected encounter." | EARLIER portrait label |
 | P5 | Other boxes online only | "Other Photoboxes are connected." | "Take a photo to start an encounter." | ONLINE, no human claim |
 | P6 | Nothing remote available | "Your next encounter starts here." | "Take a photo to begin." | Neutral invitation |
 
@@ -129,7 +129,7 @@ If there are very few concurrent users, consider aggregating or suppressing deta
 
 1. No eligible live participants exist.
 2. Pool has one or more valid, consented portraits.
-3. Interface shows `Someone left a photo for you.` and a clear `EARLIER` label.
+3. Interface shows `MEET A STRANGER` and a clear `EARLIER` label.
 4. When a session begins, match from the pool; never imply that both people are on-site now.
 
 ### Scenario D: Single-Pi developer prototype

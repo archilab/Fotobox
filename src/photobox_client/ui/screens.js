@@ -253,7 +253,9 @@
   }
 
   const screen = (extra, ...children) => el("div", "screen " + (extra || ""), ...children);
-  const top = (label) => el("div", "top", el("span", "", "MEET A STRANGER"), el("span", "", label || ""));
+  const NAME = "MEET A STRANGER";
+  // The header names the booth, unless the headline already does (ADR-040).
+  const top = (label, hero) => el("div", "top", el("span", "", hero === NAME ? "" : NAME), el("span", "", label || ""));
   // With a push button, paging hints name the button (ADR-036); ENTER still works throughout.
   let buttonLabel = null;
 
@@ -413,13 +415,14 @@
 
   const views = {
     start: (s) => screen("start",
-      top(s.label),
+      top(s.label, s.hero.de),
       el("h1", "hero", s.hero.de),
       startLines(s),
       press("Start", "", { pulse: true }),
       el("div", "signature",
         s.camera_note && el("div", "camera-note", el("span", "", s.camera_note.de), el("span", "en", s.camera_note.en)),
-        midap())),
+        midap(),
+        s.credit && el("p", "credit", s.credit.de))),
 
     // The booth rests after a while without a press (ADR-041): the QR code to the project, and the project's
     // logos grouped as in the footer of midap.space. Nothing asks for a press; the flashing light does.

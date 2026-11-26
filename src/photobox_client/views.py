@@ -34,6 +34,8 @@ def _tile(location: dict) -> dict:
     return {"kind": kind, "label": location.get("label") or "Fotobox", "word": word}
 
 
+# The concept of MEET A STRANGER, credited on the start screen (owner, 2026-11-26).
+CREDIT = {"de": "Konzept: Aida Salmanipour und Calvin Leonard Kröger", "en": "Concept: Aida Salmanipour and Calvin Leonard Kröger"}
 CAMERA_NOTE = {"de": "Die Kamera erkennt nur, ob jemand da ist, ohne Bild.",
                "en": "The camera only notices someone is here, no image kept."}
 
@@ -72,7 +74,8 @@ def start(snapshot: dict | None, plain: str, max_tiles: int = 3, *, detecting: b
                  "plain": f"{texts['de']['hero']}\n{texts['en']['hero']}\n\n{texts['de']['support']}\n{texts['en']['support']}"
                           f"\n\n        Noch {seconds} s / {seconds} s left\n\nENTER = Mitmachen / Join"}
         return state | ({"label": label} if label else {})
-    state = {"screen": "start", "hero": dict(IDLE_HERO), "support": dict(IDLE_SUPPORT), "tiles": [], "badge": None, "camera_note": None, "plain": plain}
+    state = {"screen": "start", "hero": dict(IDLE_HERO), "support": dict(IDLE_SUPPORT), "tiles": [], "badge": None, "camera_note": None,
+             "credit": dict(CREDIT), "plain": f"{plain}\n\n{CREDIT['de'].replace('ö', 'oe')}"}
     if detecting:
         state["camera_note"] = dict(CAMERA_NOTE)
         state["plain"] = f"{plain}\n\n{CAMERA_NOTE['de'].replace('ü', 'ue')}\n{CAMERA_NOTE['en']}"

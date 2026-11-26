@@ -330,3 +330,10 @@ Checked at 1280 x 800 on all sixteen prototype screens, by eye and by measuring 
 
 - **Invitations.** A visitor's strip waits for a live partner only while another booth could send one (ADR-037); a resting booth does not count, because it would not show the invitation, so nobody waits 20 s for it. It counts again once its start screen is back. The dashboard shows "idle · resting" without the warning colour.
 
+## ADR-042: The concept credit and the booth's name on the start screen
+**Decided by the project owner on 2026-11-26.**
+
+- **Credit.** The concept of MEET A STRANGER is by Aida Salmanipour and Calvin Leonard Kröger. The start screen says so below MIDAP's mark, bottom right, in grey at 36 px: "Konzept: Aida Salmanipour und Calvin Leonard Kröger". German only, like the other small lines there.
+- **Headline.** While an earlier visitor's pool photo is available (P4, `earlier_portrait`), the start screen's headline is the booth's name, "MEET A STRANGER", in both languages, instead of "Jemand hat ein Foto für dich dagelassen." The EARLIER badge and the supporting line still say what is on offer. The header bar then leaves out the name, so it is not shown twice.
+- **Fixed on the way:** with person detection on, the camera note on the start screen overlapped MIDAP's mark; it now sits in the same right-hand column above the mark.
+

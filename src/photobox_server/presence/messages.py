@@ -41,8 +41,9 @@ CATALOG: dict[str, tuple[str, dict[str, tuple[str, str]]]] = {
         "de": ("Gerade wurde ein Foto {where} gemacht.", "Schreib die Geschichte mit deinem weiter."),
     }),
     "earlier_portrait": ("P4", {
-        "en": ("Someone left a photo for you.", "Take yours to create an unexpected encounter."),
-        "de": ("Jemand hat ein Foto für dich dagelassen.", "Mach deins für eine überraschende Begegnung."),
+        # The booth's name as the headline, chosen by the owner on 2026-11-26; the EARLIER badge says why.
+        "en": ("MEET A STRANGER", "Take yours to create an unexpected encounter."),
+        "de": ("MEET A STRANGER", "Mach deins für eine überraschende Begegnung."),
     }),
     "online_only": ("P5", {
         "en": ("Other Photoboxes are connected.", "Take a photo to start an encounter."),

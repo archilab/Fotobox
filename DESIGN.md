@@ -202,10 +202,10 @@ One continuous line per booth, the booth's living element (ADR-039).
 - **Where:** start, invitation, strip being made, LIVE moment, code screen. Never on consent, countdown or flash.
 
 ### Header Bar
-"MEET A STRANGER" left and the booth's place right, 36 px weight 600, 0.22em tracking, grey, 56 px from the top. Start screen only.
+"MEET A STRANGER" left and the booth's place right, 36 px weight 600, 0.22em tracking, grey, 56 px from the top. Start screen only; the name is left out when the headline is already "MEET A STRANGER".
 
 ### MIDAP Signature
-MIDAP's mark (72 x 62 px, white stroke, no fill) with "MIDAP" at 38 px weight 750, 0.2em tracking, bottom right on the start screen only. The funding notice belongs beside it once its wording is given; nothing stands in its place until then.
+MIDAP's mark (72 x 62 px, white stroke, no fill) with "MIDAP" at 38 px weight 750, 0.2em tracking, bottom right on the start screen only, with the camera note above it when the camera looks and the concept credit, "Konzept: Aida Salmanipour und Calvin Leonard Kröger", below it in grey at 36 px (ADR-042). The funding notice belongs beside it once its wording is given; nothing stands in its place until then.
 
 ### Resting Screen
 After the booth's idle minutes without a press (ADR-041), essentials only. Left: the QR code for the project's website, 720 px square, black modules on white with the four-module quiet zone and a 28 px radius, the only white surface besides the light screen, because phones read dark on light; "midap.space" centred below at 64 px weight 750. Right, 200 px away: the footer of midap.space as three groups, each a grey 36 px weight 600 label ("Forschungsprojekt", "Gefördert durch", "Verbundpartner") over white logos (MIDAP 860 px wide, the foundation 620 px, Folkwang 470 px, UdK 720 px), 96 px between groups. No button, no sentence, no motion: the light on the real button asks for the press. Without a code, the address stands alone in its place at 96 px.

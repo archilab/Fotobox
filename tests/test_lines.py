@@ -151,7 +151,7 @@ def test_the_kiosk_estimates_the_time_left_from_finished_pictures():
 
 def test_the_screens_draw_the_round_button_and_no_key_labels_or_countdown_text():
     assert "function press(" in SCREENS and 'action("ENTER"' not in SCREENS and "Noch ${" not in SCREENS
-    assert SCREENS.count("top(s.label)") == 1  # the header bar on the start screen only
+    assert SCREENS.count("top(s.label") == 1  # the header bar on the start screen only
     css = (UI / "ui.css").read_text(encoding="utf-8")
     assert ".press.pulse .cap" in css and "prefers-reduced-motion" in css
 

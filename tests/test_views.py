@@ -214,3 +214,17 @@ def test_the_screen_stays_white_until_the_photo_has_been_taken():
     assert names[names.index("flash") + 1] == "making"  # dark again as soon as it is taken
     source = (Path(__file__).parent.parent / "src/photobox_client/ui/screens.js").read_text(encoding="utf-8")
     assert 'screen("countdown light"' in source and 'flash: () => screen("light")' in source
+
+
+def test_start_screen_credits_the_concept():
+    """Owner, 2026-11-26: the concept of MEET A STRANGER is by Aida Salmanipour and Calvin Leonard Kröger."""
+    state = views.start(None, "FOTOBOX")
+    assert state["credit"]["de"] == "Konzept: Aida Salmanipour und Calvin Leonard Kröger"
+    assert "Kroeger" in state["plain"]
+
+
+def test_an_earlier_photo_is_announced_with_the_booths_name():
+    from photobox_server.presence import messages
+    assert messages.CATALOG["earlier_portrait"][1]["de"][0] == "MEET A STRANGER"
+    assert messages.CATALOG["earlier_portrait"][1]["en"][0] == "MEET A STRANGER"
+    assert "dagelassen" not in str(messages.CATALOG)
