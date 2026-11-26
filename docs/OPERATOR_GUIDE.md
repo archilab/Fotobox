@@ -77,6 +77,8 @@ The top of the menu shows a status line for **Network**, **Server**, **Pairing**
 | **5 Test everything** | Checks all of the above. |
 | **6 Start photo booth** | Back to the start screen. ESC does the same. |
 | **7 Microphone (optional)** | Choose the microphone for later voice messages. Nothing is recorded here, and photos work without one. Used for voice messages, if you switch them on. |
+| **8 Person detection (optional)** | Off, the distance sensor with its range, or the camera with the part of the picture it looks at. See "The distance sensor". |
+| **9 Sounds** | Off, Quiet, Medium or Loud. After choosing a level, the booth plays every sound once, with its name on screen. |
 
 Keys: a **number** to choose, **ENTER** to confirm, **ESC** to go back, **BACKSPACE** to delete.
 
@@ -192,6 +194,13 @@ If one of the two cancels or deletes their pictures before the strip is done, th
 After 5 minutes on the start screen without a press, the booth rests (ADR-041): it shows a QR code for MIDAP's website and the logos of the project, its funder and both universities, as in the footer of midap.space, and the camera stops looking (a distance sensor keeps measuring, see below). The screen asks for nothing; the button's light flashes. A press, on the button or ENTER, brings the start screen back; it does not start a visit. While resting, the booth does not show invitations from other booths, and visitors elsewhere do not wait for it. The dashboard shows it as idle, "resting".
 
 To change the time, set `PHOTOBOX_IDLE_MINUTES` in `~/.photobox-kiosk.env`, such as `PHOTOBOX_IDLE_MINUTES=10`, and restart the kiosk; `0` turns resting off. `PHOTOBOX_IDLE_URL` sets the website behind the QR code, `https://www.midap.space` by default. The code needs the `client-screen` extra, which the installer includes; without it the screen shows the address as text.
+
+## Sounds
+The booth plays short, soft sounds at a few moments (ADR-047): a tick when a press counts, three tones for the countdown, a soft click for the photo, a chime when the strip is shown or printed, and a chime every few seconds while another booth invites this one or asks for a video link. It stays silent while resting, while a voice message is recorded and during the video link. The text-only screen plays nothing.
+
+The sounds are on at a medium volume. Change them in the setup menu under **9 Sounds**, or set `PHOTOBOX_SOUNDS=false` or `PHOTOBOX_SOUND_VOLUME=30` (0 to 100) in `~/.photobox-kiosk.env` and restart the kiosk. The speaker's own volume adds to this.
+
+They play through the booth's sound output. If you hear nothing, check that the booth plays sound at all: `sh ~/photobox/deploy/pi/set-audio.sh --test` plays a tone; `set-audio.sh vc4hdmi0 BRIO` sends sound to the panel's HDMI (see the hardware notes).
 
 ## The hidden video link
 

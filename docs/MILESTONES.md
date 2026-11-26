@@ -120,7 +120,7 @@ Each milestone stops for the owner's review. Off by default.
 ## Sounds (ADR-047)
 - [x] **S1** Soft sounds made in the browser for a press, the countdown, the photo, the strip and calls from other booths; silent while resting, during the video link and while recording; `PHOTOBOX_SOUNDS`, `PHOTOBOX_SOUND_VOLUME` and the setup menu
 - [x] **S2** Heard by the owner at newbox on 2026-11-26 through the panel's HDMI: right as built, volume 60. The setup menu plays every sound in turn. Processor time and a voice message with sounds on not yet measured
-- [ ] **S3** Operator guide and hardware notes, committed and deployed
+- [x] **S3** Operator guide and hardware notes; deployed to newbox
 
 ## Push button and status lights (ADR-036)
 - [x] **B1** Wiring measured on the box: button on GPIO25 to ground, red, green and blue on GPIO18, 23 and 24 lit when high

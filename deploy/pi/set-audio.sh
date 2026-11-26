@@ -1,5 +1,5 @@
 #!/bin/sh
-# Sets where the booth's browser plays and records sound, for the hidden video link (ADR-045).
+# Sets where the booth's browser plays and records sound, for its sounds (ADR-047) and the hidden video link (ADR-045).
 #
 #   sh deploy/pi/set-audio.sh PLAYBACK_CARD CAPTURE_CARD     for example: vc4hdmi0 BRIO
 #   sh deploy/pi/set-audio.sh --test                         plays a short tone through the setting
