@@ -23,7 +23,7 @@ BUS, ADDRESS = 1, 0x29
 RANGE_MM = 1200  # someone stands closer than this; set per box with PHOTOBOX_TOF_RANGE_MM
 READS_PER_SECOND = 5
 ON_SECONDS = 0.5
-OFF_SECONDS = 3.0
+OFF_SECONDS = 5.0  # at newbox the sensor lost someone standing there for up to 2.8 s
 RETRY_SECONDS = 10
 NOTHING_MM = 8190  # what the sensor reports when nothing is in range
 TIMEOUT_SECONDS = 0.5
@@ -375,7 +375,8 @@ def main(argv: list[str] | None = None) -> int:
             distance = sensor.measure()
             present = smoother.update(distance, time.monotonic())
             shown = "nothing" if distance >= NOTHING_MM else f"{distance} mm"
-            print(f"{shown:>10}   {'someone there' if present else '-'}", flush=True)
+            seconds = time.monotonic() - started
+            print(f"{seconds:6.1f} s {shown:>10}   {'someone there' if present else '-'}", flush=True)
             time.sleep(1 / READS_PER_SECOND)
     except KeyboardInterrupt:
         pass
