@@ -38,6 +38,15 @@ def _minutes(text: str, default: int = 5) -> int:
     return value if 0 <= value <= 1440 else default
 
 
+def _range_mm(text: str, default: int = 1200) -> int:
+    """The distance sensor's range in millimetres, from 100 to 2000; anything else gives the default."""
+    try:
+        value = int(text.strip())
+    except ValueError:
+        return default
+    return value if 100 <= value <= 2000 else default
+
+
 @dataclass
 class Settings:
     server: str = ""
@@ -45,6 +54,8 @@ class Settings:
     microphone: str = ""
     person_detection: bool = False  # off unless the operator switches it on (ADR-029)
     person_area: str = ""  # left,top,right,bottom as fractions; empty is the whole picture
+    person_sensor: str = "camera"  # what notices someone: "camera" (ADR-029) or "tof", the distance sensor (ADR-046)
+    tof_range_mm: int = 1200  # with the distance sensor: someone stands closer than this
     button: str = ""  # GPIO number of a push button that works like ENTER; empty is none (ADR-036)
     lights: str = ""  # GPIO numbers of the red, green and blue status lights, such as 18,23,24 (ADR-036)
     idle_minutes: int = 5  # the start screen rests after this many minutes without a press; 0 never (ADR-041)
@@ -61,13 +72,16 @@ class Settings:
         return cls(server=values.get("PHOTOBOX_SERVER", ""), camera=values.get("PHOTOBOX_CAMERA", "0") or "0",
                    microphone=values.get("PHOTOBOX_MICROPHONE", ""),
                    person_detection=values.get("PHOTOBOX_PERSON_DETECTION", "").lower() in {"1", "true", "yes"},
-                   person_area=values.get("PHOTOBOX_PERSON_AREA", ""), button=values.get("PHOTOBOX_BUTTON", ""),
+                   person_area=values.get("PHOTOBOX_PERSON_AREA", ""),
+                   person_sensor="tof" if values.get("PHOTOBOX_PERSON_SENSOR", "").strip().lower() == "tof" else "camera",
+                   tof_range_mm=_range_mm(values.get("PHOTOBOX_TOF_RANGE_MM", "")), button=values.get("PHOTOBOX_BUTTON", ""),
                    lights=values.get("PHOTOBOX_LIGHTS", ""), idle_minutes=_minutes(values.get("PHOTOBOX_IDLE_MINUTES", "")),
                    idle_address=valid_address(values.get("PHOTOBOX_IDLE_URL", "")) or DEFAULT_ADDRESS)
 
     def save(self, path: Path) -> None:
         _write_private(path, f"PHOTOBOX_SERVER={self.server}\nPHOTOBOX_CAMERA={self.camera}\nPHOTOBOX_MICROPHONE={self.microphone}\n"
                                 f"PHOTOBOX_PERSON_DETECTION={'true' if self.person_detection else 'false'}\nPHOTOBOX_PERSON_AREA={self.person_area}\n"
+                                f"PHOTOBOX_PERSON_SENSOR={self.person_sensor}\nPHOTOBOX_TOF_RANGE_MM={self.tof_range_mm}\n"
                                 f"PHOTOBOX_BUTTON={self.button}\nPHOTOBOX_LIGHTS={self.lights}\n"
                                 f"PHOTOBOX_IDLE_MINUTES={self.idle_minutes}\nPHOTOBOX_IDLE_URL={self.idle_address}\n")
 

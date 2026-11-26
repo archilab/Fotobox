@@ -237,22 +237,29 @@ class SetupMenu:
         self.message(f"Microphone saved: {microphones[choice].name}")
 
     def setup_person(self) -> None:
-        """Switches the camera's person detection on or off, and limits what it looks at (ADR-029)."""
+        """Switches person detection on or off: with the camera, limited to part of the picture (ADR-029), or
+        with the distance sensor, which sees no picture (ADR-046)."""
+        from . import tof
         from .person import MODEL_PATH
-        if not MODEL_PATH.is_file():
-            self.message("The person detection model is not installed. Photos work as usual.")
+        choices = [("Off", False, "camera", "")]
+        if tof.bus_present():
+            choices.append(("On, distance sensor", True, "tof", ""))
+        if MODEL_PATH.is_file():
+            choices += [("On, camera, whole picture", True, "camera", ""), ("On, camera, middle two thirds", True, "camera", "0.17,0,0.83,1"),
+                        ("On, camera, middle half", True, "camera", "0.25,0,0.75,1")]
+        if len(choices) == 1:
+            self.message("The person detection model is not installed and no distance sensor is connected. Photos work as usual.")
             return
-        choices = [("Off", False, ""), ("On, whole picture", True, ""), ("On, middle two thirds", True, "0.17,0,0.83,1"), ("On, middle half", True, "0.25,0,0.75,1")]
         choice = self.choose(
-            "Person detection with the camera. It looks before anyone has agreed,\n"
-            "so switch it on only with the sign up and a checked legal basis.\n"
-            "No image is stored or sent.",
-            [label for label, _on, _area in choices],
+            "Person detection. The camera looks before anyone has agreed, so switch it\n"
+            "on only with the sign up and a checked legal basis; no image is stored or sent.\n"
+            "The distance sensor measures only how far away something is.",
+            [label for label, *_rest in choices],
         )
         if choice is None:
             return
         settings = Settings.load(self.settings_path)
-        settings.person_detection, settings.person_area = choices[choice][1:]
+        settings.person_detection, settings.person_sensor, settings.person_area = choices[choice][1:]
         settings.save(self.settings_path)
         self.message(f"Person detection: {choices[choice][0]}")
 

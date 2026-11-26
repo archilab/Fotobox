@@ -516,7 +516,8 @@ def test_missing_microphone_is_explained(paths, monkeypatch):
 
 @pytest.mark.parametrize("key,on,area", [("1", False, ""), ("2", True, ""), ("3", True, "0.17,0,0.83,1"), ("4", True, "0.25,0,0.75,1")])
 def test_person_detection_is_switched_in_the_menu(paths, monkeypatch, tmp_path, key, on, area):
-    from photobox_client import person
+    from photobox_client import person, tof
+    monkeypatch.setattr(tof, "bus_present", lambda: False)
     model = tmp_path / "nanodet.onnx"
     model.write_bytes(b"x")
     monkeypatch.setattr(person, "MODEL_PATH", model)
@@ -527,9 +528,21 @@ def test_person_detection_is_switched_in_the_menu(paths, monkeypatch, tmp_path, 
     assert any("legal basis" in s for s in screen.shown)
 
 
+def test_person_detection_with_the_distance_sensor(paths, monkeypatch, tmp_path):
+    from photobox_client import person, tof
+    monkeypatch.setattr(person, "MODEL_PATH", tmp_path / "missing.onnx")  # the camera's options are left out
+    monkeypatch.setattr(tof, "bus_present", lambda: True)
+    m, screen = unlocked(paths, "8", "2", ENTER, "6")
+    m.run()
+    saved = Settings.load(paths["settings_path"])
+    assert (saved.person_detection, saved.person_sensor) == (True, "tof")
+    assert any("distance sensor" in s for s in screen.shown)
+
+
 def test_person_detection_needs_its_model(paths, monkeypatch, tmp_path):
-    from photobox_client import person
+    from photobox_client import person, tof
     monkeypatch.setattr(person, "MODEL_PATH", tmp_path / "missing.onnx")
+    monkeypatch.setattr(tof, "bus_present", lambda: False)
     m, screen = unlocked(paths, "8", ENTER, "6")
     m.run()
     assert any("not installed" in s for s in screen.shown)

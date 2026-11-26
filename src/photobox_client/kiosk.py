@@ -433,6 +433,10 @@ class Kiosk:
         self.hold_mode = hold_mode  # the button tells a 5 s hold from a press, on the start screen only (ADR-045)
         self.video_incoming: dict | None = None
 
+    def _camera_looks(self) -> bool:
+        """Whether the camera watches for people now, which the start screen must say; the distance sensor sees no picture."""
+        return self.detector is not None and getattr(self.detector, "uses_camera", True)
+
     def present(self, state: dict, light: str | None = None) -> None:
         """Show a screen. Every screen carries the box's name and whether this is a test.
 
@@ -480,7 +484,7 @@ class Kiosk:
                         presence = presence_text(snapshot)
                     except (httpx.HTTPError, ValueError, KeyError, TypeError):
                         snapshot, presence = None, ""  # the start screen works without it
-                    self.present(views.start(snapshot, "FOTOBOX\n\n" + (presence + "\n\n" if presence else "") + START_TEXT, detecting=self.detector is not None))
+                    self.present(views.start(snapshot, "FOTOBOX\n\n" + (presence + "\n\n" if presence else "") + START_TEXT, detecting=self._camera_looks()))
                     shown_version = version if live else None
                     if views.invitation_seconds(snapshot):
                         since = self.clock()  # never rest while another booth invites this one
@@ -954,16 +958,21 @@ def main(argv: list[str] | None = None) -> None:
                 def conversation(session_id: str) -> Conversation:
                     return Conversation(api, session_id, keys, talker, time.monotonic)
 
-                # The test image stands in for the camera, so there is nothing to look at then.
+                # The test image stands in for the camera, so the camera has nothing to look at then; the
+                # distance sensor sees no picture and works either way (ADR-046).
                 detector, person_reporter = None, None
-                if settings.person_detection and not args.test_image:
-                    from .person import create_detector
-
+                use_tof = settings.person_sensor == "tof"
+                if settings.person_detection and (use_tof or not args.test_image):
                     def post_person(present: bool, server=settings.server, token=token) -> None:
                         httpx.post(f"{server}/api/v1/devices/person", json={"present": present}, headers={"Authorization": f"Bearer {token}"}, timeout=5).raise_for_status()
 
                     person_reporter = PersonReporter(post_person).start()
-                    detector = create_detector(settings.camera, settings.person_area, person_reporter)
+                    if use_tof:
+                        from .tof import create_tof_detector
+                        detector = create_tof_detector(settings.tof_range_mm, person_reporter)
+                    else:
+                        from .person import create_detector
+                        detector = create_detector(settings.camera, settings.person_area, person_reporter)
                 feed = PresenceFeed(settings.server, token).start()
                 connected = find_printer()
                 counters.printer = "none" if connected is None else {"no paper": "no paper"}.get(connected.status(), "ready")

@@ -11,8 +11,9 @@ dependencies = ["fastapi>=0.110,<1", "uvicorn>=0.27,<1", "python-multipart>=0.0.
 
 [project.optional-dependencies]
 client-camera = ["opencv-python-headless>=4.8"]
-# The push button and status lights (ADR-036); matches libgpiod 2.2 on Raspberry Pi OS 13.
-client-gpio = ["gpiod>=2.2.1,<2.3"]
+# The push button and status lights (ADR-036); matches libgpiod 2.2 on Raspberry Pi OS 13. smbus2 reads the
+# distance sensor on I2C (ADR-046).
+client-gpio = ["gpiod>=2.2.1,<2.3", "smbus2>=0.5,<0.7"]
 # The QR code on the resting screen (ADR-041): pure Python, no dependencies of its own.
 client-screen = ["segno>=1.6,<2"]
 # The face-count check needs CascadeClassifier, which OpenCV 5 no longer includes.
