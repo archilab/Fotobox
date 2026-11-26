@@ -148,9 +148,10 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 .screen.resting { padding-bottom: var(--margin); justify-content: center; }
 .rest-body { display: flex; align-items: center; justify-content: center; gap: 200px; }
 .rest-code { flex-shrink: 0; width: 720px; }
-.qr { display: block; width: 720px; height: 720px; border-radius: 28px; }
-.qr-paper { fill: #fff; }
-.qr-ink { fill: #000; }
+.qr { display: block; width: 720px; height: 720px; }
+/* Inverted, as the owner chose (2026-11-26): white modules on the black screen, the quiet zone black. */
+.qr-paper { fill: var(--bg); }
+.qr-ink { fill: var(--fg); }
 .rest-address { font-size: 64px; font-weight: 750; letter-spacing: -.01em; margin-top: 40px; text-align: center; }
 .rest-address.alone { font-size: 96px; margin-top: 0; }
 .rest-logos { display: flex; flex-direction: column; gap: 96px; }
