@@ -67,6 +67,8 @@ REST_REFRESH_SECONDS = 5  # how often the resting screen looks whether someone i
 RESTING = "resting"  # the detail the dashboard shows while the booth rests
 CANCELLED = "Abgebrochen. Es wurde kein Foto gemacht.\nCancelled. No photo was taken."
 START_TEXT = "Druecke ENTER zum Starten.\nPress ENTER to start."
+# Screens that never play a sound, so the microphone never picks one up and resting stays quiet (ADR-047).
+SILENT_SCREENS = frozenset({"resting", "listening", "converting", "video_link"})
 PRINTING = "Dein Fotostreifen wird gedruckt.\nYour photo strip is being printed."
 PRINT_SECONDS = 5  # time to take the strip from the printer before the code appears
 COUNTDOWN = (3, 2, 1)
@@ -414,7 +416,8 @@ class Kiosk:
                  printer: Callable[[], UsbPrinter | None] = lambda: None,
                  on_print: Callable[[str], None] = lambda _state: None, button: bool = False,
                  light: Callable[[str | None], None] = lambda _name: None, idle_seconds: float = 0,
-                 idle_address: str | None = None, hold_mode: Callable[[bool], None] = lambda _on: None) -> None:
+                 idle_address: str | None = None, hold_mode: Callable[[bool], None] = lambda _on: None,
+                 volume: int = 0) -> None:
         self.api, self.camera, self.screen, self.keys, self.report = api, camera, screen, keys, report
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
@@ -432,6 +435,7 @@ class Kiosk:
         self.idle_address = idle_address  # the website the resting screen shows as a QR code
         self.hold_mode = hold_mode  # the button tells a 5 s hold from a press, on the start screen only (ADR-045)
         self.video_incoming: dict | None = None
+        self.volume = volume  # the soft sounds' volume, 0 silent (ADR-047)
 
     def _camera_looks(self) -> bool:
         """Whether the camera watches for people now, which the start screen must say; the distance sensor sees no picture."""
@@ -448,6 +452,10 @@ class Kiosk:
         plain = self.banner + state["plain"]
         if self.button:
             plain = plain.replace("ENTER", "KNOPF/ENTER")
+        sound = state.get("sound") if self.volume and state["screen"] not in SILENT_SCREENS else None
+        state = {key: value for key, value in state.items() if key != "sound"} | ({"sound": sound, "volume": self.volume} if sound else {})
+        if self.volume and not sound and state["screen"] not in SILENT_SCREENS:
+            state["volume"] = self.volume  # for the tick the page plays when it sends a press
         views.present(self.screen, state | {"label": self.label, "test_mode": bool(self.banner), "button": self.button, "plain": plain})
 
     def ask(self, state: dict, accepted: set[str], timeout: float | None, light: str | None = None) -> str | None:
@@ -760,7 +768,7 @@ class Kiosk:
         if printer is None:
             return False
         self.report("showing")
-        self.present(views.message(PRINTING), light="printing")
+        self.present(views.message(PRINTING) | {"sound": "ready"}, light="printing")
         try:
             if printer.status() == "no paper":
                 raise NoPaper("no paper")
@@ -985,7 +993,8 @@ def main(argv: list[str] | None = None) -> None:
                               on_camera_error=lambda camera_name=settings.camera: camera_trouble(camera_name),
                               printer=find_printer, on_print=printed, button=button is not None, light=light,
                               idle_seconds=settings.idle_minutes * 60, idle_address=settings.idle_address,
-                              hold_mode=lambda on, b=button: b is not None and (b.holding.set() if on else b.holding.clear()))
+                              hold_mode=lambda on, b=button: b is not None and (b.holding.set() if on else b.holding.clear()),
+                              volume=settings.volume)
                 outcome = serve(kiosk, button)
                 feed.stop()
                 if person_reporter is not None:

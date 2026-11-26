@@ -28,6 +28,7 @@ STATIC = {
     "/screens.js": ("screens.js", "text/javascript; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/video.js": ("video.js", "text/javascript; charset=utf-8"),
+    "/sounds.js": ("sounds.js", "text/javascript; charset=utf-8"),
     "/fonts/inter-latin-wght-normal.woff2": ("fonts/inter-latin-wght-normal.woff2", "font/woff2"),
     # The logos on the resting screen (ADR-041), from the footer of midap.space.
     **{f"/logos/{name}.svg": (f"logos/{name}.svg", "image/svg+xml") for name in ("midap", "stil", "folkwang", "udk")},

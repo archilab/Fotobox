@@ -17,10 +17,12 @@
     screenId = state.id;
     window.PhotoboxScreens.render(stage, state);
     window.PhotoboxVideo.follow(state, stage.firstElementChild, sendSignal);  // the hidden video link (ADR-045)
+    window.PhotoboxSounds.follow(state);  // soft sounds (ADR-047)
   });
 
   function send(key) {
     if (screenId === null) return;
+    if (key === "enter") window.PhotoboxSounds.tick();  // the visitor hears that the press counted
     fetch("/key", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Photobox-Token": token },
@@ -43,6 +45,7 @@
   events.addEventListener("button", (event) => {
     if (JSON.parse(event.data).id !== screenId) return;
     if (window.PhotoboxScreens.canConfirm()) return send("enter");
+    window.PhotoboxSounds.tick();
     window.PhotoboxScreens.page(1);
   });
 

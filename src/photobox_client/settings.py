@@ -47,6 +47,15 @@ def _range_mm(text: str, default: int = 1200) -> int:
     return value if 100 <= value <= 2000 else default
 
 
+def _volume(text: str, default: int = 60) -> int:
+    """The sound volume from 0 to 100; anything else gives the default."""
+    try:
+        value = int(text.strip())
+    except ValueError:
+        return default
+    return value if 0 <= value <= 100 else default
+
+
 @dataclass
 class Settings:
     server: str = ""
@@ -60,6 +69,13 @@ class Settings:
     lights: str = ""  # GPIO numbers of the red, green and blue status lights, such as 18,23,24 (ADR-036)
     idle_minutes: int = 5  # the start screen rests after this many minutes without a press; 0 never (ADR-041)
     idle_address: str = DEFAULT_ADDRESS  # the website on the resting screen, as a QR code (ADR-041)
+    sounds: bool = True  # soft sounds at a few moments (ADR-047)
+    sound_volume: int = 60  # 0 to 100
+
+    @property
+    def volume(self) -> int:
+        """The volume the screens play at; 0 is silent."""
+        return self.sound_volume if self.sounds else 0
 
     @classmethod
     def load(cls, path: Path) -> "Settings":
@@ -76,14 +92,17 @@ class Settings:
                    person_sensor="tof" if values.get("PHOTOBOX_PERSON_SENSOR", "").strip().lower() == "tof" else "camera",
                    tof_range_mm=_range_mm(values.get("PHOTOBOX_TOF_RANGE_MM", "")), button=values.get("PHOTOBOX_BUTTON", ""),
                    lights=values.get("PHOTOBOX_LIGHTS", ""), idle_minutes=_minutes(values.get("PHOTOBOX_IDLE_MINUTES", "")),
-                   idle_address=valid_address(values.get("PHOTOBOX_IDLE_URL", "")) or DEFAULT_ADDRESS)
+                   idle_address=valid_address(values.get("PHOTOBOX_IDLE_URL", "")) or DEFAULT_ADDRESS,
+                   sounds=values.get("PHOTOBOX_SOUNDS", "true").strip().lower() not in {"0", "false", "no", "off"},
+                   sound_volume=_volume(values.get("PHOTOBOX_SOUND_VOLUME", "")))
 
     def save(self, path: Path) -> None:
         _write_private(path, f"PHOTOBOX_SERVER={self.server}\nPHOTOBOX_CAMERA={self.camera}\nPHOTOBOX_MICROPHONE={self.microphone}\n"
                                 f"PHOTOBOX_PERSON_DETECTION={'true' if self.person_detection else 'false'}\nPHOTOBOX_PERSON_AREA={self.person_area}\n"
                                 f"PHOTOBOX_PERSON_SENSOR={self.person_sensor}\nPHOTOBOX_TOF_RANGE_MM={self.tof_range_mm}\n"
                                 f"PHOTOBOX_BUTTON={self.button}\nPHOTOBOX_LIGHTS={self.lights}\n"
-                                f"PHOTOBOX_IDLE_MINUTES={self.idle_minutes}\nPHOTOBOX_IDLE_URL={self.idle_address}\n")
+                                f"PHOTOBOX_IDLE_MINUTES={self.idle_minutes}\nPHOTOBOX_IDLE_URL={self.idle_address}\n"
+                                f"PHOTOBOX_SOUNDS={'true' if self.sounds else 'false'}\nPHOTOBOX_SOUND_VOLUME={self.sound_volume}\n")
 
 
 def normalize_server(text: str) -> str:

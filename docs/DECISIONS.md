@@ -383,3 +383,12 @@ Tested live on 2026-11-26 with the real `newbox` and a test booth on the Mac aga
 - **Range at newbox (2026-11-26):** nothing in front reads "nothing"; the owner standing in front of the booth read 34 to 99 cm; standing where people walk past read "nothing", beyond the sensor's reach of about 1.2 m. The default 1200 mm is kept.
 - **Resting (decided by the owner on 2026-11-26):** the sensor keeps measuring while the booth rests (ADR-041), so other boxes still learn whether someone is there; the camera still stops looking. Someone walking up never wakes the booth: only a press does, as before. A resting booth is still never asked for a live encounter or a video link.
 - **Failures** only mean no signal: the detector reports no one and tries again every 10 s, and the booth works as usual.
+
+## ADR-047: Soft sounds at a few moments
+**Decided by the project owner on 2026-11-26:** the booth gives short, soft and warm sounds at a few moments, so visitors hear that a press counted, when the photo is taken, when the strip is ready, and when another booth calls.
+
+- **Moments:** a press (a short low tick, played by the page the moment it sends ENTER or the button to the booth, or turns a notice's page), the countdown (three soft tones, the last a little higher), the photo (a soft shutter click), the strip shown or being printed (a two-note chime), and an invitation or a video link request from another booth (a three-note chime, repeated every 4 s while it is shown, at most 20 s).
+- **Silent:** while resting, during the video link and while a voice message is recorded, so the microphone never picks them up; the text kiosk plays nothing.
+- **Made in the browser** with Web Audio (`ui/sounds.js`): a few tones with soft starts and ends through a low-pass filter. No sound files, so nothing to license and the page's security policy is unchanged.
+- **Which sound** belongs to a screen is decided by the booth's program, as a `sound` field on the screen (`views.py`); the page plays it once per screen and never twice. The volume comes with every screen.
+- **Settings:** `PHOTOBOX_SOUNDS` (on by default) and `PHOTOBOX_SOUND_VOLUME` (0 to 100, default 60), also under "Sounds" in the setup menu, which plays a sample.

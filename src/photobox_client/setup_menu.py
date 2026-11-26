@@ -20,6 +20,8 @@ MESSAGE_SECONDS = 8
 CAMERA_PREVIEW_SECONDS = 5
 TOF_RANGES_MM = (500, 700, 900, 1200, 1500)  # the distance sensor reaches about 1200 mm (ADR-046)
 TOF_READOUT_SECONDS = 0.25
+SOUND_LEVELS = (("Off", 0), ("Quiet", 30), ("Medium", 60), ("Loud", 90))  # ADR-047
+SOUND_SAMPLE_SECONDS = 1.5
 HttpFactory = Callable[..., httpx.Client]
 
 
@@ -162,12 +164,12 @@ class SetupMenu:
             header = f"{reason}\n\n" if reason else ""
             choice = self.choose(
                 f"{header}{status}",
-                ["WiFi", "Server address", "Pair with server", "Camera", "Test everything", "Start photo booth", "Microphone (optional)", "Person detection (optional)"],
+                ["WiFi", "Server address", "Pair with server", "Camera", "Test everything", "Start photo booth", "Microphone (optional)", "Person detection (optional)", "Sounds"],
             )
             reason = None
             if choice in (None, 5):
                 return
-            [self.setup_wifi, self.setup_server, self.pair, self.setup_camera, self.test, None, self.setup_microphone, self.setup_person][choice]()
+            [self.setup_wifi, self.setup_server, self.pair, self.setup_camera, self.test, None, self.setup_microphone, self.setup_person, self.setup_sounds][choice]()
 
     def setup_wifi(self) -> None:
         self.show("Searching for WiFi networks ...")
@@ -317,6 +319,24 @@ class SetupMenu:
         finally:
             if sensor is not None:
                 sensor.close()
+
+    def setup_sounds(self) -> None:
+        """Switches the soft sounds off or sets their volume, with a sample (ADR-047)."""
+        settings = Settings.load(self.settings_path)
+        current = f"now {settings.sound_volume} of 100" if settings.sounds else "now off"
+        choice = self.choose(f"Sounds ({current})", [label for label, _volume in SOUND_LEVELS])
+        if choice is None:
+            return
+        label, volume = SOUND_LEVELS[choice]
+        settings.sounds = volume > 0
+        if volume:
+            settings.sound_volume = volume
+        settings.save(self.settings_path)
+        view = getattr(self.screen, "view", None)  # the browser plays a sample; the text screen cannot
+        if view is not None and volume:
+            view({"screen": "menu", "text": f"SETUP / EINRICHTUNG\n\nSounds: {label}", "sound": "ready", "volume": volume})
+            self.sleep(SOUND_SAMPLE_SECONDS)
+        self.message(f"Sounds: {label}")
 
     def setup_camera(self) -> None:
         # The camera list holds paths; settings and the capture call need text.

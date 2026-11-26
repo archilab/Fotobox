@@ -117,6 +117,11 @@ Each milestone stops for the owner's review. Off by default.
 - [x] **T2** `PHOTOBOX_PERSON_SENSOR=tof` and `PHOTOBOX_TOF_RANGE_MM`, the kiosk and setup menu use the sensor instead of the camera, tests with a fake bus
 - [x] **T3** Range checked with the owner at newbox on 2026-11-26 and newbox switched to the sensor; arriving and leaving reached the Studio from the start screen, and detection pauses while the booth rests
 
+## Sounds (ADR-047)
+- [x] **S1** Soft sounds made in the browser for a press, the countdown, the photo, the strip and calls from other booths; silent while resting, during the video link and while recording; `PHOTOBOX_SOUNDS`, `PHOTOBOX_SOUND_VOLUME` and the setup menu
+- [ ] **S2** Tuned with the owner at newbox: volume, pitch and length; no noticeable processor time; voice messages unaffected
+- [ ] **S3** Operator guide and hardware notes, committed and deployed
+
 ## Push button and status lights (ADR-036)
 - [x] **B1** Wiring measured on the box: button on GPIO25 to ground, red, green and blue on GPIO18, 23 and 24 lit when high
 - [x] **B2** Button works like ENTER while serving visitors, screens name it, the notice's last-page rule applies, one press per push. Real visit on 2026-11-24

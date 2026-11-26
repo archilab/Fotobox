@@ -596,3 +596,29 @@ def test_person_detection_stays_off_unless_chosen(paths, monkeypatch, tmp_path):
     m, _ = unlocked(paths, "8", ESC, "6")
     m.run()
     assert Settings.load(paths["settings_path"]).person_detection is False
+
+
+class SoundScreen(Screen):
+    def __init__(self):
+        super().__init__()
+        self.views = []
+
+    def view(self, state):
+        self.views.append(state)
+
+
+def test_sounds_are_set_in_the_menu_with_a_sample(paths):
+    m, _ = unlocked(paths, "9", "2", ENTER, "6")
+    m.screen = SoundScreen()
+    m.run()
+    saved = Settings.load(paths["settings_path"])
+    assert (saved.sounds, saved.sound_volume) == (True, 30)
+    assert m.screen.views == [{"screen": "menu", "text": "SETUP / EINRICHTUNG\n\nSounds: Quiet", "sound": "ready", "volume": 30}]
+
+
+def test_sounds_can_be_switched_off_keeping_the_volume(paths):
+    m, screen = unlocked(paths, "9", "1", ENTER, "6")
+    m.run()
+    saved = Settings.load(paths["settings_path"])
+    assert (saved.sounds, saved.sound_volume) == (False, 60)
+    assert any("Sounds: Off" in s for s in screen.shown)

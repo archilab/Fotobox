@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 UI = Path(__file__).parent.parent / "src" / "photobox_client" / "ui"
-SOURCES = ["screens.js", "app.js", "index.html", "ui.css", "prototype.html", "prototype.js"]
+SOURCES = ["screens.js", "app.js", "sounds.js", "video.js", "index.html", "ui.css", "prototype.html", "prototype.js"]
 
 
 @pytest.mark.parametrize("name", SOURCES)

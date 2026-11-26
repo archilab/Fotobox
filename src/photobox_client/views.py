@@ -69,7 +69,7 @@ def start(snapshot: dict | None, plain: str, max_tiles: int = 3, *, detecting: b
         # One sentence: the other place and the invitation (ADR-040); the server's text when the place is unknown.
         hero_text = {"de": f"{place} wartet auf dich.", "en": f"{place} is waiting for you."} if place else \
             {"de": texts["de"]["hero"], "en": texts["en"]["hero"]}
-        state = {"screen": "invite", "place": place, "hero": hero_text,
+        state = {"screen": "invite", "sound": "call", "place": place, "hero": hero_text,
                  "support": {"de": texts["de"]["support"], "en": texts["en"]["support"]}, "seconds": seconds,
                  "plain": f"{texts['de']['hero']}\n{texts['en']['hero']}\n\n{texts['de']['support']}\n{texts['en']['support']}"
                           f"\n\n        Noch {seconds} s / {seconds} s left\n\nENTER = Mitmachen / Join"}
@@ -171,7 +171,7 @@ def video_request(place: str | None, seconds: int, link_seconds: int) -> dict:
     de, en = _place(place)
     notice = video_notice(link_seconds)
     hero = {"de": f"Jemand {de} möchte dich live sehen und hören.", "en": f"Someone {en} would like to see and hear you live."}
-    return {"screen": "video_request", "place": place, "hero": hero, "notice": notice, "seconds": seconds,
+    return {"screen": "video_request", "sound": "call", "place": place, "hero": hero, "notice": notice, "seconds": seconds,
             "plain": f"{hero['de']}\n{hero['en']}\n\n{notice['de']}\n{notice['en']}\n\nENTER = Annehmen / Accept".translate(_PLAIN)}
 
 
@@ -214,11 +214,11 @@ def message(text: str, *, key: bool = False) -> dict:
 
 
 def countdown(number: int, plain: str) -> dict:
-    return {"screen": "countdown", "number": number, "plain": plain}
+    return {"screen": "countdown", "sound": "count", "number": number, "plain": plain}
 
 
 def flash() -> dict:
-    return {"screen": "flash", "plain": "\n\n        * KLICK *"}
+    return {"screen": "flash", "sound": "shutter", "plain": "\n\n        * KLICK *"}
 
 
 def _place(label: str | None) -> tuple[str, str]:
@@ -270,7 +270,7 @@ def live_moment(label: str | None, plain: str) -> dict:
 
 
 def strip(image: str, code: str | None) -> dict:
-    return {"screen": "strip", "image": image, "code": code, "plain": ""}
+    return {"screen": "strip", "sound": "ready", "image": image, "code": code, "plain": ""}
 
 
 def done(code: str | None, pool_until: str | None, plain: str, seconds: int = 10) -> dict:
