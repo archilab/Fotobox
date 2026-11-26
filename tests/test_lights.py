@@ -6,6 +6,7 @@ from pathlib import Path
 from photobox_client import views
 from photobox_client.kiosk import ENTER, Kiosk
 from photobox_client.lights import (
+    FADING,
     BLUE,
     CYAN,
     DARK,
@@ -15,7 +16,10 @@ from photobox_client.lights import (
     SCREEN_LIGHTS,
     VIOLET,
     WHITE,
+    LgpioOutput,
     Lights,
+    default_output,
+    fade_level,
     light_for,
     open_lights,
 )
@@ -205,3 +209,133 @@ def test_the_kiosk_lets_the_lights_go_dark_when_systemd_stops_it():
     source = (Path(__file__).parent.parent / "src" / "photobox_client" / "kiosk.py").read_text()
     assert "for stop in (signal.SIGTERM, signal.SIGHUP):" in source and "signal.signal(stop, lambda *_args: sys.exit(0))" in source
     assert "atexit.register(lights.stop)" in source
+
+
+# Dimming and fading (ADR-044)
+
+class Dimming(Output):
+    dims = True
+
+
+def test_violet_is_the_mix_the_owner_picked():
+    assert VIOLET == (0.25, 0.0, 1.0)  # mix 3 of 4 at newbox: red at a quarter, blue full
+
+
+def test_waiting_making_done_and_resting_fade_and_the_invitation_blinks():
+    assert FADING == {"press", "making", "done", "done_live", "rest", "rest_live"}
+    assert "invite" not in FADING and PATTERNS["invite"][2] > 0
+    assert sum(PATTERNS["press"][1:]) == 1.6  # in step with the round button's pulse on screen (ui.css press-me)
+    assert "press-me 1.6s" in (Path(__file__).parent.parent / "src" / "photobox_client" / "ui" / "ui.css").read_text()
+
+
+def test_a_fade_goes_from_dark_to_full_and_back():
+    assert fade_level(0, 2) == 0 and abs(fade_level(1, 2) - 1) < 1e-9 and fade_level(2, 2) < 1e-9
+    assert 0 < fade_level(0.5, 2) < 0.5  # squared: slow out of the dark, so it looks even
+
+
+def test_a_dimming_output_fades_between_levels():
+    output = Dimming()
+    lights = Lights(output).start()
+    try:
+        lights.show("making")  # blue, 2 s cycle
+        assert until(lambda: any(0.2 < c[2] < 0.8 for c in output.seen()), 1.5)
+        assert all(c[0] == 0 and c[1] == 0 for c in output.seen())
+    finally:
+        lights.stop()
+
+
+def test_without_dimming_a_fade_blinks():
+    output = Output()  # like gpiod: on or off
+    lights = Lights(output).start()
+    try:
+        lights.show("press")
+        assert until(lambda: GREEN in output.seen() and DARK in output.seen()[output.seen().index(GREEN):], 2.5)
+        assert all(c in (GREEN, DARK) for c in output.seen())
+    finally:
+        lights.stop()
+
+
+class FakeLgpio:
+    class error(Exception):
+        pass
+
+    def __init__(self, busy=()):
+        self.calls, self.busy = [], set(busy)
+
+    def gpiochip_open(self, number):
+        self.calls.append(("open", number))
+        return 7
+
+    def gpio_claim_output(self, handle, line, level):
+        if line in self.busy:
+            raise self.error("GPIO busy")
+        self.calls.append(("claim", line, level))
+
+    def tx_pwm(self, handle, line, frequency, duty):
+        self.calls.append(("pwm", line, duty) if frequency else ("pwm", line, 0, 0))
+
+    def gpio_write(self, handle, line, level):
+        self.calls.append(("write", line, level))
+
+    def gpio_free(self, handle, line):
+        self.calls.append(("free", line))
+
+    def gpiochip_close(self, handle):
+        self.calls.append(("close",))
+
+
+def test_lgpio_output_sets_duty_cycles_and_only_changes():
+    fake = FakeLgpio()
+    output = LgpioOutput((18, 23, 24), lgpio=fake)
+    assert fake.calls[0] == ("open", 0) and [c for c in fake.calls if c[0] == "claim"] == [("claim", 18, 0), ("claim", 23, 0), ("claim", 24, 0)]
+    fake.calls.clear()
+    output.set(VIOLET)
+    assert fake.calls == [("pwm", 18, 25.0), ("write", 24, 1)]  # only the quarter needs PWM; green was already dark
+    fake.calls.clear()
+    output.set(VIOLET)
+    assert fake.calls == []  # a steady light is not restarted
+    output.set(GREEN)
+    assert fake.calls == [("pwm", 18, 0, 0), ("write", 18, 0), ("write", 23, 1), ("write", 24, 0)]  # PWM stopped first
+    output.close()
+    assert fake.calls[-1] == ("close",) and ("free", 24) in fake.calls and ("write", 23, 0) in fake.calls
+
+
+def test_a_busy_line_closes_the_chip_again():
+    fake = FakeLgpio(busy={23})
+    try:
+        LgpioOutput((18, 23, 24), lgpio=fake)
+    except FakeLgpio.error:
+        pass
+    assert fake.calls[-1] == ("close",)
+
+
+def test_without_lgpio_the_lights_use_gpiod(monkeypatch):
+    import sys
+    from photobox_client import lights
+    monkeypatch.setitem(sys.modules, "lgpio", None)
+    made = []
+    monkeypatch.setattr(lights, "GpiodOutput", lambda lines: made.append(lines) or Output())
+    default_output((18, 23, 24))
+    assert made == [(18, 23, 24)]
+
+
+def test_a_failing_dimming_output_does_not_stop_the_lights():
+    class Flaky(Dimming):
+        def __init__(self):
+            super().__init__()
+            self.failed = False
+
+        def set(self, colour):
+            if not self.failed:
+                self.failed = True
+                raise FakeLgpio.error("bad")  # lgpio's own error, not an OSError
+            super().set(colour)
+
+    output = Flaky()
+    lights = Lights(output).start()
+    try:
+        lights.show("error")
+        assert until(lambda: output.seen()[-1:] == [RED], 2.5)
+    finally:
+        lights.stop()
+

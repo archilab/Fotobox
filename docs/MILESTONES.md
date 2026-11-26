@@ -116,6 +116,7 @@ Each milestone stops for the owner's review. Off by default.
 - [x] **B1** Wiring measured on the box: button on GPIO25 to ground, red, green and blue on GPIO18, 23 and 24 lit when high
 - [x] **B2** Button works like ENTER while serving visitors, screens name it, the notice's last-page rule applies, one press per push. Real visit on 2026-11-24
 - [x] **B3** Status lights follow the booth, in the owner's colours, dark when the kiosk stops. Watched through a real visit on 2026-11-24
+- [x] **B5** Lights fade with the system's lgpio and violet is mixed as picked at newbox (ADR-044)
 - [ ] **B4** Setup menu test for button and lights, button and lights on the dashboard, stuck button under "Needs attention"
 
 ## Invitations to a shared strip (ADR-037)

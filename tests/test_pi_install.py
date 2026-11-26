@@ -202,3 +202,23 @@ def test_wrapper_needs_an_address(tmp_path):
     assert wrapper(tmp_path)[0].returncode == 2
     (tmp_path / "second").mkdir()
     assert wrapper(tmp_path / "second", "--reboot")[0].returncode == 2
+
+
+def test_the_systems_lgpio_is_linked_into_the_environment(pi, tmp_path):
+    """The lights dim with Raspberry Pi OS's python3-lgpio (ADR-044); PyPI has no usable lgpio."""
+    system = tmp_path / "dist-packages"
+    system.mkdir()
+    (system / "lgpio.py").write_text("# lgpio")
+    (system / "_lgpio.cpython-313-aarch64-linux-gnu.so").write_text("binary")
+    result = pi.run(LGPIO_SYSTEM_PACKAGES=str(system))
+    assert result.returncode == 0, result.stderr
+    assert "python3-lgpio" in pi.calls()
+    linked = {path.name: path.resolve() for path in (pi.repository / ".venv" / "lib").glob("python3.*/site-packages/*lgpio*")}
+    assert linked == {"lgpio.py": system / "lgpio.py",
+                      "_lgpio.cpython-313-aarch64-linux-gnu.so": system / "_lgpio.cpython-313-aarch64-linux-gnu.so"}
+
+
+def test_a_system_without_lgpio_still_installs(pi, tmp_path):
+    result = pi.run(LGPIO_SYSTEM_PACKAGES=str(tmp_path / "missing"))
+    assert result.returncode == 0, result.stderr
+

@@ -205,17 +205,19 @@ To use it, set the button's GPIO number in the box's settings, `PHOTOBOX_BUTTON=
 |---|---|
 | green | ready for the next visitor |
 | violet | ready, while someone is live at another booth |
-| green, a short flash every 3 s | resting: nobody has pressed for 5 minutes; violet while someone is live at another booth |
+| green, breathing slowly (4 s) | resting: nobody has pressed for 5 minutes; violet while someone is live at another booth |
 | violet, blinking fast | another booth invites this one to a shared strip; the screen counts down |
-| green, blinking fast | waiting for a press, such as agreeing |
+| green, pulsing with the button on screen | waiting for a press, such as agreeing |
 | white | countdown and photo |
-| blue, blinking slowly | the strip is being made |
+| blue, pulsing slowly | the strip is being made |
 | violet | paired with someone at another booth while the strip is made |
 | cyan | printing |
-| green, blinking slowly | done; the strip or the code is on the screen |
-| violet, blinking slowly | the same after a live pairing with another booth |
+| green, pulsing slowly | done; the strip or the code is on the screen |
+| violet, pulsing slowly | the same after a live pairing with another booth |
 | red | not ready, or something failed: look at the screen and the dashboard |
 | off | setup menu, or the kiosk is not running |
+
+The lights fade with the system package `python3-lgpio`, which the installer sets up (ADR-044). Without it they blink instead of fading, and violet is red and blue at full, which looks pink.
 
 ---
 

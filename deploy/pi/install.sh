@@ -100,16 +100,30 @@ build_whisper() {
     install -m 755 "$build_directory/source/build-static/bin/whisper-cli" "$SPEECH/whisper-cli"
 }
 
+# The status lights dim with the system's lgpio (ADR-044). It comes with Raspberry Pi OS as python3-lgpio and is
+# not on PyPI in a usable form, so its two files are linked into the program's environment.
+link_lgpio() {
+    system="${LGPIO_SYSTEM_PACKAGES:-/usr/lib/python3/dist-packages}"
+    version="$("$PYTHON" -c 'import sys; print(f"python{sys.version_info[0]}.{sys.version_info[1]}")')"
+    site="$REPOSITORY/.venv/lib/$version/site-packages"
+    mkdir -p "$site"
+    for file in "$system"/lgpio.py "$system"/_lgpio.cpython-*.so; do
+        [ -e "$file" ] && ln -sf "$file" "$site/"
+    done
+    return 0
+}
+
 sudo -v
 echo "== 1/5 System packages"
 sudo apt-get update
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git curl python3-venv python3-dev polkitd alsa-utils v4l-utils build-essential cmake
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git curl python3-venv python3-dev python3-lgpio polkitd alsa-utils v4l-utils build-essential cmake
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cage chromium wlr-randr
 
 echo "== 2/5 Photo booth program"
 cd "$REPOSITORY"
 [ -x "$PYTHON" ] || python3 -m venv .venv
 "$PYTHON" -m pip install --quiet -e '.[client-camera,client-gpio,client-screen]'
+link_lgpio
 
 echo "== 3/5 Voice"
 install -d -m 700 "$SPEECH"
