@@ -53,6 +53,7 @@ ESC = Nein, nur mein Streifen / No, just my strip`;
     { screen: "making", label: LABEL, clock: "02:51", remaining: "Noch etwa eine halbe Minute.", frames: { done: 3, total: 4 }, encounter: { kind: "other", de: "Dein Foto trifft jemanden, der vorhin hier war.", en: "Your photo meets someone who was here earlier." } },
     { screen: "strip", image: STRIP, code: CODE },
     { screen: "done", label: LABEL, code: CODE, pool: "09.11. 17:42", seconds: 10, live: true, place: "Essen" },
+    { screen: "resting", name: "Multisensory in Dialogue and Artistic Practice", cooperation: { de: "Ein Kooperationsprojekt der Universität der Künste Berlin und der Folkwang Universität der Künste", en: "A cooperation of the Berlin University of the Arts and Folkwang University of the Arts" }, wake: { de: "Drück den Knopf", en: "Press the button" }, live: false },
     { screen: "message", label: LABEL, de: "Abgebrochen. Es wurde kein Foto gemacht.", en: "Cancelled. No photo was taken.", key: true },
     { screen: "menu", text: "  OK  Network: FRITZ!Box 7590\n  OK  Server: 192.168.1.24:8880\n  OK  Pairing: paired\n  OK  Consent notice: ready\n\n  1  WiFi\n  2  Server address\n  3  Pair with server\n  4  Camera\n  5  Test everything\n  6  Start photo booth\n  7  Microphone (optional)\n\nESC = back" },
   ];

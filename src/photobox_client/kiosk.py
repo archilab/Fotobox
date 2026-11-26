@@ -57,6 +57,9 @@ MESSAGE_SECONDS = 10
 PRESENCE_REFRESH_SECONDS = 3
 FEED_CHECK_SECONDS = 0.2  # how often the start screen looks at the live feed
 PRESENCE_TILES = 3
+IDLE_MINUTES = 5  # the start screen rests after this long without a press (ADR-041)
+REST_REFRESH_SECONDS = 5  # how often the resting screen looks whether someone is live elsewhere, for the light
+RESTING = "resting"  # the detail the dashboard shows while the booth rests
 CANCELLED = "Abgebrochen. Es wurde kein Foto gemacht.\nCancelled. No photo was taken."
 START_TEXT = "Druecke ENTER zum Starten.\nPress ENTER to start."
 PRINTING = "Dein Fotostreifen wird gedruckt.\nYour photo strip is being printed."
@@ -357,7 +360,7 @@ class Kiosk:
                  heartbeat: Callable[[], None] = lambda: None, on_camera_error: Callable[[], None] = lambda: None,
                  printer: Callable[[], UsbPrinter | None] = lambda: None,
                  on_print: Callable[[str], None] = lambda _state: None, button: bool = False,
-                 light: Callable[[str | None], None] = lambda _name: None) -> None:
+                 light: Callable[[str | None], None] = lambda _name: None, idle_seconds: float = 0) -> None:
         self.api, self.camera, self.screen, self.keys, self.report = api, camera, screen, keys, report
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
@@ -371,6 +374,7 @@ class Kiosk:
         self.light = light  # the status lights follow the screens (ADR-036)
         self.live_visit = False  # this visitor was paired live with someone at another booth
         self.label: str | None = None
+        self.idle_seconds = idle_seconds  # 0: the booth never rests (ADR-041)
 
     def present(self, state: dict, light: str | None = None) -> None:
         """Show a screen. Every screen carries the box's name and whether this is a test.
@@ -394,12 +398,18 @@ class Kiosk:
         self.ask(views.message(text, key=True), {ENTER}, MESSAGE_SECONDS, light)
 
     def start_screen(self) -> str:
-        """Wait for ENTER or the setup keys, refreshing what is happening at the other boxes."""
+        """Wait for ENTER or the setup keys, refreshing what is happening at the other boxes.
+
+        After `idle_seconds` on this screen without a press, the booth rests (ADR-041): it shows the resting
+        screen, the camera stops looking, and only a press brings the start screen back. That press is never
+        consent; agreeing still takes its own press on the notice.
+        """
         self.keys.flush()
         # Only here, never during a visit, and the camera is free again before anything else happens (ADR-029).
         if self.detector is not None:
             self.detector.resume()
         shown_version = None
+        since = self.clock()
         try:
             while True:
                 self.heartbeat()
@@ -415,12 +425,50 @@ class Kiosk:
                         snapshot, presence = None, ""  # the start screen works without it
                     self.present(views.start(snapshot, "FOTOBOX\n\n" + (presence + "\n\n" if presence else "") + START_TEXT, detecting=self.detector is not None))
                     shown_version = version if live else None
-                key = self.keys.wait({ENTER, SETUP}, FEED_CHECK_SECONDS if live else PRESENCE_REFRESH_SECONDS)
+                    if views.invitation_seconds(snapshot):
+                        since = self.clock()  # never rest while another booth invites this one
+                timeout = FEED_CHECK_SECONDS if live else PRESENCE_REFRESH_SECONDS
+                if self.idle_seconds:
+                    left = self.idle_seconds - (self.clock() - since)
+                    if left <= 0:
+                        if self.rest() == SETUP:
+                            return SETUP
+                        self.keys.flush()
+                        shown_version, since = None, self.clock()
+                        continue
+                    timeout = min(timeout, left)
+                key = self.keys.wait({ENTER, SETUP}, timeout)
                 if key is not None:
                     return key
         finally:
             if self.detector is not None:
                 self.detector.pause()
+
+    def rest(self) -> str:
+        """The resting screen, until a press (ENTER or the button) or the setup keys. Returns which."""
+        if self.detector is not None:
+            self.detector.pause()  # the resting screen does not say that the camera looks, so it must not
+        self.report("idle", RESTING)
+        shown = None
+        try:
+            while True:
+                self.heartbeat()
+                try:
+                    snapshot = self.feed.latest()[1] if self.feed is not None and self.feed.connected else self.api.presence()
+                except (httpx.HTTPError, ValueError, KeyError, TypeError):
+                    snapshot = None
+                state = views.resting(views.someone_live(snapshot))
+                if state != shown:
+                    self.keys.flush()
+                    self.present(state)
+                    shown = state
+                key = self.keys.wait({ENTER, SETUP}, REST_REFRESH_SECONDS)
+                if key is not None:
+                    return key
+        finally:
+            self.report("idle")
+            if self.detector is not None:
+                self.detector.resume()
 
     def run_once(self) -> str:
         """One participant from start to finish. Returns how it ended."""
@@ -757,7 +805,8 @@ def main(argv: list[str] | None = None) -> None:
                               test_mode=bool(args.test_image), display=display, strip_seconds=args.strip_seconds, report=report,
                               make_conversation=conversation, detector=detector, feed=feed, heartbeat=heartbeat.beat,
                               on_camera_error=lambda camera_name=settings.camera: camera_trouble(camera_name),
-                              printer=find_printer, on_print=printed, button=button is not None, light=light)
+                              printer=find_printer, on_print=printed, button=button is not None, light=light,
+                              idle_seconds=settings.idle_minutes * 60)
                 outcome = serve(kiosk, button)
                 feed.stop()
                 if person_reporter is not None:

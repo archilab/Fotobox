@@ -100,6 +100,27 @@ def _without_key_lines(text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not KEY_LINE.match(line)).strip()
 
 
+# The resting screen (ADR-041): the project behind the booth. The partner logos and the funding notice are
+# not shown yet: their files and wording have to come from the project, and nothing stands in their place.
+PROJECT_NAME = "Multisensory in Dialogue and Artistic Practice"
+COOPERATION = {"de": "Ein Kooperationsprojekt der Universität der Künste Berlin und der Folkwang Universität der Künste",
+               "en": "A cooperation of the Berlin University of the Arts and Folkwang University of the Arts"}
+_PLAIN = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ü": "Ue", "ß": "ss"})  # for the text screen
+WAKE = {"de": "Drück den Knopf", "en": "Press the button"}
+
+
+def someone_live(snapshot: dict | None) -> bool:
+    """The server reports someone live at another booth, as the start screen's light shows (ADR-036)."""
+    return ((snapshot or {}).get("message") or {}).get("key") in LIVE_KEYS
+
+
+def resting(live: bool = False) -> dict:
+    """`live` only changes the light: violet while someone is live at another booth."""
+    plain = (f"MIDAP\n{PROJECT_NAME}\n\n{COOPERATION['de']}\n{COOPERATION['en']}\n\n"
+             f"ENTER = Aufwecken / Wake up").translate(_PLAIN)
+    return {"screen": "resting", "name": PROJECT_NAME, "cooperation": dict(COOPERATION), "wake": dict(WAKE), "live": live, "plain": plain}
+
+
 def consent(text: str, pool_question: dict | None = None, seconds: int = 45) -> dict:
     """The one question a visitor answers, with one key: the notice and, if offered, the pool (ADR-030).
 

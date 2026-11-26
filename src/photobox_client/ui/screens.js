@@ -404,6 +404,17 @@
         s.camera_note && el("div", "camera-note", el("span", "", s.camera_note.de), el("span", "en", s.camera_note.en)),
         midap())),
 
+    // The booth rests after a while without a press (ADR-041): the project behind it, and one press to wake it.
+    resting: (s) => screen("resting",
+      el("div", "rest-body",
+        svg("svg", { class: "rest-mark", viewBox: "-1 -1 23 20", "aria-hidden": "true" }, svg("path", { d: MIDAP_MARK })),
+        el("div", "",
+          el("p", "rest-midap", "MIDAP"),
+          el("p", "rest-name", s.name),
+          el("p", "rest-cooperation", s.cooperation.de),
+          el("p", "rest-cooperation-en en", s.cooperation.en))),
+      press(s.wake.de, s.wake.en)),
+
     // Another booth invites this one to a shared strip (ADR-037): the seconds are counted down here.
     invite: (s) => {
       const number = el("div", "invite-number", s.seconds);

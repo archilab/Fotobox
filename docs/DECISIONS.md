@@ -316,3 +316,15 @@ Checked at 1280 x 800 on all sixteen prototype screens, by eye and by measuring 
 - **Per screen:** start: one sentence, the lines labelled with place names only, the camera note as one short line (required by ADR-029 while the camera looks), MIDAP's mark with "MIDAP". Invitation: "<Place> wartet auf dich." Consent: the operator's full notice, unchanged; the pool's end time is in the pool sentence, so the separate date block is gone. Countdown: the number only. Code screen: "Fertig!", the code, one line saying what it is for, the pool line if it applies. No arrows for camera or printer.
 - **Lines, from the review:** every line carries loops of its own, including in the live weave; loops are entered from the side the line comes from and left towards where it goes, so no stroke runs through a loop; place names sit above a straight start of their line; our line passes over the other place's with a gap only at real crossings, found on the drawn paths.
 
+## ADR-041: The booth rests after five minutes without a press
+**Decided by the project owner on 2026-11-26.** A booth that nobody uses shows the project behind it instead of the start screen.
+
+- **When.** After 5 minutes on the start screen without a press, the booth shows the resting screen. Never during an invitation from another booth: the time starts again while one is shown. `PHOTOBOX_IDLE_MINUTES` in `~/.photobox-kiosk.env` sets the minutes; 0 turns resting off. The setup menu keeps the value when it saves.
+- **What wakes it.** Only a press, on the button or ENTER: it brings the start screen back and is never consent, because agreeing still takes its own press on the notice. The setup keys still open the setup menu. Invitations from other booths are not shown while resting.
+- **The camera does not look while resting.** With person detection switched on (ADR-029), the camera stops looking on the resting screen, because that screen does not carry the note that it looks; it looks again once the start screen is back.
+- **The screen.** MIDAP's mark, "MIDAP", its full name, and the cooperation of the Universität der Künste Berlin and the Folkwang Universität der Künste, in German with the English below; the round button with "Drück den Knopf". Nothing moves on it. **Not shown yet:** the partners' logos and the funding notice, whose files and wording have to come from the project; nothing stands in their place.
+- **Light.** A short green flash every 3 s, violet while someone is live at another booth. The light's pins can only be on or off, so it flashes rather than fades.
+- **Reported** to the dashboard as `idle` with the detail `resting`, so a server that does not know resting still accepts the report, and the booth counts as idle for restarts.
+
+**Planned, not built yet:** the QR code for midap.space on the resting screen, drawn on the booth with the library `segno` from an address the operator can set (I2); idle booths left out of invitations, so nobody waits 20 s for a booth that will not show them (I3).
+

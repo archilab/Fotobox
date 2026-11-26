@@ -124,6 +124,11 @@ Each milestone stops for the owner's review. Off by default.
 - [x] **J3** Two booths together on 2026-11-25: two kiosks on the Mac, then the real `newbox` against a Mac kiosk in both directions, shared strips printed. Two real Pis still open
 - [x] **J4** Switched on at the Studio on 2026-11-25 with a consent notice, approved by the owner, that covers live pairing
 
+## Resting screen (ADR-041)
+- [x] **I1** After 5 minutes without a press the booth rests: MIDAP and the cooperation on screen, a short green flash, the camera not looking; a press brings the start screen back and is never consent. `PHOTOBOX_IDLE_MINUTES` sets the time
+- [ ] **I2** QR code for midap.space on the resting screen, drawn on the booth with `segno`; the address can be set
+- [ ] **I3** Idle booths left out of invitations; resting shown on the dashboard; deployed to `newbox`
+
 ## Unattended running (ADR-032)
 - [x] Pi: starts at boot, recovers from a frozen browser, kiosk or system, restarts nightly, reports its health to the dashboard
 - [ ] Mac: recovery after a power cut, stable address, disk guard (later phase)

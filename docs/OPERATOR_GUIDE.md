@@ -187,6 +187,12 @@ If one of the two cancels or deletes their pictures before the strip is done, th
 
 ---
 
+## The resting screen
+
+After 5 minutes on the start screen without a press, the booth rests (ADR-041): it shows MIDAP and the cooperation of UdK Berlin and Folkwang, and the camera stops looking. A press, on the button or ENTER, brings the start screen back; it does not start a visit. While resting, the booth does not show invitations from other booths. The dashboard shows it as idle, "resting".
+
+To change the time, set `PHOTOBOX_IDLE_MINUTES` in `~/.photobox-kiosk.env`, such as `PHOTOBOX_IDLE_MINUTES=10`, and restart the kiosk; `0` turns resting off.
+
 ## The push button
 
 A box can have a push button that works like ENTER while visitors use it: to start, to agree, for more time and to talk (ADR-036). Every screen then names the button as KNOPF. On a notice of several pages the button turns the page until the last one has been shown, and only then agrees. The keyboard keeps working, and the setup menu needs the keyboard.
@@ -199,6 +205,7 @@ To use it, set the button's GPIO number in the box's settings, `PHOTOBOX_BUTTON=
 |---|---|
 | green | ready for the next visitor |
 | violet | ready, while someone is live at another booth |
+| green, a short flash every 3 s | resting: nobody has pressed for 5 minutes; violet while someone is live at another booth |
 | violet, blinking fast | another booth invites this one to a shared strip; the screen counts down |
 | green, blinking fast | waiting for a press, such as agreeing |
 | white | countdown and photo |

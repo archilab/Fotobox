@@ -27,6 +27,8 @@ PATTERNS: dict[str, tuple[tuple[bool, bool, bool], float, float]] = {
     "printing": (CYAN, 1, 0),
     "done": (GREEN, SLOW, SLOW),       # the strip and the withdrawal code
     "done_live": (VIOLET, SLOW, SLOW), # the same after a live pairing with another booth
+    "rest": (GREEN, 0.3, 2.7),         # the resting screen: a short flash every 3 s (ADR-041)
+    "rest_live": (VIOLET, 0.3, 2.7),   # the same while someone is live at another booth
     "error": (RED, 1, 0),              # not ready, or something failed
     "off": (DARK, 1, 0),               # the setup menu, and when the kiosk stops
 }
@@ -46,6 +48,8 @@ def light_for(state: dict, live_visit: bool = False) -> str | None:
         return "live"
     if screen == "start" and (state.get("badge") or {}).get("kind") == "live":
         return "ready_live"  # the server reports someone live at another booth
+    if screen == "resting":
+        return "rest_live" if state.get("live") else "rest"
     name = SCREEN_LIGHTS.get(screen)
     return "done_live" if name == "done" and live_visit else name
 

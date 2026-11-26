@@ -143,6 +143,15 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 .midap b { display: block; font-size: 38px; font-weight: 750; letter-spacing: .2em; }
 .camera-note { position: absolute; right: var(--margin); bottom: var(--margin); text-align: right; font-size: 38px; line-height: 1.3; font-weight: 500; }
 
+/* Resting (ADR-041): calm, the mark large, nothing moving but the light on the button */
+.rest-body { display: flex; align-items: center; gap: 120px; height: 100%; }
+.rest-mark { width: 420px; height: 365px; flex-shrink: 0; }
+.rest-mark path { fill: none; stroke: var(--fg); stroke-width: .8; stroke-linecap: round; }
+.rest-midap { font-size: 128px; font-weight: 750; letter-spacing: .14em; line-height: 1; }
+.rest-name { font-size: 58px; font-weight: 500; line-height: 1.14; margin-top: 28px; }
+.rest-cooperation { font-size: 48px; font-weight: 500; line-height: 1.24; margin-top: 88px; max-width: 30ch; text-wrap: balance; }
+.rest-cooperation-en { font-size: 38px; line-height: 1.28; margin-top: 14px; max-width: 36ch; text-wrap: balance; }
+
 .test-mode { position: absolute; right: var(--margin); bottom: 52px; font-size: 30px; font-weight: 700; letter-spacing: .14em; color: var(--bg); background: var(--fg); padding: 6px 16px; border-radius: 6px; }
 
 @media (prefers-reduced-motion: reduce) { .screen, .number, .live-word, .press.pulse .cap { animation: none; } }
