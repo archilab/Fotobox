@@ -112,6 +112,11 @@ Each milestone stops for the owner's review. Off by default.
 - [x] **D3** `person_nearby` on the server, sent to the other boxes in real time. Measured over HTTP on 2026-11-08: about 0.2 s; not yet on real boxes
 - [x] **D4** Start screen wording, detection area and calibration at the box, activity on the dashboard. Switched on at the Pi on 2026-11-08 and reports reached the server; not yet watched on a second real box
 
+## Distance sensor (ADR-046)
+- [x] **T1** VL53L0X found on newbox's I2C bus (bus 1, address 0x29); driver ported from Pololu's library, distances read on newbox
+- [x] **T2** `PHOTOBOX_PERSON_SENSOR=tof` and `PHOTOBOX_TOF_RANGE_MM`, the kiosk and setup menu use the sensor instead of the camera, tests with a fake bus
+- [x] **T3** Range checked with the owner at newbox on 2026-11-26 and newbox switched to the sensor; arriving and leaving reached the Studio from the start screen, and detection pauses while the booth rests
+
 ## Push button and status lights (ADR-036)
 - [x] **B1** Wiring measured on the box: button on GPIO25 to ground, red, green and blue on GPIO18, 23 and 24 lit when high
 - [x] **B2** Button works like ENTER while serving visitors, screens name it, the notice's last-page rule applies, one press per push. Real visit on 2026-11-24

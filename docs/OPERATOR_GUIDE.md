@@ -225,6 +225,11 @@ The lights fade with the system package `python3-lgpio`, which the installer set
 
 ---
 
+## The distance sensor
+A booth with a VL53L0X distance sensor on its I2C bus can notice people without the camera (ADR-046). Switch it on in the setup menu under person detection, "On, distance sensor", or set `PHOTOBOX_PERSON_DETECTION=true` and `PHOTOBOX_PERSON_SENSOR=tof` in `~/.photobox-kiosk.env` and restart the kiosk. Someone counts as there when they stand closer than `PHOTOBOX_TOF_RANGE_MM` (1200 by default) for half a second, and as gone 5 s after they step away.
+
+To set the range, stop the kiosk (the two must not read the sensor at once) and run `~/photobox/.venv/bin/python -m photobox_client.tof test` at the booth: it prints the distance five times a second and whether it counts as someone there. Stand where a visitor stands, then where people walk past; choose a range between the two. The sensor needs I2C switched on (`sudo raspi-config`, Interface Options, I2C) and `smbus2` in the program's environment (the `client-gpio` extra).
+
 ## Printing strips
 
 A booth with a USB receipt printer can print the strip instead of showing it on the screen (ADR-035). Tested with a Netum NT-H861 on 80 mm paper, which reports itself as an Epson TM-m30II; printers that understand the same ESC/POS commands should work too.
@@ -250,7 +255,7 @@ Other booths' start screens name the place where something is happening, such as
 What the start screen says is always based on what really happened:
 - A booth that is only switched on is shown as **online**, never as someone being there.
 - **LIVE** appears only after a visitor has agreed to the consent notice, and ends when that booth returns to its start screen.
-- **JEMAND DA / NEARBY** appears only if you switched on person detection at that booth, and means its camera seems to see someone. It can be wrong and never counts as LIVE.
+- **JEMAND DA / NEARBY** appears only if you switched on person detection at that booth, and means its camera, or its distance sensor (ADR-046), seems to see someone. It can be wrong and never counts as LIVE.
 - **RECENT** lasts 3 minutes after a photo.
 - The start screen's "MEET A STRANGER" with the EARLIER label (formerly "Someone left a photo for you") appears only while a visitor's shared pool photo exists, never for your seed images.
 

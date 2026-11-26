@@ -373,3 +373,12 @@ Tested live on 2026-11-26 with the real `newbox` and a test booth on the Mac aga
 - **Not switched on yet:** the sign and the consent notice paragraph are drafted in `video-link-sign.example.txt` for the owner's approval.
 - **Hardware:** each box needs a speaker; newbox has the BRIO's microphone, but its sound goes out over HDMI only.
 
+## ADR-046: A distance sensor can notice people instead of the camera
+**Decided by the project owner on 2026-11-26**, after fitting an ST VL53L0X time-of-flight sensor to newbox: it notices whether someone stands in front of the booth without looking at anyone, and replaces the camera's person detection (ADR-029) where it is fitted.
+
+- **What it sees:** one distance in millimetres, from a single infrared spot, about 25 degrees wide; no picture. Nothing is stored; as with the camera, only whether someone seems to be there leaves the Pi (`person.arrived`, `person.left`), and other boxes may show "JEMAND DA" with this box's public name.
+- **Switch:** `PHOTOBOX_PERSON_DETECTION=true` as before, with `PHOTOBOX_PERSON_SENSOR=tof` (default `camera`) and `PHOTOBOX_TOF_RANGE_MM` (default 1200, from 100 to 2000), or "On, distance sensor" in the setup menu, offered when the I2C bus is on. The start screen leaves out its camera note with the sensor, because no camera looks. The sensor also works while a test image stands in for the camera.
+- **Driver:** `photobox_client/tof.py`, a port of Pololu's VL53L0X library for Arduino (MIT licence), which follows ST's API: start-up, ST's tuning settings, reference SPAD and temperature calibration, then single measurements, five a second. Only a reading the sensor marks as valid (range status 11) counts; anything else is "nothing". The bus is read with `smbus2` (MIT, pure Python), added to the `client-gpio` extra. `python -m photobox_client.tof test` prints distances for setting the range; nothing is kept.
+- **Smoothing:** someone counts as there after 0.5 s within the range and as gone after 5 s beyond it. At newbox the sensor lost someone standing there for up to 2.8 s, so 3 s was too short.
+- **Range at newbox (2026-11-26):** nothing in front reads "nothing"; the owner standing in front of the booth read 34 to 99 cm; standing where people walk past read "nothing", beyond the sensor's reach of about 1.2 m. The default 1200 mm is kept.
+- **Failures** only mean no signal: the detector reports no one and tries again every 10 s, and the booth works as usual.
