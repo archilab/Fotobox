@@ -337,3 +337,13 @@ Checked at 1280 x 800 on all sixteen prototype screens, by eye and by measuring 
 - **Headline.** While an earlier visitor's pool photo is available (P4, `earlier_portrait`), the start screen's headline is the booth's name, "MEET A STRANGER", in both languages, instead of "Jemand hat ein Foto für dich dagelassen." The EARLIER badge and the supporting line still say what is on offer. The header bar then leaves out the name, so it is not shown twice.
 - **Fixed on the way:** with person detection on, the camera note on the start screen overlapped MIDAP's mark; it now sits in the same right-hand column above the mark.
 
+## ADR-043: One signature colour for a live encounter
+**Decided by the project owner on 2026-11-26.** This changes ADR-039's "no colour": one colour now marks a direct interaction, sparingly.
+
+- **Colour:** violet, `#a78bff` (`--live` in `ui.css`), 7.8:1 on black. It is the meaning the button's violet light already has, so the screen and the light say "live with another booth" together.
+- **When:** only while two visitors are paired live: the LIVE moment, the strip being made together, talking (listening and converting), and the code screen after a shared strip. Not for invitations, not for someone waiting or live at another booth on the start screen, not on the resting screen. The screen code decides this in one place (`connected()` in `screens.js`) and marks the screen `live`; every use of the colour sits under that mark.
+- **What:** only what belongs to the pair: the other person's line in the weave and the knot (our own line stays white), the word LIVE, a message from the other visitor and its sender's place, and the round button while talking (track and centre). Headlines, the code, the time and every other button stay white.
+- **Never alone:** the colour adds to words and lines that already say it; nothing is told by colour only.
+
+Checked at 1280 x 800 on the LIVE moment, the strip made together with a message, listening, the code after a shared strip, and the invitation, which stays white and grey. A test runs the screen's own rule in Node for eleven states.
+

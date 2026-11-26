@@ -7,6 +7,7 @@ colors:
   other-place-grey: "#9a9aa0"
   track-graphite: "#2e2e33"
   light-screen-grey: "#555555"
+  live-violet: "#a78bff"
 typography:
   numeral:
     fontFamily: "Inter, sans-serif"
@@ -122,7 +123,7 @@ The screen refuses the photo-booth default of a camera frame, stickers and a big
 
 ## Colors
 
-A strict black-and-white system with one cool grey that means "elsewhere" or "secondary" and one dark graphite for tracks.
+A strict black-and-white system with one cool grey that means "elsewhere" or "secondary", one dark graphite for tracks, and one signature colour that appears only while two visitors are paired live.
 
 ### Primary
 - **Signal White** (#ffffff): all primary text, this booth's line, the button's cap and its emptying ring, the filled part of a meter, and the entire screen during countdown and flash.
@@ -133,10 +134,13 @@ A strict black-and-white system with one cool grey that means "elsewhere" or "se
 - **Track Graphite** (#2e2e33): the button's track ring, the empty part of a meter, the rule beside the encounter panel. Never used for text.
 - **Light-Screen Grey** (#555555): English secondary text on the white light screen only.
 
-### Named Rules
-**The Here-and-Elsewhere Rule.** White is this booth, grey is the other place. A line, label or mark belonging to another booth is always grey; this booth's is always white. No third hue is introduced to distinguish places; places are told apart by their name and their line's shape.
+### Signature
+- **Live Violet** (#a78bff, 7.8:1 on black): only while two visitors at two booths are paired live (ADR-043), and only on what belongs to the pair: the other person's line in the weave and the knot, the word LIVE, a message from the other visitor with its sender's place, and the round button while talking ("Sprechen", "Fertig"). The same violet the button's light shows for live. Never on invitations, on the start screen, on headlines, the code or any other button.
 
-**The Word-Not-Colour Rule.** State is said in words, by symbol, or by the line and the ring, never by colour. There is no red, green or accent anywhere on the screen.
+### Named Rules
+**The Here-and-Elsewhere Rule.** White is this booth, grey is the other place. A line, label or mark belonging to another booth is always grey; this booth's is always white. No third hue is introduced to distinguish places; places are told apart by their name and their line's shape. The one exception is the live pair: then the other person's line is Live Violet instead of grey.
+
+**The Word-Not-Colour Rule.** State is said in words, by symbol, or by the line and the ring, never by colour alone. There is no red or green on the screen; Live Violet only adds to what words and lines already say (ADR-043).
 
 ## Typography
 

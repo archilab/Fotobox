@@ -262,7 +262,7 @@
   // The round button (ADR-040), drawn as the circle it is, in the same place on every screen, with one
   // word beside it. `pulse` while a press is expected; `ring` in seconds: the ring empties as time runs out.
   function press(de, en, options = {}) {
-    return el("div", "press action slot" + (options.pulse ? " pulse" : ""),
+    return el("div", "press action slot" + (options.pulse ? " pulse" : "") + (options.talk ? " talk" : ""),
       svg("svg", { class: "button", viewBox: "0 0 140 140", "aria-hidden": "true" },
         svg("circle", { class: "track", cx: 70, cy: 70, r: 63 }),
         options.ring ? svg("circle", { class: "ring", cx: 70, cy: 70, r: 63, "data-ring": options.ring }) : null,
@@ -467,7 +467,7 @@
       const side = encounter(s);
       const talk = s.encounter && s.encounter.kind === "live" && s.encounter.talk;
       return screen("", el("div", "making" + (side ? "" : " alone"), left, side),
-        talk && press(`Sprechen · bis zu ${talk} s`, "Talk", { pulse: true }));
+        talk && press(`Sprechen · bis zu ${talk} s`, "Talk", { pulse: true, talk: true }));
     },
 
     live_moment: (s) => screen("center",
@@ -479,7 +479,7 @@
       el("p", "lead", "Ich höre zu"),
       el("div", "seconds", s.seconds),
       el("div", "meter", (() => { const bar = el("i"); bar.style.width = (100 * s.seconds / s.limit) + "%"; return bar; })()),
-      press("Fertig", "Done", { pulse: true })),
+      press("Fertig", "Done", { pulse: true, talk: true })),
 
     converting: () => screen("listen", el("h1", "hero", "Deine Stimme wird zu Text")),
 
@@ -510,12 +510,21 @@
     menu: (s) => screen("", el("div", "menu", s.text)),
   };
 
+  // Two visitors are paired live with each other right now (ADR-043). Invitations and someone waiting
+  // elsewhere do not count: only then does the signature colour appear, and only on what belongs to the pair.
+  function connected(state) {
+    if (state.screen === "making") return !!(state.encounter && state.encounter.kind === "live");
+    if (state.screen === "done") return !!state.live;
+    return ["live_moment", "listening", "converting"].includes(state.screen);
+  }
+
   let current = null;
   let currentName = null;
 
   function render(stage, state) {
     buttonLabel = state.button ? "KNOPF" : null;
     const node = views[state.screen](state);
+    if (connected(state)) node.classList.add("live");  // the signature colour, only while paired (ADR-043)
     if (state.test_mode) node.append(el("div", "test-mode", "TESTMODUS · KEINE KAMERA"));
     if (state.screen === currentName) node.classList.add("instant");  // a redraw of the same screen must not flicker
     currentName = state.screen;

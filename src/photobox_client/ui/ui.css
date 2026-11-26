@@ -8,7 +8,8 @@
   font-weight: 100 900;
   font-display: block;
 }
-:root { --bg: #000; --fg: #fff; --muted: #9a9aa0; --line: #2e2e33; --panel: #141416; --margin: 112px; }
+:root { --bg: #000; --fg: #fff; --muted: #9a9aa0; --line: #2e2e33; --panel: #141416; --margin: 112px;
+  --live: #a78bff; /* the signature colour (ADR-043): only under .screen.live, on what belongs to the pair */ }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100%; height: 100%; background: var(--bg); overflow: hidden; cursor: none; }
 body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothing: antialiased; font-feature-settings: "ss02", "cv05", "zero"; }
@@ -164,5 +165,12 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 .logo-udk { width: 720px; }
 
 .test-mode { position: absolute; right: var(--margin); bottom: 52px; font-size: 30px; font-weight: 700; letter-spacing: .14em; color: var(--bg); background: var(--fg); padding: 6px 16px; border-radius: 6px; }
+
+/* Live with someone at another booth (ADR-043): their line, the word LIVE, their message and the talk button. */
+.screen.live .lines .theirs { stroke: var(--live); }
+.screen.live .live-word { color: var(--live); }
+.screen.live .said b, .screen.live .said span { color: var(--live); }
+.screen.live .press.talk .track { stroke: var(--live); }
+.screen.live .press.talk .cap { fill: var(--live); }
 
 @media (prefers-reduced-motion: reduce) { .screen, .number, .live-word, .press.pulse .cap { animation: none; } }

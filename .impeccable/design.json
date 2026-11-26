@@ -78,6 +78,21 @@
           "#b0b0b0",
           "#dcdcdc"
         ]
+      },
+      "live-violet": {
+        "role": "accent",
+        "displayName": "Live Violet",
+        "canonical": "#a78bff",
+        "tonalRamp": [
+          "#1d1533",
+          "#2f2257",
+          "#45337f",
+          "#5d46a8",
+          "#7a60d1",
+          "#a78bff",
+          "#c6b4ff",
+          "#e6deff"
+        ]
       }
     },
     "typographyMeta": {
@@ -247,12 +262,12 @@
     "rules": [
       {
         "name": "The Here-and-Elsewhere Rule",
-        "body": "White is this booth, grey is the other place. A line, label or mark belonging to another booth is always grey; this booth's is always white. No third hue is introduced to distinguish places; places are told apart by their name and their line's shape.",
+        "body": "White is this booth, grey is the other place. A line, label or mark belonging to another booth is always grey; this booth's is always white. No third hue is introduced to distinguish places; places are told apart by their name and their line's shape. The one exception is the live pair: then the other person's line is Live Violet instead of grey.",
         "section": "colors"
       },
       {
         "name": "The Word-Not-Colour Rule",
-        "body": "State is said in words, by symbol, or by the line and the ring, never by colour. There is no red, green or accent anywhere on the screen.",
+        "body": "State is said in words, by symbol, or by the line and the ring, never by colour alone. There is no red or green on the screen; Live Violet only adds to what words and lines already say (ADR-043).",
         "section": "colors"
       },
       {
