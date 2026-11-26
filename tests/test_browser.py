@@ -115,3 +115,14 @@ def test_scripts_are_executable():
 def test_service_runs_a_login_session_with_the_fallback_script():
     unit = (PI / "photobox-kiosk.service").read_text(encoding="utf-8")
     assert "run-kiosk.sh" in unit and "PAMName=login" in unit and "TTYPath=/dev/tty1" in unit
+
+
+def test_the_kiosk_browser_can_use_camera_and_microphone_for_the_video_link():
+    """ADR-045: on newbox Chromium 156 waited forever for a PipeWire camera portal, and a prompt could never be answered."""
+    script = (PI / "start-browser.sh").read_text(encoding="utf-8")
+    assert "WebRtcPipeWireCamera,PipeWireCamera" in script
+    assert "--use-fake-ui-for-media-stream" in script and "--autoplay-policy=no-user-gesture-required" in script
+    assert "--use-fake-device-for-media-stream" not in script  # the real camera, never a fake one
+    import json
+    policy = json.loads((PI / "chromium-policy.json").read_text(encoding="utf-8"))
+    assert policy["VideoCaptureAllowedUrls"] == policy["AudioCaptureAllowedUrls"] == ["http://127.0.0.1:8765"]

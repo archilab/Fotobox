@@ -55,7 +55,7 @@ On the box `newbox`, a push button and an RGB light with series resistors are wi
 | Green | 23 | Lights when the pin is high |
 | Blue | 24 | Lights when the pin is high |
 
-`admin` is in the group `gpio`, which may use `/dev/gpiochip0`. The lights are dimmed with lgpio's software PWM (`python3-lgpio`, ADR-044); GPIO23 has no hardware PWM, so software PWM is used for all three. Measured with the system's `gpiomon`, `gpioget` and `gpioset` (libgpiod 2.2); afterwards all four pins were inputs again.
+`admin` is in the group `gpio`, which may use `/dev/gpiochip0`. Sound for the video link (ADR-045) plays through the 7-inch panel's HDMI (`vc4hdmi0`, the panel is on HDMI-A-1) and is recorded with the BRIO's microphone, set by `deploy/pi/set-audio.sh`. The lights are dimmed with lgpio's software PWM (`python3-lgpio`, ADR-044); GPIO23 has no hardware PWM, so software PWM is used for all three. Measured with the system's `gpiomon`, `gpioget` and `gpioset` (libgpiod 2.2); afterwards all four pins were inputs again.
 
 ### Tested setup (2026-11-07)
 `scripts/m1_acceptance.sh` passed once, with 20 of 20 uploads, on this setup:

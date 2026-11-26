@@ -1,0 +1,42 @@
+Entwurf zur Freigabe (ADR-045). Aushang an jeder Fotobox, bevor PHOTOBOX_VIDEO_LINK eingeschaltet wird.
+Draft for approval (ADR-045). A sign at each photo booth, before PHOTOBOX_VIDEO_LINK is switched on.
+Vor der Nutzung vervollstaendigen und pruefen lassen. Complete it and have it reviewed before use.
+
+LIVE-VIDEO ZWISCHEN FOTOBOXEN
+
+Diese Fotobox kann fuer bis zu 2 Minuten eine Live-Verbindung mit Bild und Ton
+zu einer anderen Fotobox herstellen. Sie beginnt nur, wenn an beiden Fotoboxen
+jemand am Bildschirm zustimmt, und endet mit einem Druck auf den Knopf.
+
+Wer vor der Kamera steht, auch im Hintergrund, ist dabei an der anderen
+Fotobox zu sehen und zu hoeren. Bild und Ton gehen direkt und verschluesselt
+zwischen den beiden Fotoboxen. Nichts wird aufgezeichnet oder gespeichert.
+
+Verantwortlich: TODO-OPERATOR (Name und Kontakt)
+Rechtsgrundlage und weitere Informationen: TODO-OPERATOR
+
+LIVE VIDEO BETWEEN PHOTO BOOTHS
+
+This photo booth can open a live link with picture and sound to another photo
+booth for up to 2 minutes. It starts only when someone at each booth agrees on
+the screen, and ends with one press of the button.
+
+Anyone in front of the camera, also in the background, can be seen and heard
+at the other booth. Picture and sound go directly and encrypted between the
+two booths. Nothing is recorded or stored.
+
+
+Absatz fuer die Einwilligungserklaerung (Consent notice), zur Freigabe:
+Paragraph for the consent notice, for approval:
+
+- LIVE-VIDEO: Haeltst du den Knopf am Startbildschirm 5 Sekunden lang, fragt dich
+  die Fotobox, ob du live mit jemandem an einer anderen Fotobox verbunden werden
+  moechtest. Erst wenn du und eine Person dort zustimmen, gehen Bild und Ton fuer
+  hoechstens 2 Minuten direkt zwischen den beiden Fotoboxen hin und her. Nichts
+  wird aufgezeichnet. Ein Druck beendet die Verbindung. Wer im Hintergrund steht,
+  ist mit zu sehen und zu hoeren.
+- LIVE VIDEO: If you hold the button for 5 seconds on the start screen, the booth
+  asks whether you want to be connected live with someone at another booth. Only
+  when you and a person there agree do picture and sound go directly between the
+  two booths, for at most 2 minutes. Nothing is recorded. One press ends the link.
+  People in the background can be seen and heard too.
