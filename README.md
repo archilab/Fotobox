@@ -66,6 +66,7 @@ The stories are written to be friendly between strangers: nothing romantic, no w
 | If you want to … | Read |
 |---|---|
 | Install the photo booth | [INSTALL.md](INSTALL.md) |
+| Wire a booth's button, lights, distance sensor and sound, and set the booth up | [Booth wiring](docs/BOOTH_WIRING.md) |
 | Run it day to day: dashboard, deleting a visitor's pictures, changing stories, fixing problems | [Operator guide](docs/OPERATOR_GUIDE.md) |
 | Understand how it is built, or change the code | [Developer guide](docs/DEVELOPMENT.md) and the [technical documentation](docs/README.md) |
 

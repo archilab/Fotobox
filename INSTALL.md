@@ -131,7 +131,7 @@ Two more entries are optional, and both can wait:
 - **7 Microphone** chooses the microphone for voice messages. It records nothing here.
 - **8 Person detection** lets the camera notice that someone is at the box. Put up the sign from `person-detection-sign.example.txt` first, where people see it before they come into the camera's view.
 
-**Optional: a push button and status lights.** If a button and RGB lights are wired to the Pi as in `docs/HARDWARE.md`, switch them on over SSH:
+**Optional: a push button and status lights.** If a button and RGB lights are wired to the Pi as in [docs/BOOTH_WIRING.md](docs/BOOTH_WIRING.md), switch them on over SSH:
 ```bash
 printf 'PHOTOBOX_BUTTON=25\nPHOTOBOX_LIGHTS=18,23,24\n' >> ~/.photobox-kiosk.env && sudo systemctl restart photobox-kiosk
 ```

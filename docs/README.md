@@ -7,6 +7,7 @@ Start with the [README](../README.md) for an overview and [INSTALL.md](../INSTAL
 |---|---|
 | [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) | Daily use: dashboard, setup menu, deleting pictures, stories, settings, troubleshooting |
 | [PRIVACY.md](PRIVACY.md) | Consent, retention and deletion requirements |
+| [BOOTH_WIRING.md](BOOTH_WIRING.md) | Wiring a booth's Pi (button, lights, distance sensor, sound, printer) and its settings |
 | [HARDWARE.md](HARDWARE.md) | Tested hardware and network details |
 
 ## For developers

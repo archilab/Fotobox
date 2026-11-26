@@ -46,6 +46,8 @@ sudo cp ~/photobox/deploy/pi/photobox-kiosk.service /etc/systemd/system/ && sudo
 The screen is a browser since ADR-028: `deploy/pi/run-kiosk.sh` starts the kiosk with Chromium under Cage in the display's own mode; the booth's 7-inch touch panel runs at 1280 x 800, which the screen is laid out for (ADR-038) (`sudo apt install --no-install-recommends cage chromium wlr-randr`), and starts the text kiosk instead if the browser cannot run. Measured on the Pi 5 with 4 GB: the page is ready 1 to 3 s after the browser starts, with about 3.4 GB of memory still available. For unattended running, `sudo sh ~/photobox/deploy/pi/install-autonomy.sh` starts the booth at boot and installs the watchdogs (ADR-032). To get the login prompt back: `sudo systemctl disable --now photobox-kiosk && sudo systemctl start getty@tty1`. To try the kiosk without the camera, run `python -m photobox_client.kiosk --server URL --token-file ~/.photobox.token --test-image FILE --once` in a terminal.
 
 ### Button and status lights (measured 2026-11-24, ADR-036)
+How to wire and configure them, with the distance sensor, sound and printer: [BOOTH_WIRING.md](BOOTH_WIRING.md).
+
 On the box `newbox`, a push button and an RGB light with series resistors are wired to the header, all on `gpiochip0` (`pinctrl-rp1`):
 
 | Part | GPIO | Measured |
