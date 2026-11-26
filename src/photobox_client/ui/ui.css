@@ -143,26 +143,23 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 .midap b { display: block; font-size: 38px; font-weight: 750; letter-spacing: .2em; }
 .camera-note { position: absolute; right: var(--margin); bottom: var(--margin); text-align: right; font-size: 38px; line-height: 1.3; font-weight: 500; }
 
-/* Resting (ADR-041): calm, the mark large, nothing moving but the light on the button */
-.rest-body { display: flex; align-items: center; gap: 120px; height: 100%; }
-.rest-mark { width: 420px; height: 365px; flex-shrink: 0; }
-.rest-mark path { fill: none; stroke: var(--fg); stroke-width: .8; stroke-linecap: round; }
-.rest-midap { font-size: 128px; font-weight: 750; letter-spacing: .14em; line-height: 1; }
-.rest-name { font-size: 58px; font-weight: 500; line-height: 1.14; margin-top: 28px; }
-.rest-cooperation { font-size: 48px; font-weight: 500; line-height: 1.24; margin-top: 88px; max-width: 30ch; text-wrap: balance; }
-.rest-cooperation-en { font-size: 38px; line-height: 1.28; margin-top: 14px; max-width: 36ch; text-wrap: balance; }
-.rest-body.with-code { gap: 150px; }
-.rest-body.with-code .rest-midap { display: flex; align-items: center; gap: 36px; font-size: 104px; }
-.rest-mark.small { width: 132px; height: 115px; }
-.rest-mark.small path { stroke-width: 1.3; }
-.rest-code { flex-shrink: 0; width: 700px; }
-.qr { display: block; width: 700px; height: 700px; border-radius: 28px; }
+/* Resting (ADR-041): the QR code and the project's logos, nothing else; nothing moves */
+.screen.resting { padding-bottom: var(--margin); justify-content: center; }
+.rest-body { display: flex; align-items: center; justify-content: center; gap: 200px; }
+.rest-code { flex-shrink: 0; width: 720px; }
+.qr { display: block; width: 720px; height: 720px; border-radius: 28px; }
 .qr-paper { fill: #fff; }
 .qr-ink { fill: #000; }
-.rest-address { font-size: 64px; font-weight: 750; letter-spacing: -.01em; margin-top: 44px; }
-.rest-address-de { font-size: 42px; font-weight: 500; margin-top: 10px; }
-.rest-address-en { font-size: 36px; margin-top: 4px; }
-.rest-address-text { font-size: 54px; font-weight: 700; margin-top: 64px; }
+.rest-address { font-size: 64px; font-weight: 750; letter-spacing: -.01em; margin-top: 40px; text-align: center; }
+.rest-address.alone { font-size: 96px; margin-top: 0; }
+.rest-logos { display: flex; flex-direction: column; gap: 96px; }
+.rest-label { font-size: 36px; font-weight: 600; color: var(--muted); margin-bottom: 28px; }
+.rest-group-logos { display: flex; flex-direction: column; align-items: flex-start; gap: 52px; }
+.logo { display: block; height: auto; }
+.logo-midap { width: 860px; }
+.logo-stil { width: 620px; }
+.logo-folkwang { width: 470px; }
+.logo-udk { width: 720px; }
 
 .test-mode { position: absolute; right: var(--margin); bottom: 52px; font-size: 30px; font-weight: 700; letter-spacing: .14em; color: var(--bg); background: var(--fg); padding: 6px 16px; border-radius: 6px; }
 

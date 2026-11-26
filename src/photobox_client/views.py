@@ -100,13 +100,13 @@ def _without_key_lines(text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not KEY_LINE.match(line)).strip()
 
 
-# The resting screen (ADR-041): the project behind the booth. The partner logos and the funding notice are
-# not shown yet: their files and wording have to come from the project, and nothing stands in their place.
+# The resting screen (ADR-041): the project behind the booth, as in the footer of midap.space, with its
+# logos (ui/logos, taken from that footer). Only the QR code, the address and the logos; no words to read.
 PROJECT_NAME = "Multisensory in Dialogue and Artistic Practice"
-COOPERATION = {"de": "Ein Kooperationsprojekt der Universität der Künste Berlin und der Folkwang Universität der Künste",
-               "en": "A cooperation of the Berlin University of the Arts and Folkwang University of the Arts"}
+LOGO_GROUPS = (("Forschungsprojekt", ("midap",)), ("Gefördert durch", ("stil",)), ("Verbundpartner", ("folkwang", "udk")))
+PLAIN_LOGOS = {"midap": f"MIDAP - {PROJECT_NAME}", "stil": "Stiftung Innovation in der Hochschullehre",
+               "folkwang": "Folkwang Universität der Künste", "udk": "Universität der Künste Berlin"}
 _PLAIN = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ü": "Ue", "ß": "ss"})  # for the text screen
-WAKE = {"de": "Drück den Knopf", "en": "Press the button"}
 
 
 def someone_live(snapshot: dict | None) -> bool:
@@ -118,13 +118,14 @@ def resting(live: bool = False, address: str | None = None) -> dict:
     """`live` only changes the light: violet while someone is live at another booth.
 
     `address`: the project's website, shown as a QR code when the booth can draw one, and always as text.
+    Nothing on the screen asks for a press; the flashing light does, and any press wakes the booth.
     """
     from . import qr
-    state = {"screen": "resting", "name": PROJECT_NAME, "cooperation": dict(COOPERATION), "wake": dict(WAKE), "live": live}
-    lines = f"MIDAP\n{PROJECT_NAME}\n\n{COOPERATION['de']}\n{COOPERATION['en']}"
+    groups = [{"label": label, "logos": list(logos)} for label, logos in LOGO_GROUPS]
+    state = {"screen": "resting", "groups": groups, "live": live}
+    lines = "\n\n".join(f"{label}:\n" + "\n".join(PLAIN_LOGOS[logo] for logo in logos) for label, logos in LOGO_GROUPS)
     if address:
-        state["address"] = {"text": qr.shown_address(address), "de": "Mehr über das Projekt", "en": "More about the project",
-                            "modules": qr.modules(address)}
+        state["address"] = {"text": qr.shown_address(address), "modules": qr.modules(address)}
         lines += f"\n\n{state['address']['text']}"
     state["plain"] = f"{lines}\n\nENTER = Aufwecken / Wake up".translate(_PLAIN)
     return state

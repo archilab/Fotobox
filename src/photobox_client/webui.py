@@ -28,6 +28,8 @@ STATIC = {
     "/screens.js": ("screens.js", "text/javascript; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/fonts/inter-latin-wght-normal.woff2": ("fonts/inter-latin-wght-normal.woff2", "font/woff2"),
+    # The logos on the resting screen (ADR-041), from the footer of midap.space.
+    **{f"/logos/{name}.svg": (f"logos/{name}.svg", "image/svg+xml") for name in ("midap", "stil", "folkwang", "udk")},
 }
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",

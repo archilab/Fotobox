@@ -42,7 +42,7 @@ A dialogue between places: strangers at two sites meet through one shared pictur
 
 - The booth's name on screen is "MEET A STRANGER".
 - MIDAP's logo, the continuous-line mark shown on midap.space, may be used; the file is to come from the project.
-- A funding notice is required. Its exact wording and any logo are still to come from the project; do not invent them.
+- A funding notice is required. On the resting screen it is "Gefördert durch" with the logo of the Stiftung Innovation in der Hochschullehre, as in the footer of midap.space (ADR-041); elsewhere its wording is still to come from the project; do not invent it.
 - The visual style chosen so far (ADR-028): minimalist, black background, white type, Inter.
 
 ## Evidence on Hand

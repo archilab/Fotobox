@@ -148,12 +148,19 @@ def test_resting_light_flashes_green_or_violet():
     assert not views.someone_live({"message": {"key": "nobody_online"}}) and not views.someone_live(None)
 
 
-def test_resting_screen_names_the_project_and_both_partners():
+def test_resting_screen_shows_the_footer_groups_of_midap_space_with_their_logos():
+    from photobox_client.webui import STATIC, UI
     state = views.resting()
-    assert state["name"] == "Multisensory in Dialogue and Artistic Practice"
-    assert "Universität der Künste Berlin" in state["cooperation"]["de"] and "Folkwang" in state["cooperation"]["de"]
-    assert "Berlin University of the Arts" in state["cooperation"]["en"] and "Folkwang" in state["cooperation"]["en"]
-    assert "ü" not in state["plain"] and "Folkwang" in state["plain"]
+    assert [(g["label"], g["logos"]) for g in state["groups"]] == [
+        ("Forschungsprojekt", ["midap"]), ("Gefördert durch", ["stil"]), ("Verbundpartner", ["folkwang", "udk"])]
+    assert "wake" not in state and "cooperation" not in state  # no words but the labels, no call to press
+    for group in state["groups"]:
+        for logo in group["logos"]:
+            name, kind = STATIC[f"/logos/{logo}.svg"]
+            svg = (UI / name).read_text(encoding="utf-8")
+            assert kind == "image/svg+xml" and svg.startswith("<svg") and 'fill="#fff"' in svg
+            assert "<script" not in svg and "href" not in svg  # shapes only, nothing that could load or run
+    assert "ü" not in state["plain"] and "Folkwang" in state["plain"] and "Stiftung Innovation" in state["plain"]
 
 
 def test_idle_minutes_setting(tmp_path):

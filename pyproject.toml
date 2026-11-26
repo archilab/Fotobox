@@ -24,7 +24,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 photobox_server = ["dashboard/templates/*.html", "dashboard/static/*.js"]
-photobox_client = ["ui/*.html", "ui/*.css", "ui/*.js", "ui/fonts/*"]
+photobox_client = ["ui/*.html", "ui/*.css", "ui/*.js", "ui/fonts/*", "ui/logos/*.svg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -268,6 +268,11 @@
       el("div", "", de, en ? el("small", "", en) : null));
   }
 
+  const LOGO_NAMES = {
+    midap: "MIDAP, Multisensory in Dialogue and Artistic Practice", stil: "Stiftung Innovation in der Hochschullehre",
+    folkwang: "Folkwang Universität der Künste", udk: "Universität der Künste Berlin",
+  };
+
   // A QR code from its rows of modules ("1" dark), with the quiet zone of four modules readers need.
   function qrCode(rows) {
     const size = rows.length;
@@ -416,24 +421,16 @@
         s.camera_note && el("div", "camera-note", el("span", "", s.camera_note.de), el("span", "en", s.camera_note.en)),
         midap())),
 
-    // The booth rests after a while without a press (ADR-041): the project behind it, and one press to wake it.
-    // With an address the QR code leads, on white so every phone reads it; MIDAP's mark then sits by its name.
+    // The booth rests after a while without a press (ADR-041): the QR code to the project, and the project's
+    // logos grouped as in the footer of midap.space. Nothing asks for a press; the flashing light does.
     resting: (s) => {
       const code = s.address && s.address.modules && qrCode(s.address.modules);
-      const about = el("div", "rest-about",
-        el("p", "rest-midap", code && svg("svg", { class: "rest-mark small", viewBox: "-1 -1 23 20", "aria-hidden": "true" }, svg("path", { d: MIDAP_MARK })), "MIDAP"),
-        el("p", "rest-name", s.name),
-        el("p", "rest-cooperation", s.cooperation.de),
-        el("p", "rest-cooperation-en en", s.cooperation.en),
-        s.address && !code && el("p", "rest-address-text", s.address.text));
+      const logo = (name) => { const image = el("img", "logo logo-" + name); image.src = `logos/${name}.svg`; image.alt = LOGO_NAMES[name] || ""; return image; };
       return screen("resting",
-        el("div", "rest-body" + (code ? " with-code" : ""),
-          code ? el("div", "rest-code", code,
-            el("p", "rest-address", s.address.text),
-            el("p", "rest-address-de", s.address.de), el("p", "rest-address-en en", s.address.en))
-            : svg("svg", { class: "rest-mark", viewBox: "-1 -1 23 20", "aria-hidden": "true" }, svg("path", { d: MIDAP_MARK })),
-          about),
-        press(s.wake.de, s.wake.en));
+        el("div", "rest-body",
+          s.address && el("div", "rest-code", code, el("p", code ? "rest-address" : "rest-address alone", s.address.text)),
+          el("div", "rest-logos", ...s.groups.map((group) =>
+            el("div", "rest-group", el("p", "rest-label", group.label), el("div", "rest-group-logos", ...group.logos.map(logo)))))));
     },
 
     // Another booth invites this one to a shared strip (ADR-037): the seconds are counted down here.
