@@ -462,7 +462,8 @@ class Kiosk:
         """Wait for ENTER or the setup keys, refreshing what is happening at the other boxes.
 
         After `idle_seconds` on this screen without a press, the booth rests (ADR-041): it shows the resting
-        screen, the camera stops looking, and only a press brings the start screen back. That press is never
+        screen, the camera stops looking (the distance sensor keeps measuring), and only a press brings the start
+        screen back. That press is never
         consent; agreeing still takes its own press on the notice.
         """
         self.keys.flush()
@@ -514,8 +515,10 @@ class Kiosk:
     def rest(self) -> str:
         """The resting screen, until a press (ENTER or the button) or the setup keys. Returns which."""
         self.hold_mode(False)  # any press wakes the booth at once
-        if self.detector is not None:
+        if self._camera_looks():
             self.detector.pause()  # the resting screen does not say that the camera looks, so it must not
+        # The distance sensor sees no picture, so it keeps telling other boxes whether someone is there; that
+        # never wakes the booth, only a press does (ADR-046).
         self.report("idle", RESTING)
         shown = None
         try:

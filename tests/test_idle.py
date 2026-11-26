@@ -141,6 +141,29 @@ def test_the_camera_does_not_look_while_resting():
     assert detector.calls == ["resume", "pause", "resume", "pause"]
 
 
+class DistanceSensor(Detector):
+    uses_camera = False
+
+
+def test_the_distance_sensor_keeps_measuring_while_resting():
+    detector = DistanceSensor()
+    kiosk, *_rest = booth([("resting", ENTER), ("start", ENTER)], detector=detector)
+    kiosk.start_screen()
+    # never paused for resting (a second resume does nothing), only after leaving the start screen
+    assert detector.calls == ["resume", "resume", "pause"]
+
+
+def test_someone_at_the_distance_sensor_never_wakes_the_booth():
+    detector = DistanceSensor()
+    kiosk, clock, screen, keys, _reports = booth([], detector=detector)
+    try:
+        kiosk.start_screen()
+    except AssertionError:
+        pass  # an hour without a press
+    assert screen.names() == ["start", "resting"]
+    assert "pause" not in detector.calls[:-1]
+
+
 def test_resting_light_flashes_green_or_violet():
     assert light_for(views.resting()) == "rest"
     assert light_for(views.resting(live=True)) == "rest_live"

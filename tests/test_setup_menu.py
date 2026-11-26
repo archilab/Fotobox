@@ -532,11 +532,50 @@ def test_person_detection_with_the_distance_sensor(paths, monkeypatch, tmp_path)
     from photobox_client import person, tof
     monkeypatch.setattr(person, "MODEL_PATH", tmp_path / "missing.onnx")  # the camera's options are left out
     monkeypatch.setattr(tof, "bus_present", lambda: True)
-    m, screen = unlocked(paths, "8", "2", ENTER, "6")
+    sensor = FakeDistanceSensor([450, 8190])
+    m, screen = unlocked(paths, "8", "2", "3", ENTER, ENTER, "6", open_tof=lambda: sensor)
     m.run()
     saved = Settings.load(paths["settings_path"])
-    assert (saved.person_detection, saved.person_sensor) == (True, "tof")
-    assert any("distance sensor" in s for s in screen.shown)
+    assert (saved.person_detection, saved.person_sensor, saved.tof_range_mm) == (True, "tof", 900)
+    assert any("45 cm  ->  someone there" in s for s in screen.shown)
+    assert any("nothing in reach" in s and "Range:  90 cm" in s for s in screen.shown)
+    assert any("range 90 cm" in s for s in screen.shown)
+    assert sensor.closed
+
+
+class FakeDistanceSensor:
+    def __init__(self, readings):
+        self.readings, self.closed = list(readings), False
+
+    def measure(self):
+        return self.readings.pop(0) if len(self.readings) > 1 else self.readings[0]
+
+    def close(self):
+        self.closed = True
+
+
+def test_the_distance_range_is_kept_when_leaving_with_esc(paths, monkeypatch, tmp_path):
+    from photobox_client import person, tof
+    monkeypatch.setattr(person, "MODEL_PATH", tmp_path / "missing.onnx")
+    monkeypatch.setattr(tof, "bus_present", lambda: True)
+    m, screen = unlocked(paths, "8", "2", "1", ESC, ENTER, "6", open_tof=lambda: FakeDistanceSensor([700]))
+    m.run()
+    assert Settings.load(paths["settings_path"]).tof_range_mm == 1200
+    assert any("unchanged" in s for s in screen.shown)
+
+
+def test_the_range_can_be_set_without_a_reading(paths, monkeypatch, tmp_path):
+    from photobox_client import person, tof
+    monkeypatch.setattr(person, "MODEL_PATH", tmp_path / "missing.onnx")
+    monkeypatch.setattr(tof, "bus_present", lambda: True)
+
+    def broken():
+        raise OSError("no device at 0x29")
+
+    m, screen = unlocked(paths, "8", "2", "1", ENTER, ENTER, "6", open_tof=broken)
+    m.run()
+    assert Settings.load(paths["settings_path"]).tof_range_mm == 500
+    assert any("did not answer" in s for s in screen.shown)
 
 
 def test_person_detection_needs_its_model(paths, monkeypatch, tmp_path):

@@ -18,6 +18,8 @@ from .settings import Pin, Settings, normalize_server, save_token
 
 MESSAGE_SECONDS = 8
 CAMERA_PREVIEW_SECONDS = 5
+TOF_RANGES_MM = (500, 700, 900, 1200, 1500)  # the distance sensor reaches about 1200 mm (ADR-046)
+TOF_READOUT_SECONDS = 0.25
 HttpFactory = Callable[..., httpx.Client]
 
 
@@ -68,8 +70,9 @@ class SetupMenu:
                  wifi: Wifi, http: HttpFactory = httpx.Client, display: FramebufferDisplay | None = None,
                  cameras: Callable[[], list] = list_stable_paths,
                  capture: Callable[[str, CaptureSettings], bytes] = capture_jpeg,
-                 sleep: Callable[[float], None] = time.sleep) -> None:
+                 sleep: Callable[[float], None] = time.sleep, open_tof: Callable[[], object] | None = None) -> None:
         self.screen, self.keys, self.pin = screen, keys, pin
+        self.open_tof = open_tof  # the distance sensor, for its live readout; None opens the real one
         self.settings_path, self.token_path = settings_path, token_path
         self.wifi, self.http, self.display = wifi, http, display
         self.cameras, self.capture, self.sleep = cameras, capture, sleep
@@ -261,7 +264,59 @@ class SetupMenu:
         settings = Settings.load(self.settings_path)
         settings.person_detection, settings.person_sensor, settings.person_area = choices[choice][1:]
         settings.save(self.settings_path)
+        if settings.person_sensor == "tof" and settings.person_detection:
+            self.setup_tof_range()
+            return
         self.message(f"Person detection: {choices[choice][0]}")
+
+    def setup_tof_range(self) -> None:
+        """Choose how close someone must stand for the distance sensor, with its live reading (ADR-046).
+
+        The kiosk does not read the sensor while this menu is open, so the two never read it at once.
+        Nothing is kept: the distances are only shown.
+        """
+        from . import tof
+        settings = Settings.load(self.settings_path)
+        chosen = settings.tof_range_mm
+        try:
+            sensor = (self.open_tof or tof.open_vl53l0x)()
+        except Exception:  # the range can still be set; the screen says that there is no reading
+            sensor = None
+        self.keys.flush()
+        try:
+            while True:
+                if sensor is None:
+                    now = "no reading: the sensor did not answer"
+                else:
+                    try:
+                        distance = sensor.measure()
+                    except Exception:
+                        distance = None
+                    if distance is None:
+                        now = "no reading"
+                    elif distance >= tof.NOTHING_MM:
+                        now = "nothing in reach (beyond about 120 cm)  ->  nobody"
+                    else:
+                        now = f"{distance / 10:.0f} cm  ->  {'someone there' if distance < chosen else 'nobody'}"
+                options = "   ".join(f"{n} = {mm // 10} cm" for n, mm in enumerate(TOF_RANGES_MM, start=1))
+                self.show("Distance sensor range\n"
+                          "Stand where a visitor stands, then where people walk past,\nand choose a range between the two.\n\n"
+                          f"  Now:    {now}\n  Range:  {chosen // 10} cm\n\n  {options}\n\nENTER = save    ESC = back")
+                key = self.keys.read_key(TOF_READOUT_SECONDS)
+                if key == ESC:
+                    self.message(f"Person detection: distance sensor, range {settings.tof_range_mm // 10} cm (unchanged)")
+                    return
+                if key == ENTER:
+                    settings = Settings.load(self.settings_path)
+                    settings.tof_range_mm = chosen
+                    settings.save(self.settings_path)
+                    self.message(f"Person detection: distance sensor, range {chosen // 10} cm")
+                    return
+                if key and key.isdigit() and 1 <= int(key) <= len(TOF_RANGES_MM):
+                    chosen = TOF_RANGES_MM[int(key) - 1]
+        finally:
+            if sensor is not None:
+                sensor.close()
 
     def setup_camera(self) -> None:
         # The camera list holds paths; settings and the capture call need text.
