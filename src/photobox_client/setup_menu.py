@@ -22,6 +22,8 @@ TOF_RANGES_MM = (500, 700, 900, 1200, 1500)  # the distance sensor reaches about
 TOF_READOUT_SECONDS = 0.25
 SOUND_LEVELS = (("Off", 0), ("Quiet", 30), ("Medium", 60), ("Loud", 90))  # ADR-047
 SOUND_SAMPLE_SECONDS = 1.5
+SOUND_SAMPLES = (("tick", None, "A press"), ("count", 3, "Countdown 3"), ("count", 2, "Countdown 2"), ("count", 1, "Countdown 1"),
+                 ("shutter", None, "The photo"), ("ready", None, "The strip is ready"), ("call", None, "Another booth calls"))
 HttpFactory = Callable[..., httpx.Client]
 
 
@@ -332,10 +334,12 @@ class SetupMenu:
         if volume:
             settings.sound_volume = volume
         settings.save(self.settings_path)
-        view = getattr(self.screen, "view", None)  # the browser plays a sample; the text screen cannot
+        view = getattr(self.screen, "view", None)  # the browser plays the samples; the text screen cannot
         if view is not None and volume:
-            view({"screen": "menu", "text": f"SETUP / EINRICHTUNG\n\nSounds: {label}", "sound": "ready", "volume": volume})
-            self.sleep(SOUND_SAMPLE_SECONDS)
+            for sound, number, name in SOUND_SAMPLES:
+                view({"screen": "menu", "text": f"SETUP / EINRICHTUNG\n\nSounds: {label}\n\n  {name}", "sound": sound,
+                      "number": number, "volume": volume})
+                self.sleep(SOUND_SAMPLE_SECONDS)
         self.message(f"Sounds: {label}")
 
     def setup_camera(self) -> None:

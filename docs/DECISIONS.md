@@ -391,4 +391,5 @@ Tested live on 2026-11-26 with the real `newbox` and a test booth on the Mac aga
 - **Silent:** while resting, during the video link and while a voice message is recorded, so the microphone never picks them up; the text kiosk plays nothing.
 - **Made in the browser** with Web Audio (`ui/sounds.js`): a few tones with soft starts and ends through a low-pass filter. No sound files, so nothing to license and the page's security policy is unchanged.
 - **Which sound** belongs to a screen is decided by the booth's program, as a `sound` field on the screen (`views.py`); the page plays it once per screen and never twice. The volume comes with every screen.
-- **Settings:** `PHOTOBOX_SOUNDS` (on by default) and `PHOTOBOX_SOUND_VOLUME` (0 to 100, default 60), also under "Sounds" in the setup menu, which plays a sample.
+- **Settings:** `PHOTOBOX_SOUNDS` (on by default) and `PHOTOBOX_SOUND_VOLUME` (0 to 100, default 60), also under "Sounds" in the setup menu, which then plays every sound in turn with its name.
+- **Heard at newbox on 2026-11-26** through the panel's HDMI: the owner found them right as built, at volume 60.

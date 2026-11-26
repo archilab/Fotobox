@@ -95,7 +95,7 @@
   function follow(state) {
     volume = Number(state.volume) || 0;
     screen = state.screen;
-    const key = state.id + ":" + (state.sound || "");
+    const key = state.id + ":" + (state.sound || "") + ":" + (state.number || "");
     if (key === lastKey) return;  // the same screen again, updated: its sound has been played
     lastKey = key;
     stopRepeating();

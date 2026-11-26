@@ -613,7 +613,9 @@ def test_sounds_are_set_in_the_menu_with_a_sample(paths):
     m.run()
     saved = Settings.load(paths["settings_path"])
     assert (saved.sounds, saved.sound_volume) == (True, 30)
-    assert m.screen.views == [{"screen": "menu", "text": "SETUP / EINRICHTUNG\n\nSounds: Quiet", "sound": "ready", "volume": 30}]
+    assert [(v["sound"], v["number"], v["volume"]) for v in m.screen.views] == [
+        ("tick", None, 30), ("count", 3, 30), ("count", 2, 30), ("count", 1, 30), ("shutter", None, 30), ("ready", None, 30), ("call", None, 30)]
+    assert all("Sounds: Quiet" in v["text"] for v in m.screen.views)
 
 
 def test_sounds_can_be_switched_off_keeping_the_volume(paths):
