@@ -465,6 +465,8 @@ class Kiosk:
         started = self.clock()
         waited, announced = False, False
         conversation = self.make_conversation(session_id) if self.make_conversation else None
+        # Time left: from when pictures started to be made and how long the finished ones took (ADR-040).
+        running_since, last_done, last_change = None, 0, None
         while True:
             try:
                 state = self.api.status(session_id)
@@ -485,6 +487,16 @@ class Kiosk:
                 announced = True
                 self.present(views.live_moment((state.get("match") or {}).get("partner_label"), live_moment_text(state)))
                 self.sleep(LIVE_MOMENT_SECONDS)
+            now = self.clock()
+            done = job.get("frames_done", 0) or 0
+            if job.get("status") == "running" and running_since is None:
+                running_since = now
+            if done != last_done:
+                last_done, last_change = done, now
+            remaining = None
+            if running_since is not None and done and job.get("frames_total"):
+                per_picture = (last_change - running_since) / done
+                remaining = max(0.0, per_picture * (job["frames_total"] - done) - (now - last_change))
             encounter = encounter_text(state, waited)
             spoken = None
             if conversation is not None:
@@ -492,7 +504,7 @@ class Kiosk:
                 talk = conversation.text().translate(PLAIN_LETTERS)
                 encounter = f"{encounter}\n\n{talk}" if talk and encounter else (talk or encounter)
                 spoken = conversation.view()
-            self.present(views.making(elapsed, job, views.encounter(state, waited, spoken), (
+            self.present(views.making(elapsed, job, views.encounter(state, waited, spoken), remaining=remaining, plain=(
                 "Dein Fotostreifen wird erstellt.\nYour photo strip is being made.\n\n"
                 + (encounter + "\n\n" if encounter else "")
                 + f"        {elapsed // 60:02d}:{elapsed % 60:02d}\n\n        {frames}"
@@ -510,7 +522,7 @@ class Kiosk:
                          f"\nYour photo stays in the pool until {self.pooled_until}. The code deletes it there too.")
         # The code is on a public screen: briefly, and longer only if the visitor asks (at most a minute).
         for _ in range(1 + CODE_MORE_TIMES):
-            state = views.done(code, self.pooled_until, f"Fertig! Done!\n\n{withdraw}\n\nENTER = mehr Zeit / more time", CODE_SECONDS)
+            state = views.done(code, self.pooled_until, f"Fertig! Done!\n\n{withdraw}\n\nENTER = mehr Zeit / more time", CODE_SECONDS) | {"live": self.live_visit}
             if self.ask(state, {ENTER}, CODE_SECONDS) != ENTER:
                 break
         return "complete"

@@ -102,7 +102,7 @@ def test_every_state_builder_names_a_real_view():
 def test_start_uses_the_servers_message_with_real_umlauts():
     state = views.start(SNAPSHOT, "plain")
     assert state["hero"]["de"] == "Jemand in Köln wartet." and state["badge"]["kind"] == "live" and state["label"] == "BERLIN"
-    assert state["tiles"] == [{"kind": "live", "label": "Köln", "status": "● LIVE"}, {"kind": "offline", "label": "Fotobox", "status": "× OFFLINE"}]
+    assert state["tiles"] == [{"kind": "live", "label": "Köln", "word": "LIVE"}, {"kind": "offline", "label": "Fotobox", "word": "OFFLINE"}]
 
 
 def test_start_works_without_the_server():
@@ -145,7 +145,17 @@ def test_a_seed_shows_nothing_unless_someone_waited():
 def test_frames_are_only_given_once_known():
     assert views.making(0, {}, None, "p")["frames"] is None
     assert views.making(75, {"frames_done": 1, "frames_total": 4}, None, "p") | {"plain": ""} == {
-        "screen": "making", "clock": "01:15", "frames": {"done": 1, "total": 4}, "encounter": None, "plain": ""}
+        "screen": "making", "clock": "01:15", "frames": {"done": 1, "total": 4}, "encounter": None, "remaining": "Die Bilder entstehen.", "plain": ""}
+
+
+def test_time_left_in_words_never_claims_what_it_cannot_know():
+    """ADR-040: an estimate only once pictures have been made; otherwise what is happening."""
+    assert views.remaining_text(None, 0) == "Das erste Bild entsteht."
+    assert views.remaining_text(None, 2) == "Die Bilder entstehen."
+    assert views.remaining_text(10) == "Gleich fertig."
+    assert views.remaining_text(30) == "Noch etwa eine halbe Minute."
+    assert views.remaining_text(70) == "Noch etwa eine Minute."
+    assert views.remaining_text(150) == "Noch etwa 2 Minuten."
 
 
 def test_a_conversation_appears_inside_the_encounter():

@@ -8,6 +8,15 @@
         "value": "inter",
         "createdAt": "2026-11-24T20:01:45.828Z",
         "reason": "project owner decided: ADR-028 in docs/DECISIONS.md specifies a minimalist black and white screen in Inter, kept locally under OFL"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "menlo",
+        "files": [
+          "src/photobox_server/dashboard/templates/base.html"
+        ],
+        "createdAt": "2026-11-25T23:57:21.879Z",
+        "reason": "DESIGN.md documents the booth screen only; the operator dashboard on the Mac is a separate surface (ADR-022) using a monospace stack for codes and ids"
       }
     ]
   }

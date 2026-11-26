@@ -23,9 +23,9 @@ Darf dein Foto 24 Stunden lang mit Fotos anderer Besucherinnen und Besucher komb
 - Andere bekommen dann einen KI-Fotostreifen, auf dem du zu sehen bist.
 - Dein Foto selbst wird niemandem gezeigt.
 - Mit deinem Widerrufscode kannst du es vorher löschen lassen.
-- Mit ENTER stimmst du Foto und Pool gemeinsam zu.
+- Mit dem Knopf stimmst du Foto und Pool gemeinsam zu.
 
-May your photo be combined with other visitors' photos for 24 hours? Others then get an AI photo strip showing you. ENTER agrees to the photo and the pool together.
+May your photo be combined with other visitors' photos for 24 hours? Others then get an AI photo strip showing you. The button agrees to the photo and the pool together.
 
 ENTER = Ja, in den Pool / Yes, add it to the pool
 ESC = Nein, nur mein Streifen / No, just my strip`;
@@ -38,26 +38,31 @@ ESC = Nein, nur mein Streifen / No, just my strip`;
 
   const screens = [
     { screen: "start", label: LABEL, hero: { de: "Deine nächste Begegnung beginnt hier.", en: "Your next encounter starts here." }, support: { de: "Mach ein Foto, um anzufangen.", en: "Take a photo to begin." }, tiles: [],
-      camera_note: { de: "Die Kamera erkennt, ob jemand da ist. Kein Bild wird gespeichert oder gesendet.", en: "The camera detects whether someone is here. No image is stored or sent." } },
+      camera_note: { de: "Die Kamera erkennt nur, ob jemand da ist, ohne Bild.", en: "The camera only notices someone is here, no image kept." } },
     { screen: "start", label: LABEL, badge: { kind: "live", de: "LIVE", en: "LIVE" }, hero: { de: "Jemand in Essen wartet auf ein gemeinsames Foto.", en: "Someone in Essen is waiting for a shared photo." }, support: { de: "Mach jetzt deins und ihr landet auf einem Streifen.", en: "Take yours now to join them." },
-      tiles: [{ kind: "live", label: "Essen", status: "● LIVE" }, { kind: "recent", label: "London", status: "◔ GERADE EBEN" }, { kind: "online", label: "Wien", status: "○ ONLINE" }] },
-    { screen: "invite", label: LABEL, hero: { de: "Jemand in Essen wartet auf ein gemeinsames Foto.", en: "Someone in Essen is waiting for a shared photo." }, support: { de: "Mach jetzt deins und ihr landet auf einem Streifen.", en: "Take yours now to join them." }, seconds: 17 },
+      tiles: [{ kind: "live", label: "Essen", word: "LIVE" }, { kind: "recent", label: "London", word: "GERADE EBEN" }, { kind: "online", label: "Wien", word: "ONLINE" }] },
+    { screen: "invite", label: LABEL, place: "Essen", hero: { de: "Essen wartet auf dich.", en: "Essen is waiting for you." }, support: { de: "Mach jetzt deins und ihr landet auf einem Streifen.", en: "Take yours now to join them." }, seconds: 17 },
     { screen: "consent", label: LABEL, text: CONSENT.split("ENTER =")[0] + POOL.split("ENTER =")[0] + "ENTER = Ich stimme zu: Foto und Pool / I agree: photo and pool", until: "09.11. 17:42", seconds: 45 },
     { screen: "countdown", number: 3 },
     { screen: "flash" },
-    { screen: "making", label: LABEL, clock: "00:14", frames: { done: 0, total: 4 }, encounter: { kind: "searching", de: "Wir suchen jemanden an einer anderen Fotobox", en: "Looking for someone at another photo booth", seconds: 14 } },
-    { screen: "live_moment", label: LABEL, de: "Du und jemand in Essen: ein gemeinsamer Fotostreifen!", en: "You and someone in Essen: one shared photo strip!" },
-    { screen: "making", label: LABEL, clock: "01:27", frames: { done: 2, total: 4 }, encounter: { kind: "live", de: "Verbunden mit Essen", en: "Connected to Essen", talk: 8, message: { from: "ESSEN", text: "Hallo aus dem Ruhrgebiet! Schöne Grüße nach Berlin." } } },
+    { screen: "making", label: LABEL, clock: "00:14", remaining: "Das erste Bild entsteht.", frames: { done: 0, total: 4 }, encounter: { kind: "searching", de: "Wir suchen jemanden an einer anderen Fotobox", en: "Looking for someone at another photo booth", seconds: 14 } },
+    { screen: "live_moment", label: LABEL, place: "Essen", de: "Du und jemand in Essen: ein gemeinsamer Fotostreifen!", en: "You and someone in Essen: one shared photo strip!" },
+    { screen: "making", label: LABEL, clock: "01:27", remaining: "Noch etwa eine Minute.", frames: { done: 2, total: 4 }, encounter: { kind: "live", place: "Essen", de: "Verbunden mit Essen", en: "Connected to Essen", talk: 8, message: { from: "ESSEN", text: "Hallo aus dem Ruhrgebiet! Schöne Grüße nach Berlin." } } },
     { screen: "listening", seconds: 6, limit: 8 },
     { screen: "converting" },
-    { screen: "making", label: LABEL, clock: "02:51", frames: { done: 3, total: 4 }, encounter: { kind: "other", de: "Dein Foto trifft jemanden, der vorhin hier war.", en: "Your photo meets someone who was here earlier." } },
+    { screen: "making", label: LABEL, clock: "02:51", remaining: "Noch etwa eine halbe Minute.", frames: { done: 3, total: 4 }, encounter: { kind: "other", de: "Dein Foto trifft jemanden, der vorhin hier war.", en: "Your photo meets someone who was here earlier." } },
     { screen: "strip", image: STRIP, code: CODE },
-    { screen: "done", label: LABEL, code: CODE, pool: "09.11. 17:42", seconds: 10 },
+    { screen: "done", label: LABEL, code: CODE, pool: "09.11. 17:42", seconds: 10, live: true, place: "Essen" },
     { screen: "message", label: LABEL, de: "Abgebrochen. Es wurde kein Foto gemacht.", en: "Cancelled. No photo was taken.", key: true },
     { screen: "menu", text: "  OK  Network: FRITZ!Box 7590\n  OK  Server: 192.168.1.24:8880\n  OK  Pairing: paired\n  OK  Consent notice: ready\n\n  1  WiFi\n  2  Server address\n  3  Pair with server\n  4  Camera\n  5  Test everything\n  6  Start photo booth\n  7  Microphone (optional)\n\nESC = back" },
   ];
 
   const stage = document.getElementById("stage");
+  // ?still shows every screen at rest, as with reduced motion: for screenshots of the finished drawing.
+  if (new URLSearchParams(location.search).has("still")) {
+    const real = window.matchMedia.bind(window);
+    window.matchMedia = (query) => query.includes("prefers-reduced-motion") ? { matches: true } : real(query);
+  }
   const start = Number(new URLSearchParams(location.search).get("n") || 0);
   let index = Math.max(0, Math.min(screens.length - 1, start));
   const show = () => window.PhotoboxScreens.render(stage, screens[index]);

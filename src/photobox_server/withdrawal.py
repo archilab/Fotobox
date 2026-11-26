@@ -25,8 +25,9 @@ def new_code() -> tuple[str, str]:
 
 
 def hash_code(code: str) -> str:
-    # 128-bit random values, so a fast hash is sufficient (unlike passwords).
-    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+    # 128-bit random values, so a fast hash is sufficient (unlike passwords). The booth shows the code in
+    # groups of four (ADR-040); spaces are never part of a code, so a code written down in groups works.
+    return hashlib.sha256("".join(code.split()).encode("utf-8")).hexdigest()
 
 
 def session_for_code(db: sqlite3.Connection, code: str) -> str | None:

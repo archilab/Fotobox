@@ -23,41 +23,21 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 .center { justify-content: center; }
 
 /* Typography */
-.hero { font-size: 128px; line-height: 1.04; font-weight: 750; letter-spacing: -.028em; }
+.hero { text-wrap: balance; font-size: 128px; line-height: 1.04; font-weight: 750; letter-spacing: -.028em; }
 .hero-en { font-size: 58px; line-height: 1.14; font-weight: 500; letter-spacing: -.012em; margin-top: 26px; }
 .lead { font-size: 54px; line-height: 1.2; font-weight: 500; margin-top: 44px; letter-spacing: -.01em; }
 .lead-en { font-size: 40px; line-height: 1.25; font-weight: 400; margin-top: 10px; }
 
 /* Status pill: told by word and symbol, never by colour */
-.badge { align-self: flex-start; display: inline-flex; align-items: center; gap: 16px; font-size: 36px; font-weight: 750; letter-spacing: .14em; padding: 12px 30px; border: 3px solid var(--fg); border-radius: 999px; margin-bottom: 40px; }
-.badge.live { background: var(--fg); color: var(--bg); }
-.dot { width: 22px; height: 22px; border-radius: 50%; background: currentColor; animation: pulse 1.6s ease-in-out infinite; }
-@keyframes pulse { 50% { opacity: .22; } }
 
 /* The key to press */
 .actions { display: flex; gap: 72px; align-items: center; }
 .action { display: flex; align-items: center; gap: 26px; font-size: 40px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 .action small { display: block; font-size: 36px; font-weight: 400; color: var(--muted); margin-top: 3px; }
-.key { display: inline-block; min-width: 150px; text-align: center; font-size: 38px; font-weight: 750; letter-spacing: .08em; padding: 18px 28px; border-radius: 14px; background: var(--fg); color: var(--bg); }
-.key.quiet { background: transparent; color: var(--fg); box-shadow: inset 0 0 0 3px var(--fg); }
 
 /* Other boxes */
-.tiles { display: flex; gap: 22px; margin-bottom: 52px; }
-.tile { flex: 1; max-width: 420px; background: var(--panel); border-radius: 16px; padding: 24px 30px; }
-.tile b { display: block; font-size: 38px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tile span { display: block; font-size: 36px; font-weight: 650; letter-spacing: .1em; color: var(--muted); margin-top: 8px; }
-.tile.live span { color: var(--fg); }
-.tile.offline { opacity: .5; }
-.tile span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* The start screen with other boxes has more to say, so the type steps down */
-.compact { padding-top: 112px; padding-bottom: 72px; }
-.compact .badge { font-size: 36px; padding: 8px 24px; margin-bottom: 24px; }
-.compact .hero { font-size: 100px; }
-.compact .hero-en { font-size: 46px; margin-top: 16px; }
-.compact .lead { font-size: 42px; margin-top: 26px; }
-.compact .lead-en { font-size: 38px; margin-top: 6px; }
-.compact .tiles { margin-bottom: 34px; }
 
 /* Consent */
 .notice-title { font-size: 44px; font-weight: 750; letter-spacing: -.01em; margin-bottom: 26px; margin-top: 22px; }
@@ -66,21 +46,41 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 .notice ul { list-style: none; }
 .notice li { position: relative; padding-left: 1em; margin-bottom: .42em; break-inside: avoid; }
 .notice li::before { content: "–"; position: absolute; left: 0; color: var(--muted); }
-.until { font-size: 74px; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin: 14px 0 22px; }
-.until small { display: block; font-size: 36px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
 .bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 34px; }
 .pages { font-size: 38px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; margin-left: 48px; }
 .pages.nudge { animation: nudge .5s ease-in-out 2; }
 @keyframes nudge { 50% { transform: translateY(-14px); } }
 .action.locked { opacity: .3; }
-.time-left { font-size: 52px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: 48px; }
+/* The round button (ADR-040): the physical button is round, so the screen draws it as a circle, always
+   bottom left, with one word beside it. Its centre pulses while a press is expected; the ring empties. */
+.press { gap: 32px; }
+.slot { position: absolute; left: var(--margin); bottom: var(--margin); }
+.screen { padding-bottom: 300px; }
+.signature { position: absolute; right: var(--margin); bottom: var(--margin); }
+.camera-note span { display: block; }
+.signature .camera-note { width: 1000px; }
+.camera-note .en { font-size: 36px; margin-top: 4px; }
+.said { margin-top: 48px; }
+.said b { display: block; font-size: 36px; letter-spacing: .12em; font-weight: 650; color: var(--muted); margin-bottom: 10px; }
+.said span { font-size: 54px; line-height: 1.2; font-weight: 650; overflow-wrap: anywhere; }
+.notice-head { font-size: 42px; font-weight: 750; margin: 22px 0 8px; break-after: avoid; }
+.done { justify-content: center; }
+.press .button { width: 150px; height: 150px; flex-shrink: 0; overflow: visible; }
+.press .track { fill: none; stroke: var(--line); stroke-width: 8; }
+.press .ring { fill: none; stroke: var(--fg); stroke-width: 8; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 70px 70px; }
+.press .cap { fill: var(--fg); }
+.press.pulse .cap { animation: press-me 1.6s ease-in-out infinite; transform-origin: 70px 70px; }
+@keyframes press-me { 50% { opacity: .55; transform: scale(.9); } }
+.press > div { font-size: 48px; font-weight: 700; }
+.press small { font-size: 36px; font-weight: 500; }
+.remaining { font-size: 64px; font-weight: 600; margin-top: 30px; font-variant-numeric: tabular-nums; }
+.making.alone { grid-template-columns: 1fr; }
 
 /* Countdown */
 .invite-body { display: flex; align-items: center; gap: 120px; }
 .invite-body > div:first-child { flex: 1; }
 .invite-time { display: flex; flex-direction: column; align-items: center; }
 .invite-number { font-size: 400px; line-height: .9; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
-.invite-time small { font-size: 40px; font-weight: 600; margin-top: 24px; }
 .countdown { align-items: center; justify-content: center; text-align: center; }
 .number { font-size: 660px; line-height: .9; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; animation: pop .9s ease-out both; }
 @keyframes pop { from { transform: scale(1.18); opacity: 0; } 25% { opacity: 1; } to { transform: scale(1); } }
@@ -90,24 +90,18 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 
 /* Making the strip */
 .making { display: grid; grid-template-columns: 1fr 1200px; gap: 88px; height: 100%; align-items: center; }
-.clock { font-size: 170px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; margin-top: 44px; line-height: 1; }
 .progress { display: flex; gap: 14px; margin-top: 40px; }
 .progress i { flex: 1; height: 16px; border-radius: 8px; background: var(--line); transition: background .4s; }
 .progress i.done { background: var(--fg); }
-.frame-text { font-size: 36px; color: var(--muted); margin-top: 20px; font-variant-numeric: tabular-nums; }
 .side { border-left: 2px solid var(--line); padding-left: 72px; align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
-.side h3 { font-size: 54px; line-height: 1.14; font-weight: 700; letter-spacing: -.015em; }
+.side h3 { text-wrap: balance; font-size: 54px; line-height: 1.14; font-weight: 700; letter-spacing: -.015em; }
 .side .en { font-size: 38px; line-height: 1.22; margin-top: 12px; }
 .side .wait { font-size: 118px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 34px; letter-spacing: -.03em; line-height: 1; }
 .side .wait small { font-size: 46px; font-weight: 500; letter-spacing: 0; color: var(--muted); margin-left: 8px; }
-.side .key-row { margin-top: 44px; }
-.bubble { background: var(--fg); color: var(--bg); border-radius: 24px 24px 24px 6px; padding: 30px 36px; margin-top: 40px; }
-.bubble b { display: block; font-size: 36px; letter-spacing: .13em; font-weight: 750; margin-bottom: 8px; }
-.bubble span { font-size: 45px; line-height: 1.2; font-weight: 600; overflow-wrap: anywhere; }
 .note { font-size: 38px; line-height: 1.25; color: var(--muted); margin-top: 36px; }
 
 /* Live moment */
-.live-word { font-size: 330px; font-weight: 850; letter-spacing: -.04em; line-height: .92; animation: pop .8s ease-out both; }
+.live-word { transform-origin: left center; font-size: 330px; font-weight: 850; letter-spacing: -.04em; line-height: .92; animation: pop .8s ease-out both; }
 
 /* Listening */
 .listen { align-items: center; justify-content: center; text-align: center; }
@@ -118,17 +112,37 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 /* Strip and code */
 .result { display: grid; grid-template-columns: auto 1fr; gap: 100px; height: 100%; align-items: center; }
 .strip { height: calc(1600px - 2 * var(--margin)); max-height: 100%; width: auto; display: block; border-radius: 4px; background: #fff; }
-.code-label { font-size: 44px; font-weight: 650; }
-.code { font-size: 66px; font-weight: 650; letter-spacing: .01em; margin: 24px 0 30px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; line-height: 1.12; }
+.code { font-size: 112px; white-space: nowrap; font-weight: 700; letter-spacing: .02em; word-spacing: .3em; margin: 24px 0 30px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; line-height: 1.12; }
 .info { font-size: 38px; line-height: 1.28; color: var(--muted); }
 .info + .info { margin-top: 18px; }
-.done-word { font-size: 180px; font-weight: 800; letter-spacing: -.035em; line-height: 1; margin-bottom: 56px; }
+.done-word { font-size: 110px; font-weight: 800; letter-spacing: -.035em; line-height: 1; margin-bottom: 56px; }
 
 /* Setup menu: plain on purpose */
 .menu { font-size: 42px; line-height: 1.36; white-space: pre-wrap; font-variant-numeric: tabular-nums; }
 
+/* MIDAP's line (ADR-039): white is this booth, grey the other place. One stroke weight, no fills. */
+.lines { display: block; width: 100%; overflow: visible; }
+.lines path { fill: none; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.lines .ours { stroke: var(--fg); }
+.lines .theirs { stroke: var(--muted); }
+.lines .gap { stroke: var(--bg); stroke-width: 22; stroke-linecap: round; }
+.lines text { fill: var(--muted); font-size: 38px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; }
+.start, .invite { padding-top: 196px; }
+.start-lines { flex: 1; min-height: 150px; margin: 28px 0 20px; }
+.invite-lines { flex: 1; min-height: 180px; margin: 28px 0 20px; }
+.making-lines { height: 220px; margin-top: 36px; }
+.moment-lines { width: 1400px; height: 260px; margin: 8px 0 28px; }
+.done-head { display: flex; align-items: center; gap: 64px; margin-bottom: 48px; }
+.done-head .done-word { margin-bottom: 0; }
+.done-lines { width: 760px; height: 200px; }
+.start .bottom { align-items: flex-end; margin-top: 0; }
+.signature { display: flex; flex-direction: column; align-items: flex-end; gap: 28px; }
+.midap { display: flex; align-items: center; gap: 24px; text-align: left; }
+.midap-mark { width: 72px; height: 62px; flex-shrink: 0; }
+.midap-mark path { fill: none; stroke: var(--fg); stroke-width: 1.5; stroke-linecap: round; }
+.midap b { display: block; font-size: 38px; font-weight: 750; letter-spacing: .2em; }
 .camera-note { position: absolute; right: var(--margin); bottom: var(--margin); text-align: right; font-size: 38px; line-height: 1.3; font-weight: 500; }
 
 .test-mode { position: absolute; right: var(--margin); bottom: 52px; font-size: 30px; font-weight: 700; letter-spacing: .14em; color: var(--bg); background: var(--fg); padding: 6px 16px; border-radius: 6px; }
 
-@media (prefers-reduced-motion: reduce) { .screen, .number, .live-word, .dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .screen, .number, .live-word, .press.pulse .cap { animation: none; } }

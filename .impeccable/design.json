@@ -1,0 +1,291 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-25T23:55:08+00:00",
+  "title": "Design System: MEET A STRANGER",
+  "extensions": {
+    "colorMeta": {
+      "ground-black": {
+        "role": "neutral",
+        "displayName": "Ground Black",
+        "canonical": "#000000",
+        "tonalRamp": [
+          "#000000",
+          "#0a0a0b",
+          "#141416",
+          "#1f1f22",
+          "#2e2e33",
+          "#4a4a50",
+          "#6e6e74",
+          "#9a9aa0"
+        ]
+      },
+      "signal-white": {
+        "role": "primary",
+        "displayName": "Signal White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#9a9aa0",
+          "#b0b0b5",
+          "#c4c4c8",
+          "#d6d6d9",
+          "#e4e4e6",
+          "#efeff0",
+          "#f8f8f8",
+          "#ffffff"
+        ]
+      },
+      "other-place-grey": {
+        "role": "neutral",
+        "displayName": "Other-Place Grey",
+        "canonical": "#9a9aa0",
+        "tonalRamp": [
+          "#262628",
+          "#3c3c40",
+          "#55555a",
+          "#6f6f75",
+          "#88888e",
+          "#9a9aa0",
+          "#bdbdc1",
+          "#e1e1e3"
+        ]
+      },
+      "track-graphite": {
+        "role": "neutral",
+        "displayName": "Track Graphite",
+        "canonical": "#2e2e33",
+        "tonalRamp": [
+          "#0d0d0f",
+          "#18181b",
+          "#222226",
+          "#2e2e33",
+          "#3f3f45",
+          "#55555c",
+          "#77777e",
+          "#a3a3a9"
+        ]
+      },
+      "light-screen-grey": {
+        "role": "neutral",
+        "displayName": "Light-Screen Grey",
+        "canonical": "#555555",
+        "tonalRamp": [
+          "#1a1a1a",
+          "#2b2b2b",
+          "#3d3d3d",
+          "#555555",
+          "#6e6e6e",
+          "#8a8a8a",
+          "#b0b0b0",
+          "#dcdcdc"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "numeral": {
+        "displayName": "Numeral",
+        "purpose": "A single counting number that fills the screen: countdown 660 px, invitation and listening seconds 400 px; LIVE at 330 px weight 850."
+      },
+      "display": {
+        "displayName": "Display",
+        "purpose": "The one hero sentence per screen, top left, balanced wrapping."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "The withdrawal code in groups of four, tabular, word-spacing 0.3em."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Time remaining in words while the strip is made."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Lead lines; 700 weight for the encounter panel heading."
+      },
+      "button-word": {
+        "displayName": "Button word",
+        "purpose": "The one German word beside the round button."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "The consent notice in two columns, fitted down to the 36 px floor."
+      },
+      "note": {
+        "displayName": "Note",
+        "purpose": "Grey info lines, notes, the camera note; place-name labels on lines at 38 px, 650, 0.12em, uppercase."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "The start-screen header bar only, tracked 0.22em, grey."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "screen-enter",
+        "value": "opacity 0 and translateY(14px) to rest, 0.28s ease-out",
+        "purpose": "Every new screen; none on a redraw of the same screen, none on the light screen, none with reduced motion."
+      },
+      {
+        "name": "line-draw",
+        "value": "stroke-dashoffset, 2s default, cubic-bezier(.16, 1, .3, 1)",
+        "purpose": "A place line drawn in; continues from where it was on redraw; complete with reduced motion."
+      },
+      {
+        "name": "line-reach",
+        "value": "stroke-dashoffset, linear, over the remaining seconds",
+        "purpose": "The other place's line reaching across on an invitation."
+      },
+      {
+        "name": "button-pulse",
+        "value": "1.6s ease-in-out infinite, cap to opacity .55 and scale .9 at 50%",
+        "purpose": "A press is expected; in step with the button's green light; off with reduced motion."
+      },
+      {
+        "name": "ring-empty",
+        "value": "stroke-dashoffset 0 to circumference, linear, over the remaining seconds",
+        "purpose": "Time running out; runs with reduced motion because it is information."
+      },
+      {
+        "name": "number-pop",
+        "value": "scale 1.18 and opacity 0 to rest, 0.9s ease-out (0.8s for LIVE)",
+        "purpose": "Countdown number and LIVE word arriving."
+      },
+      {
+        "name": "page-nudge",
+        "value": "translateY(-14px) at 50%, 0.5s ease-in-out, twice",
+        "purpose": "The page counter on a consent notice when agreeing is pressed before the last page."
+      },
+      {
+        "name": "meter-step",
+        "value": "width, 1s linear",
+        "purpose": "Listening meter emptying."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "canvas",
+        "value": "2560 x 1600, scaled as a whole to fit; half size on the 1280 x 800 panel"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Round Button",
+      "kind": "button",
+      "refersTo": "round-button",
+      "description": "The physical push button drawn as a circle, bottom left on every screen that takes a press, with one word beside it; pulses when a press is expected, ring empties as time runs out.",
+      "html": "<div class=\"ds-press ds-pulse\"><svg class=\"ds-button\" viewBox=\"0 0 140 140\" aria-hidden=\"true\"><circle class=\"ds-track\" cx=\"70\" cy=\"70\" r=\"63\"/><circle class=\"ds-ring\" cx=\"70\" cy=\"70\" r=\"63\"/><circle class=\"ds-cap\" cx=\"70\" cy=\"70\" r=\"44\"/></svg><div>Mehr Zeit<small>More time</small></div></div>",
+      "css": ".ds-press { display: flex; align-items: center; gap: 16px; background: #000; color: #fff; font-family: Inter, sans-serif; padding: 24px; } .ds-button { width: 75px; height: 75px; overflow: visible; } .ds-track { fill: none; stroke: #2e2e33; stroke-width: 8; } .ds-ring { fill: none; stroke: #fff; stroke-width: 8; stroke-linecap: round; stroke-dasharray: 396 396; stroke-dashoffset: 120; transform: rotate(-90deg); transform-origin: 70px 70px; } .ds-cap { fill: #fff; transform-origin: 70px 70px; } .ds-pulse .ds-cap { animation: ds-press-me 1.6s ease-in-out infinite; } @keyframes ds-press-me { 50% { opacity: .55; transform: scale(.9); } } .ds-press > div { font-size: 24px; font-weight: 700; } .ds-press small { display: block; font-size: 18px; font-weight: 500; color: #9a9aa0; } .ds-press:focus-visible { outline: 2px solid #fff; outline-offset: 6px; } @media (prefers-reduced-motion: reduce) { .ds-pulse .ds-cap { animation: none; } }"
+    },
+    {
+      "name": "Place Lines",
+      "kind": "custom",
+      "refersTo": "place-line-ours",
+      "description": "This booth's white line and the other place's grey labelled line, one 7 px weight, round caps, no fill; ours passes over theirs with a ground-colour gap at the real crossing. Illustrative path; real lines are built from copies of MIDAP's mark.",
+      "html": "<div class=\"ds-band\"><svg class=\"ds-lines\" viewBox=\"0 0 600 160\" aria-hidden=\"true\"><path class=\"ds-theirs\" d=\"M600 80 L470 80 C420 80 400 30 360 40 C320 50 330 120 290 110 C260 100 270 60 240 70\"/><line class=\"ds-gap\" x1=\"300\" y1=\"70\" x2=\"300\" y2=\"100\"/><path class=\"ds-ours\" d=\"M0 80 C60 80 90 130 130 110 C170 90 140 30 190 40 C240 50 250 110 330 90 C380 78 400 80 420 80\"/><text x=\"600\" y=\"58\" text-anchor=\"end\">ESSEN</text></svg></div>",
+      "css": ".ds-band { background: #000; padding: 24px; } .ds-lines { display: block; width: 100%; overflow: visible; } .ds-lines path { fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; } .ds-ours { stroke: #fff; } .ds-theirs { stroke: #9a9aa0; } .ds-gap { stroke: #000; stroke-width: 11; stroke-linecap: round; } .ds-lines text { fill: #9a9aa0; font: 650 19px Inter, sans-serif; letter-spacing: .12em; }"
+    },
+    {
+      "name": "Header Bar",
+      "kind": "nav",
+      "refersTo": "header-bar",
+      "description": "Brand name left, the booth's place right; start screen only.",
+      "html": "<div class=\"ds-top\"><span>MEET A STRANGER</span><span>BERLIN MEDIENHAUS</span></div>",
+      "css": ".ds-top { display: flex; justify-content: space-between; background: #000; color: #9a9aa0; font: 600 18px Inter, sans-serif; letter-spacing: .22em; padding: 28px 56px; }"
+    },
+    {
+      "name": "Hero",
+      "kind": "custom",
+      "refersTo": "display",
+      "description": "The one message of a screen, top left, with at most one short English line.",
+      "html": "<div class=\"ds-hero-wrap\"><h1 class=\"ds-hero\">Deine nächste Begegnung beginnt hier.</h1></div>",
+      "css": ".ds-hero-wrap { background: #000; padding: 32px; } .ds-hero { color: #fff; font: 750 64px/1.04 Inter, sans-serif; letter-spacing: -.028em; text-wrap: balance; margin: 0; }"
+    },
+    {
+      "name": "Withdrawal Code",
+      "kind": "custom",
+      "refersTo": "withdrawal-code",
+      "description": "The code in groups of four, the largest thing on the code screen, with one grey line saying what it is for.",
+      "html": "<div class=\"ds-code-wrap\"><p class=\"ds-code\">kQ3x V9mT zL7p Rw2Y</p><p class=\"ds-info\">Mit diesem Code lässt die Betreuung deine Bilder löschen.</p></div>",
+      "css": ".ds-code-wrap { background: #000; padding: 32px; font-family: Inter, sans-serif; } .ds-code { color: #fff; font-size: 56px; font-weight: 700; letter-spacing: .02em; word-spacing: .3em; font-variant-numeric: tabular-nums; line-height: 1.12; margin: 0 0 12px; } .ds-info { color: #9a9aa0; font-size: 19px; line-height: 1.28; margin: 0; }"
+    },
+    {
+      "name": "MIDAP Signature",
+      "kind": "custom",
+      "refersTo": "place-line-ours",
+      "description": "MIDAP's mark with its name, bottom right on the start screen only.",
+      "html": "<div class=\"ds-midap\"><svg class=\"ds-mark\" viewBox=\"-1 -1 23 20\" aria-hidden=\"true\"><path d=\"M19.6743 16.2367C19.6743 13.2175 16.3352 4.46249 9.73811 4.93415C3.15111 5.40479 -1.43488 14.5798 1.64404 16.4047C5.58328 18.7387 9.49317 -0.274317 14.9668 0.701384C20.4394 1.6781 18.1824 14.3278 13.1693 16.4158C8.15715 18.5039 3.53067 6.94223 2.6582 1.43316\"/></svg><b>MIDAP</b></div>",
+      "css": ".ds-midap { display: inline-flex; align-items: center; gap: 12px; background: #000; color: #fff; padding: 24px; font-family: Inter, sans-serif; } .ds-mark { width: 36px; height: 31px; } .ds-mark path { fill: none; stroke: #fff; stroke-width: 1.5; stroke-linecap: round; } .ds-midap b { font-size: 19px; font-weight: 750; letter-spacing: .2em; }"
+    },
+    {
+      "name": "Meter",
+      "kind": "custom",
+      "refersTo": "meter",
+      "description": "Graphite track filled white from the left; the listening limit.",
+      "html": "<div class=\"ds-meter-wrap\"><div class=\"ds-meter\"><i></i></div></div>",
+      "css": ".ds-meter-wrap { background: #000; padding: 32px; } .ds-meter { width: 450px; height: 8px; border-radius: 4px; background: #2e2e33; overflow: hidden; } .ds-meter i { display: block; width: 62%; height: 100%; background: #fff; transition: width 1s linear; }"
+    },
+    {
+      "name": "Light Screen",
+      "kind": "card",
+      "refersTo": "light-screen",
+      "description": "Countdown and flash: the whole screen white, the number alone, no fade.",
+      "html": "<div class=\"ds-light\"><div class=\"ds-number\">3</div></div>",
+      "css": ".ds-light { background: #fff; color: #000; display: flex; align-items: center; justify-content: center; height: 260px; font-family: Inter, sans-serif; } .ds-number { font-size: 220px; font-weight: 800; line-height: .9; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Two Lines Meeting",
+    "overview": "The booth screen is a black field on which places are drawn, not described. Each booth owns one continuous white or grey line built from copies of MIDAP's own mark, and every encounter the booth makes is told as two lines approaching, crossing and knotting. Type is Inter, large and few: one message per screen in German, with at most one short English line where a visitor needs it to act (ADR-040).\n\nThe density is that of a sign read from a metre away, not of an interface. Most of the canvas is empty black; one hero sentence sits top left, the drawn line runs through the middle, and the round button sits bottom left on every screen where a press is possible. The only departure from black is the countdown and flash, where the whole screen turns white because it is the light for the photo.\n\nThe screen refuses the photo-booth default of a camera frame, stickers and a big \"take a photo\" button. It has no colour, no glow, no fills on the line, no icons and no imagery other than the visitor's finished strip.",
+    "keyCharacteristics": [
+      "Black ground, white type, one grey for the other place and for secondary text.",
+      "Inter only, from a heavy 128 px hero down to a 36 px floor (18 px on the panel).",
+      "One continuous stroke per place, MIDAP's mark repeated, one weight, round caps.",
+      "The physical round button drawn as a circle in a fixed place, bottom left.",
+      "Motion that draws and counts: lines drawn in, a pulse asking for a press, a ring emptying as time runs out."
+    ],
+    "rules": [
+      {
+        "name": "The Here-and-Elsewhere Rule",
+        "body": "White is this booth, grey is the other place. A line, label or mark belonging to another booth is always grey; this booth's is always white. No third hue is introduced to distinguish places; places are told apart by their name and their line's shape.",
+        "section": "colors"
+      },
+      {
+        "name": "The Word-Not-Colour Rule",
+        "body": "State is said in words, by symbol, or by the line and the ring, never by colour. There is no red, green or accent anywhere on the screen.",
+        "section": "colors"
+      },
+      {
+        "name": "The Arm's-Length Floor Rule",
+        "body": "Nothing a visitor reads is smaller than 36 px on the canvas, 18 px on the panel (ADR-038). Operator-only text is the only exception.",
+        "section": "typography"
+      },
+      {
+        "name": "The One-Message Rule",
+        "body": "Each screen carries one German message and at most one short English line, and only where the visitor needs it to act (ADR-040). A second sentence, caption or label that repeats what the line, the light or the button already says is removed, not made smaller.",
+        "section": "typography"
+      },
+      {
+        "name": "The Over-Under Rule",
+        "body": "The only depth on the screen is a line passing over another at a real crossing. Nothing is lifted, shadowed or glowed.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do set every size on the 2560 x 1600 canvas and keep visitor text at 36 px or more (18 px on the panel).",
+      "Do draw the other place as a grey line labelled with its name, and this booth as a white line; let the line be the progress wherever something is being made.",
+      "Do put the round button bottom left at the 112 px margin, with one word beside it, on every screen that takes a press.",
+      "Do say time running out with the emptying ring, and time remaining in words (\"Noch etwa eine Minute.\"), never with an elapsed clock.",
+      "Do turn the screen fully white, without a fade, while the camera needs light.",
+      "Do use tabular figures for every number that counts or must be copied."
+    ],
+    "donts": [
+      "Don't add colour, glow, fills, gradients or shadows to anything the screen draws; the visitor's finished strip is the only image and the only colour, and the over-under gap at a real crossing is the only depth.",
+      "Don't draw a line from computed loops or any curve that is not MIDAP's mark or a smooth join between copies of it.",
+      "Don't show a camera frame, stickers or a \"take a photo\" button.",
+      "Don't add a second sentence, a caption or a label that repeats what the line, light or button already says.",
+      "Don't show the header bar, MIDAP's mark or a line on consent, countdown or flash screens.",
+      "Don't invent the funding notice or a placeholder for it."
+    ]
+  }
+}

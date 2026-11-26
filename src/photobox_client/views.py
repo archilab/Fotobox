@@ -9,7 +9,6 @@ import math
 import re
 from datetime import datetime
 
-ICONS = {"live": "●", "nearby": "◐", "recent": "◔", "online": "○", "offline": "×"}
 LIVE_KEYS = {"live_match", "partner_waiting", "remote_active"}
 BADGE_KINDS = {"person_nearby": "nearby", "recent_photo": "recent", "earlier_portrait": "earlier", "online_only": "online"}
 IDLE_HERO = {"de": "Deine nächste Begegnung beginnt hier.", "en": "Your next encounter starts here."}
@@ -31,11 +30,12 @@ def _tile(location: dict) -> dict:
     else:
         kind = {"session_active": "live", "person_nearby": "nearby", "recent_photo": "recent"}.get(location.get("activity_state"), "online")
     word = (location.get("status") or {}).get("de", "")
-    return {"kind": kind, "label": location.get("label") or "Fotobox", "status": f"{ICONS[kind]} {word}".strip()}
+    # The status word alone: the screen draws the place as a line, so no symbols stand in for it (ADR-039).
+    return {"kind": kind, "label": location.get("label") or "Fotobox", "word": word}
 
 
-CAMERA_NOTE = {"de": "Die Kamera erkennt, ob jemand da ist. Kein Bild wird gespeichert oder gesendet.",
-               "en": "The camera detects whether someone is here. No image is stored or sent."}
+CAMERA_NOTE = {"de": "Die Kamera erkennt nur, ob jemand da ist, ohne Bild.",
+               "en": "The camera only notices someone is here, no image kept."}
 
 
 def invitation_seconds(snapshot: dict | None) -> int:
@@ -62,7 +62,12 @@ def start(snapshot: dict | None, plain: str, max_tiles: int = 3, *, detecting: b
     if seconds:
         texts = snapshot["message"]["texts"]
         label = ((snapshot.get("self") or {}).get("label") or "").upper() or None
-        state = {"screen": "invite", "hero": {"de": texts["de"]["hero"], "en": texts["en"]["hero"]},
+        inviting = next((loc for loc in snapshot.get("locations") or [] if loc.get("invite_until")), None)
+        place = inviting.get("label") if inviting else None
+        # One sentence: the other place and the invitation (ADR-040); the server's text when the place is unknown.
+        hero_text = {"de": f"{place} wartet auf dich.", "en": f"{place} is waiting for you."} if place else \
+            {"de": texts["de"]["hero"], "en": texts["en"]["hero"]}
+        state = {"screen": "invite", "place": place, "hero": hero_text,
                  "support": {"de": texts["de"]["support"], "en": texts["en"]["support"]}, "seconds": seconds,
                  "plain": f"{texts['de']['hero']}\n{texts['en']['hero']}\n\n{texts['de']['support']}\n{texts['en']['support']}"
                           f"\n\n        Noch {seconds} s / {seconds} s left\n\nENTER = Mitmachen / Join"}
@@ -138,7 +143,7 @@ def encounter(status: dict, waited: bool, talk: dict | None = None) -> dict | No
         return {"kind": "searching", "de": "Wir suchen jemanden an einer anderen Fotobox", "en": "Looking for someone at another photo booth", "seconds": seconds}
     if match.get("kind") == "live":
         label = match.get("partner_label")
-        view = {"kind": "live", "de": f"Verbunden mit {label or 'einer anderen Fotobox'}", "en": f"Connected to {label or 'another photo booth'}"}
+        view = {"kind": "live", "place": label, "de": f"Verbunden mit {label or 'einer anderen Fotobox'}", "en": f"Connected to {label or 'another photo booth'}"}
         return view | (talk or {})
     if match.get("kind") == "pool":
         return {"kind": "other", "de": "Dein Foto trifft jemanden, der vorhin hier war.", "en": "Your photo meets someone who was here earlier."}
@@ -147,14 +152,27 @@ def encounter(status: dict, waited: bool, talk: dict | None = None) -> dict | No
     return None
 
 
-def making(elapsed: int, job: dict, encounter_view: dict | None, plain: str) -> dict:
+def remaining_text(seconds: float | None, frames_done: int = 0) -> str:
+    """The time left in words. Without an estimate yet, what is happening instead (ADR-040)."""
+    if seconds is None:  # no estimate: say what is happening, never claim a time
+        return "Das erste Bild entsteht." if frames_done == 0 else "Die Bilder entstehen."
+    if seconds <= 15:
+        return "Gleich fertig."
+    if seconds < 50:
+        return "Noch etwa eine halbe Minute."
+    minutes = round(seconds / 60)
+    return "Noch etwa eine Minute." if minutes <= 1 else f"Noch etwa {minutes} Minuten."
+
+
+def making(elapsed: int, job: dict, encounter_view: dict | None, plain: str, remaining: float | None = None) -> dict:
     frames = {"done": job.get("frames_done", 0), "total": job["frames_total"]} if job.get("frames_total") else None
-    return {"screen": "making", "clock": f"{elapsed // 60:02d}:{elapsed % 60:02d}", "frames": frames, "encounter": encounter_view, "plain": plain}
+    return {"screen": "making", "clock": f"{elapsed // 60:02d}:{elapsed % 60:02d}", "frames": frames, "encounter": encounter_view,
+            "remaining": remaining_text(remaining, (frames or {}).get("done", 0)), "plain": plain}
 
 
 def live_moment(label: str | None, plain: str) -> dict:
     de, en = _place(label)
-    return {"screen": "live_moment", "de": f"Du und jemand {de}: ein gemeinsamer Fotostreifen!", "en": f"You and someone {en}: one shared photo strip!", "plain": plain}
+    return {"screen": "live_moment", "place": label, "de": f"Du und jemand {de}: ein gemeinsamer Fotostreifen!", "en": f"You and someone {en}: one shared photo strip!", "plain": plain}
 
 
 def strip(image: str, code: str | None) -> dict:

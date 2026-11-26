@@ -174,7 +174,8 @@ def test_tile_shows_someone_nearby():
                 "message": {"key": "person_nearby", "badge": {"de": "JEMAND DA", "en": "NEARBY"}, "texts": {
                     "de": {"hero": "h", "support": "s"}, "en": {"hero": "h", "support": "s"}}}}
     state_ = views.start(snapshot, "p")
-    assert state_["tiles"] == [{"kind": "nearby", "label": "Berlin", "status": "◐ JEMAND DA"}] and state_["badge"]["kind"] == "nearby"
+    # The screen draws the place as a line labelled with this word (ADR-039).
+    assert state_["tiles"] == [{"kind": "nearby", "label": "Berlin", "word": "JEMAND DA"}] and state_["badge"]["kind"] == "nearby"
 
 
 def wait_until(check, seconds=3):
@@ -297,7 +298,8 @@ def test_without_the_feed_the_start_screen_asks_as_before():
 
 def test_the_start_screen_says_when_the_camera_is_looking():
     looking = views.start(None, "plain", detecting=True)
-    assert "Die Kamera erkennt" in looking["camera_note"]["de"] and "No image is stored" in looking["camera_note"]["en"]
+    # One short line since ADR-040, still saying that no image is kept (ADR-029).
+    assert "Die Kamera erkennt nur" in looking["camera_note"]["de"] and "no image kept" in looking["camera_note"]["en"]
     assert "Die Kamera erkennt" in looking["plain"]
     assert views.start(None, "plain")["camera_note"] is None and "Kamera" not in views.start(None, "plain")["plain"]
 
