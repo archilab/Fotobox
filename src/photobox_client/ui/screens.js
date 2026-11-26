@@ -453,6 +453,37 @@
         press("Mitmachen", "Join", { pulse: true }));
     },
 
+    // The hidden video link (ADR-045). Agreeing here, as for a photo: the notice and one press.
+    video_ask: (s) => screen("",
+      el("h1", "hero", "Live-Video"),
+      el("p", "lead", s.notice.de), el("p", "lead-en en", s.notice.en),
+      press("Live gehen", "Go live", { pulse: true, ring: s.seconds })),
+
+    // Another booth asks this one, like an invitation, with the same notice.
+    video_request: (s) => {
+      const number = el("div", "invite-number", s.seconds);
+      const ends = performance.now() + s.seconds * 1000;
+      const tick = () => {
+        number.textContent = Math.max(0, Math.ceil((ends - performance.now()) / 1000));
+        if (!number.isConnected && performance.now() > ends) return;
+        setTimeout(tick, 250);
+      };
+      tick();
+      return screen("",
+        el("div", "invite-body", el("h1", "hero", s.hero.de), el("div", "invite-time", number)),
+        el("p", "lead", s.notice.de), el("p", "lead-en en", s.notice.en),
+        press("Annehmen", "Accept", { pulse: true }));
+    },
+
+    video_calling: (s) => screen("center",
+      el("h1", "hero", s.hero.de), el("p", "hero-en en", s.hero.en),
+      press("Abbrechen", "Cancel")),
+
+    video_link: (s) => screen("center",
+      el("h1", "hero", s.hero.de),
+      s.pending && el("p", "info", s.pending.de, el("br"), s.pending.en),
+      press("Beenden", "End", { ring: s.seconds, talk: true })),
+
     // The pool's end time is in the pool sentence itself; the ring around the button shows the time left.
     consent: (s) => noticeScreen(s),
 
@@ -515,7 +546,7 @@
   function connected(state) {
     if (state.screen === "making") return !!(state.encounter && state.encounter.kind === "live");
     if (state.screen === "done") return !!state.live;
-    return ["live_moment", "listening", "converting"].includes(state.screen);
+    return ["live_moment", "listening", "converting", "video_link"].includes(state.screen);
   }
 
   let current = null;

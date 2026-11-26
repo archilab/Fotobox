@@ -209,6 +209,9 @@ def test_the_colour_goes_to_the_pair_only(tmp_path):
         "invite": ({"screen": "invite", "place": "Essen"}, False),
         "start with someone live": ({"screen": "start", "badge": {"kind": "live"}}, False),
         "resting live": ({"screen": "resting", "live": True}, False),
+        "video link": ({"screen": "video_link"}, True),
+        "video request": ({"screen": "video_request"}, False),
+        "video calling": ({"screen": "video_calling"}, False),
     }
     script = tmp_path / "rule.js"
     script.write_text(rule + f"\nconst cases = {json.dumps({k: v[0] for k, v in cases.items()})};\n"
@@ -218,5 +221,5 @@ def test_the_colour_goes_to_the_pair_only(tmp_path):
 
 
 def test_only_the_talk_button_is_marked_for_the_colour():
-    assert SCREENS.count("talk: true") == 2  # "Sprechen" while making the strip, and "Fertig" while listening
+    assert SCREENS.count("talk: true") == 3  # "Sprechen", "Fertig" while listening, and "Beenden" in a video link
     assert 'press("Mehr Zeit", "More time", { ring: s.seconds })' in SCREENS

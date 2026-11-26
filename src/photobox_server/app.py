@@ -16,7 +16,7 @@ from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from PIL import Image
 from pydantic import BaseModel, Field
-from . import audit, live, message_windows, messaging, presence, throttle
+from . import audit, live, message_windows, messaging, presence, throttle, video
 from .presence import events as presence_events
 from .auth import authenticate
 from .consent_notice import NoticeError, load_notice, load_pool_notice, pool_hours
@@ -70,6 +70,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     validate_settings()
     presence.settings()
     live.max_wait_seconds()
+    video.link_seconds()
     messaging.Limits.from_env()
     interval = get_cleanup_interval()
     with db_connect() as db:
@@ -200,6 +201,74 @@ def report_person(body: PersonReport, request: Request):
     with db_connect() as db:
         presence_events.emit(db, "person.arrived" if body.present else "person.left", request.state.device_id)
     return Response(status_code=204)
+
+
+# The hidden video link (ADR-045). Only boxes, only their own links; picture and sound never pass through here.
+
+class VideoAgreement(BaseModel):
+    agreed: bool
+
+
+def require_video() -> None:
+    if not video.enabled():
+        raise HTTPException(404, "the video link is not switched on")
+
+
+def video_answer(db, row, device_id: str) -> dict:
+    return {"link": video.view(db, row, device_id), "now": datetime.now(timezone.utc).isoformat(), "link_seconds": video.link_seconds()}
+
+
+@app.get("/api/v1/video/current")
+def video_current(request: Request):
+    require_video()
+    with db_connect() as db:
+        return video_answer(db, video.current(db, request.state.device_id), request.state.device_id)
+
+
+@app.post("/api/v1/video/calls", status_code=201)
+def video_call(body: VideoAgreement, request: Request):
+    """The visitor here has agreed on the notice: ask one free box."""
+    require_video()
+    if not body.agreed:
+        raise HTTPException(400, "the visitor must agree first")
+    with db_connect() as db:
+        row = video.call(db, request.state.device_id)
+        if row is None:
+            raise HTTPException(409, "no other photo booth is free")
+        return video_answer(db, row, request.state.device_id)
+
+
+@app.get("/api/v1/video/calls/{link_id}")
+def video_link(link_id: str, request: Request):
+    require_video()
+    with db_connect() as db:
+        row = video.latest(db, link_id, request.state.device_id)
+        if row is None:
+            raise HTTPException(404, "no such link")
+        return video_answer(db, row, request.state.device_id)
+
+
+@app.post("/api/v1/video/calls/{link_id}/accept")
+def video_accept(link_id: str, body: VideoAgreement, request: Request):
+    """Someone at the asked box agrees on the same notice."""
+    require_video()
+    if not body.agreed:
+        raise HTTPException(400, "the visitor must agree first")
+    with db_connect() as db:
+        row = video.accept(db, link_id, request.state.device_id)
+        if row is None:
+            raise HTTPException(409, "the request has ended")
+        return video_answer(db, row, request.state.device_id)
+
+
+@app.post("/api/v1/video/calls/{link_id}/end")
+def video_end(link_id: str, request: Request):
+    require_video()
+    with db_connect() as db:
+        row = video.end(db, link_id, request.state.device_id)
+        if row is None:
+            raise HTTPException(404, "no such link")
+        return video_answer(db, row, request.state.device_id)
 
 
 @app.post("/api/v1/pair")

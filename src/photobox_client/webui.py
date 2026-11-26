@@ -40,7 +40,7 @@ SECURITY_HEADERS = {
 }
 # These redraw often. A key pressed a moment ago still belongs to what the visitor is looking at.
 UPDATING = frozenset({"start", "invite", "resting", "making", "listening", "menu"})
-NAMED_KEYS = frozenset({"enter", "esc", "backspace", "setup"})
+NAMED_KEYS = frozenset({"enter", "esc", "backspace", "setup", "video"})
 MAX_PENDING_KEYS = 32
 MAX_BODY = 256
 KEEPALIVE_SECONDS = 15
@@ -129,6 +129,12 @@ class WebUI:
             self.button_presses += 1
             self.button_screen = self.revision
             self.version += 1
+            self.changed.notify_all()
+
+    def hold(self) -> None:
+        """The button held for 5 s on the start screen (ADR-045): a key of its own, not the page's to decide."""
+        with self.changed:
+            self.pending.append("video")
             self.changed.notify_all()
 
     def press(self, screen_id: int, key: str) -> bool:

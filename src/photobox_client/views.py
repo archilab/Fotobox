@@ -134,6 +134,63 @@ def resting(live: bool = False, address: str | None = None) -> dict:
     return state
 
 
+# The hidden video link (ADR-045). The same short notice on both sides, said before anyone agrees.
+VIDEO_NOTICE = {"de": "Bild und Ton gehen live an eine andere Fotobox, bis zu {minutes}. Nichts wird aufgezeichnet. Ein Druck beendet es.",
+                "en": "Picture and sound go live to another photo booth, for up to {minutes_en}. Nothing is recorded. One press ends it."}
+
+
+def _minutes(seconds: int) -> tuple[str, str]:
+    minutes = max(1, round(seconds / 60))
+    return ("1 Minute", "1 minute") if minutes == 1 else (f"{minutes} Minuten", f"{minutes} minutes")
+
+
+def video_notice(link_seconds: int) -> dict:
+    de, en = _minutes(link_seconds)
+    return {"de": VIDEO_NOTICE["de"].format(minutes=de), "en": VIDEO_NOTICE["en"].format(minutes_en=en)}
+
+
+def seconds_until(link: dict | None, now: str | None) -> int:
+    """Seconds left in a request or link, on the server's clock."""
+    if not link or not link.get("until") or not now:
+        return 0
+    try:
+        return max(0, math.ceil((datetime.fromisoformat(link["until"]) - datetime.fromisoformat(now)).total_seconds()))
+    except (TypeError, ValueError):
+        return 0
+
+
+def video_ask(seconds: int, link_seconds: int) -> dict:
+    """This booth's visitor held the button: one press agrees, doing nothing cancels."""
+    notice = video_notice(link_seconds)
+    return {"screen": "video_ask", "notice": notice, "seconds": seconds,
+            "plain": f"LIVE-VIDEO\n\n{notice['de']}\n{notice['en']}\n\nENTER = Live gehen / Go live".translate(_PLAIN)}
+
+
+def video_request(place: str | None, seconds: int, link_seconds: int) -> dict:
+    """Another booth asks this one; someone here agrees with one press."""
+    de, en = _place(place)
+    notice = video_notice(link_seconds)
+    hero = {"de": f"Jemand {de} möchte dich live sehen und hören.", "en": f"Someone {en} would like to see and hear you live."}
+    return {"screen": "video_request", "place": place, "hero": hero, "notice": notice, "seconds": seconds,
+            "plain": f"{hero['de']}\n{hero['en']}\n\n{notice['de']}\n{notice['en']}\n\nENTER = Annehmen / Accept".translate(_PLAIN)}
+
+
+def video_calling(place: str | None) -> dict:
+    de, en = _place(place)
+    hero = {"de": f"Wir rufen jemanden {de} …", "en": f"Calling someone {en} …"}
+    return {"screen": "video_calling", "place": place, "hero": hero,
+            "plain": f"{hero['de']}\n{hero['en']}\n\nENTER = Abbrechen / Cancel".translate(_PLAIN)}
+
+
+def video_link(place: str | None, seconds: int) -> dict:
+    """The link itself. Step V1 has no picture or sound yet, and the screen says so."""
+    de, en = _place(place)
+    hero = {"de": f"Live mit jemandem {de}", "en": f"Live with someone {en}"}
+    pending = {"de": "Bild und Ton kommen im nächsten Schritt.", "en": "Picture and sound come in the next step."}
+    return {"screen": "video_link", "place": place, "hero": hero, "seconds": seconds, "pending": pending,
+            "plain": f"{hero['de']}\n{hero['en']}\n\n{pending['de']}\n\nENTER = Beenden / End".translate(_PLAIN)}
+
+
 def consent(text: str, pool_question: dict | None = None, seconds: int = 45) -> dict:
     """The one question a visitor answers, with one key: the notice and, if offered, the pool (ADR-030).
 

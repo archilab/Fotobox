@@ -54,7 +54,9 @@ def fade_level(t: float, period: float) -> float:
 
 # Most screens say which light they need; message screens are named by the kiosk (kiosk.py).
 SCREEN_LIGHTS = {"start": "ready", "invite": "invite", "consent": "press", "countdown": "photo", "flash": "photo", "making": "making",
-                 "live_moment": "live", "listening": "live", "converting": "live", "strip": "done", "done": "done"}
+                 "live_moment": "live", "listening": "live", "converting": "live", "strip": "done", "done": "done",
+                 # the hidden video link (ADR-045): agreeing as for a visit, asked like an invitation, live in violet
+                 "video_ask": "press", "video_request": "invite", "video_calling": "live", "video_link": "live"}
 
 
 def light_for(state: dict, live_visit: bool = False) -> str | None:

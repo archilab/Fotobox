@@ -130,6 +130,11 @@ Each milestone stops for the owner's review. Off by default.
 - [x] **I2** QR code for midap.space on the resting screen, made on the booth with `segno` and read back by OpenCV in a test; `PHOTOBOX_IDLE_URL` sets the address
 - [x] **I3** Resting booths are not waited for as live partners; resting shown calmly on the dashboard
 
+## Hidden video link (ADR-045)
+- [x] **V1** The 5 s hold on the start screen, the notice and agreeing on both sides, the request at a free box, ending and time limits, the server switch `PHOTOBOX_VIDEO_LINK` (off), both agreements in the audit trail. No picture or sound yet, and the screen says so
+- [ ] **V2** Picture and sound with WebRTC directly between two booths on the Mac
+- [ ] **V3** On newbox and the Mac with speakers; notice and sign approved; switched on at the Studio
+
 ## Unattended running (ADR-032)
 - [x] Pi: starts at boot, recovers from a frozen browser, kiosk or system, restarts nightly, reports its health to the dashboard
 - [ ] Mac: recovery after a power cut, stable address, disk guard (later phase)

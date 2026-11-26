@@ -45,6 +45,7 @@
     if (event.key === "ArrowDown") return window.PhotoboxScreens.page(1);
     if (event.key === "ArrowUp") return window.PhotoboxScreens.page(-1);
     if (event.ctrlKey && event.key.toLowerCase() === "s") return send("setup");
+    if (event.ctrlKey && event.key.toLowerCase() === "v") return send("video");  // the button's 5 s hold, for testing (ADR-045)
     if (event.repeat && event.key !== "Backspace") return;  // a held key is one press
     if (event.ctrlKey || event.metaKey) return;
     if (event.key === "Enter") return window.PhotoboxScreens.canConfirm() && send("enter");

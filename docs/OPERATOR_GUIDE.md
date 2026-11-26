@@ -193,6 +193,10 @@ After 5 minutes on the start screen without a press, the booth rests (ADR-041): 
 
 To change the time, set `PHOTOBOX_IDLE_MINUTES` in `~/.photobox-kiosk.env`, such as `PHOTOBOX_IDLE_MINUTES=10`, and restart the kiosk; `0` turns resting off. `PHOTOBOX_IDLE_URL` sets the website behind the QR code, `https://www.midap.space` by default. The code needs the `client-screen` extra, which the installer includes; without it the screen shows the address as text.
 
+## The hidden video link
+
+Off unless you switch it on (ADR-045). When it is on, a visitor who holds the button for 5 s on the start screen can open a live link with picture and sound to another free booth, for at most 2 minutes, once a visitor there agrees too. Nothing announces it on screen. Before switching it on with `PHOTOBOX_VIDEO_LINK=true` in the server's `.env`, the consent notice and a sign at each booth must say that people in front of the booth, also in the background, can be seen and heard live at another booth, and that nothing is recorded. `PHOTOBOX_VIDEO_SECONDS` sets the longest link, 120 s by default. **Picture and sound are not built yet (step V2)**: until then the link screen says so.
+
 ## The push button
 
 A box can have a push button that works like ENTER while visitors use it: to start, to agree, for more time and to talk (ADR-036). Every screen then names the button as KNOPF. On a notice of several pages the button turns the page until the last one has been shown, and only then agrees. The keyboard keeps working, and the setup menu needs the keyboard.

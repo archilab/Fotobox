@@ -45,6 +45,8 @@ from .button import Button, open_button
 from .lights import light_for, open_lights
 
 ENTER, ESC, BACKSPACE, SETUP = "enter", "esc", "backspace", "setup"
+VIDEO = "video"  # the hidden 5 s hold on the start screen (ADR-045)
+VIDEO_REQUEST = "video request"  # another booth asks this one for a video link
 # Ctrl+Alt+S, as the console sends it with Alt as an ESC prefix or as the eighth bit, and Ctrl+S alone.
 SETUP_SEQUENCES = (b"\x1b\x13", b"\x93", b"\x13")
 CONSENT_SECONDS = 45
@@ -57,6 +59,8 @@ MESSAGE_SECONDS = 10
 PRESENCE_REFRESH_SECONDS = 3
 FEED_CHECK_SECONDS = 0.2  # how often the start screen looks at the live feed
 PRESENCE_TILES = 3
+VIDEO_ASK_SECONDS = 30  # to read the video notice and agree; doing nothing cancels
+VIDEO_POLL_SECONDS = 1.0
 IDLE_MINUTES = 5  # the start screen rests after this long without a press (ADR-041)
 REST_REFRESH_SECONDS = 5  # how often the resting screen looks whether someone is live elsewhere, for the light
 RESTING = "resting"  # the detail the dashboard shows while the booth rests
@@ -154,6 +158,11 @@ class TerminalKeys:
         self.pending.append(ENTER)
         os.write(self.wake_write, b"!")
 
+    def hold(self) -> None:
+        """The button held for 5 s on the start screen (ADR-045)."""
+        self.pending.append(VIDEO)
+        os.write(self.wake_write, b"!")
+
     def _read(self, timeout: float | None) -> bytes:
         ready, _, _ = select.select([self.fd, self.wake_read], [], [], timeout)
         if self.wake_read in ready:
@@ -222,6 +231,40 @@ class Api:
         response = self.client.get("/api/v1/presence/snapshot", timeout=5)
         response.raise_for_status()
         return response.json()
+
+    # The hidden video link (ADR-045). Each answer is {"link": ..., "now": the server's time}.
+
+    def video_seconds(self) -> int | None:
+        """How long a link may last, or None when the server has it switched off or cannot be reached."""
+        try:
+            response = self.client.get("/api/v1/video/current", timeout=5)
+            return int(response.json()["link_seconds"]) if response.status_code == 200 else None
+        except (httpx.HTTPError, ValueError, KeyError, TypeError):
+            return None
+
+    def video_call(self) -> dict | None:
+        """Ask a free box, after the visitor here has agreed. None if no box is free."""
+        response = self.client.post("/api/v1/video/calls", json={"agreed": True}, timeout=5)
+        if response.status_code == 409:
+            return None
+        response.raise_for_status()
+        return response.json()
+
+    def video_link(self, link_id: str) -> dict:
+        response = self.client.get(f"/api/v1/video/calls/{link_id}", timeout=5)
+        response.raise_for_status()
+        return response.json()
+
+    def video_accept(self, link_id: str) -> dict | None:
+        """Someone here agrees to a request. None if it has ended meanwhile."""
+        response = self.client.post(f"/api/v1/video/calls/{link_id}/accept", json={"agreed": True}, timeout=5)
+        if response.status_code == 409:
+            return None
+        response.raise_for_status()
+        return response.json()
+
+    def video_end(self, link_id: str) -> None:
+        self.client.post(f"/api/v1/video/calls/{link_id}/end", timeout=5)
 
     def messaging_events(self) -> list[dict]:
         response = self.client.get("/api/v1/messaging/events", timeout=5)
@@ -361,7 +404,7 @@ class Kiosk:
                  printer: Callable[[], UsbPrinter | None] = lambda: None,
                  on_print: Callable[[str], None] = lambda _state: None, button: bool = False,
                  light: Callable[[str | None], None] = lambda _name: None, idle_seconds: float = 0,
-                 idle_address: str | None = None) -> None:
+                 idle_address: str | None = None, hold_mode: Callable[[bool], None] = lambda _on: None) -> None:
         self.api, self.camera, self.screen, self.keys, self.report = api, camera, screen, keys, report
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
@@ -377,6 +420,8 @@ class Kiosk:
         self.label: str | None = None
         self.idle_seconds = idle_seconds  # 0: the booth never rests (ADR-041)
         self.idle_address = idle_address  # the website the resting screen shows as a QR code
+        self.hold_mode = hold_mode  # the button tells a 5 s hold from a press, on the start screen only (ADR-045)
+        self.video_incoming: dict | None = None
 
     def present(self, state: dict, light: str | None = None) -> None:
         """Show a screen. Every screen carries the box's name and whether this is a test.
@@ -439,15 +484,22 @@ class Kiosk:
                         shown_version, since = None, self.clock()
                         continue
                     timeout = min(timeout, left)
-                key = self.keys.wait({ENTER, SETUP}, timeout)
+                incoming = (snapshot or {}).get("video") if (snapshot or {}).get("video") else None
+                if incoming and incoming.get("role") == "callee" and incoming.get("status") == "requested":
+                    self.video_incoming = {"link": incoming, "now": (snapshot or {}).get("generated_at")}
+                    return VIDEO_REQUEST
+                self.hold_mode(True)
+                key = self.keys.wait({ENTER, SETUP, VIDEO}, timeout)
                 if key is not None:
                     return key
         finally:
+            self.hold_mode(False)
             if self.detector is not None:
                 self.detector.pause()
 
     def rest(self) -> str:
         """The resting screen, until a press (ENTER or the button) or the setup keys. Returns which."""
+        self.hold_mode(False)  # any press wakes the booth at once
         if self.detector is not None:
             self.detector.pause()  # the resting screen does not say that the camera looks, so it must not
         self.report("idle", RESTING)
@@ -472,11 +524,92 @@ class Kiosk:
             if self.detector is not None:
                 self.detector.resume()
 
+    # The hidden video link (ADR-045)
+
+    def video_call(self) -> str:
+        """This booth's visitor held the button for 5 s: agree, then call a free booth."""
+        seconds = self.api.video_seconds()
+        if seconds is None:
+            return "start"  # switched off: the hold does nothing, and nothing gives the secret away
+        self.report("consent")
+        if self.ask(views.video_ask(VIDEO_ASK_SECONDS, seconds), {ENTER}, VIDEO_ASK_SECONDS) != ENTER:
+            return "video declined"
+        try:
+            answer = self.api.video_call()
+        except httpx.HTTPError:
+            self.message("Das geht gerade nicht.\nThat is not possible right now.", light="ready")
+            return "video failed"
+        if answer is None:
+            self.message("Gerade ist keine andere Fotobox frei.\nNo other photo booth is free right now.", light="ready")
+            return "video busy"
+        link = answer["link"]
+        self.report("showing", "video link")
+        state = views.video_calling(link.get("place"))
+        while True:
+            self.present(state)
+            if self.keys.wait({ENTER}, VIDEO_POLL_SECONDS) == ENTER:
+                self.api.video_end(link["id"])
+                return "video cancelled"
+            try:
+                answer = self.api.video_link(link["id"])
+            except httpx.HTTPError:
+                continue
+            link = answer["link"]
+            if link["status"] == "connected":
+                return self.video_live(answer)
+            if link["status"] == "ended":
+                self.message("Niemand hat geantwortet.\nNobody answered.", light="ready")
+                return "video unanswered"
+
+    def video_answer(self) -> str:
+        """Another booth asks this one: someone here agrees with one press, or the request runs out."""
+        answer, self.video_incoming = self.video_incoming, None
+        link = answer["link"]
+        seconds = views.seconds_until(link, answer["now"])
+        if not seconds:
+            return "video unanswered"
+        self.report("consent")
+        if self.ask(views.video_request(link.get("place"), seconds, link.get("link_seconds", 120)), {ENTER}, seconds) != ENTER:
+            return "video unanswered"
+        try:
+            accepted = self.api.video_accept(link["id"])
+        except httpx.HTTPError:
+            accepted = None
+        if accepted is None:
+            self.message("Die Anfrage ist schon vorbei.\nThe request has already ended.", light="ready")
+            return "video too late"
+        self.report("showing", "video link")
+        return self.video_live(accepted)
+
+    def video_live(self, answer: dict) -> str:
+        """The link, until either side ends it or its time is up."""
+        link = answer["link"]
+        seconds = views.seconds_until(link, answer["now"])
+        ends = self.clock() + seconds
+        self.present(views.video_link(link.get("place"), seconds))
+        while True:
+            left = ends - self.clock()
+            if left <= 0:
+                return "video done"
+            if self.keys.wait({ENTER}, min(VIDEO_POLL_SECONDS, left)) == ENTER:
+                self.api.video_end(link["id"])
+                return "video ended"
+            try:
+                if self.api.video_link(link["id"])["link"]["status"] == "ended":
+                    return "video done"
+            except httpx.HTTPError:
+                pass  # the time limit still ends it
+
     def run_once(self) -> str:
         """One participant from start to finish. Returns how it ended."""
         self.report("idle")
-        if self.start_screen() == SETUP:
+        key = self.start_screen()
+        if key == SETUP:
             return "setup"
+        if key == VIDEO:
+            return self.video_call()
+        if key == VIDEO_REQUEST:
+            return self.video_answer()
         self.report("consent")
         try:
             version, text, pool = self.api.notice()
@@ -782,7 +915,7 @@ def main(argv: list[str] | None = None) -> None:
             if settings.button != button_gpio:
                 if button is not None:
                     button.stop()
-                button, button_gpio = open_button(settings.button, keys.button), settings.button
+                button, button_gpio = open_button(settings.button, keys.button, on_hold=keys.hold), settings.button
             with httpx.Client(base_url=settings.server, timeout=60, headers={"Authorization": f"Bearer {token}"}) as client:
                 api = Api(client)
                 talker = speech_talker(settings.microphone, keys, screen)
@@ -808,7 +941,8 @@ def main(argv: list[str] | None = None) -> None:
                               make_conversation=conversation, detector=detector, feed=feed, heartbeat=heartbeat.beat,
                               on_camera_error=lambda camera_name=settings.camera: camera_trouble(camera_name),
                               printer=find_printer, on_print=printed, button=button is not None, light=light,
-                              idle_seconds=settings.idle_minutes * 60, idle_address=settings.idle_address)
+                              idle_seconds=settings.idle_minutes * 60, idle_address=settings.idle_address,
+                              hold_mode=lambda on, b=button: b is not None and (b.holding.set() if on else b.holding.clear()))
                 outcome = serve(kiosk, button)
                 feed.stop()
                 if person_reporter is not None:

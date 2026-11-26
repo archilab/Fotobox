@@ -146,6 +146,15 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
     (
         "ALTER TABLE device_status ADD COLUMN health TEXT",
     ),
+    # 14: the hidden video link (ADR-045): which box called which and when, kept for a day. Nothing about a person.
+    (
+        """CREATE TABLE video_links (
+            id TEXT PRIMARY KEY, caller TEXT NOT NULL, callee TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('requested', 'connected', 'ended')),
+            created_at TEXT NOT NULL, answer_by TEXT NOT NULL, connected_at TEXT, ends_at TEXT, ended_at TEXT,
+            end_reason TEXT CHECK (end_reason IN ('caller', 'callee', 'time', 'unanswered', 'cancelled')))""",
+        "CREATE INDEX video_links_open ON video_links(status)",
+    ),
 )
 
 

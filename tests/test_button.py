@@ -210,3 +210,85 @@ def test_the_button_setting_is_kept(tmp_path):
 
 def test_the_installer_installs_the_gpio_library():
     assert "'.[client-camera,client-gpio,client-screen]'" in (Path(__file__).parent.parent / "deploy" / "pi" / "install.sh").read_text()
+
+
+# The hidden long press on the start screen (ADR-045)
+
+class Clock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+
+def holding_button():
+    line, clock, got = FakeLine(), Clock(), []
+    button = Button(line, lambda: got.append("press"), clock=clock, on_hold=lambda: got.append("hold"))
+    button.enabled.set()
+    button.holding.set()
+    return line, clock, got, button.start()
+
+
+def test_on_the_start_screen_a_press_counts_when_let_go():
+    line, clock, got, button = holding_button()
+    try:
+        line.push((True, clock.now))
+        time.sleep(0.15)
+        assert got == []  # still down: it could become a hold
+        clock.now += 0.3
+        line.level = False
+        line.push((False, clock.now))
+        assert until(lambda: got == ["press"])
+    finally:
+        button.stop()
+
+
+def test_holding_five_seconds_is_a_hold_and_letting_go_is_not_a_press():
+    from photobox_client.button import HOLD_SECONDS
+    line, clock, got, button = holding_button()
+    try:
+        line.level = True
+        line.push((True, clock.now))
+        time.sleep(0.1)
+        clock.now += HOLD_SECONDS - 0.5
+        time.sleep(0.15)
+        assert got == []
+        clock.now += 0.6
+        assert until(lambda: got == ["hold"])
+        clock.now += 3  # still holding: no second hold
+        time.sleep(0.15)
+        line.level = False
+        line.push((False, clock.now))
+        time.sleep(0.2)
+        assert got == ["hold"]
+    finally:
+        button.stop()
+
+
+def test_leaving_the_start_screen_mid_press_counts_nothing():
+    line, clock, got, button = holding_button()
+    try:
+        line.level = True
+        line.push((True, clock.now))
+        time.sleep(0.1)
+        button.holding.clear()  # the screen changed, such as an invitation arriving
+        time.sleep(0.1)
+        clock.now += 6
+        line.level = False
+        line.push((False, clock.now))
+        time.sleep(0.2)
+        assert got == []
+    finally:
+        button.stop()
+
+
+def test_elsewhere_a_press_counts_at_once_as_before():
+    line, clock, got, button = holding_button()
+    button.holding.clear()
+    try:
+        line.level = True
+        line.push((True, clock.now))
+        assert until(lambda: got == ["press"])
+    finally:
+        button.stop()

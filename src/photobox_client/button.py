@@ -9,6 +9,9 @@ the setup menu.
 Where the press goes depends on the screen: the browser screen gets it as its own event, tied to the
 screen showing at that moment, so the page's rule that a notice must be read to its last page applies
 to the button too (webui.py, ui/app.js). The text screen takes it as ENTER.
+
+On the start screen the kiosk sets `holding`: a press then counts when the button is let go, and holding
+it for HOLD_SECONDS calls `on_hold` instead, once, with no press when it is let go (ADR-045).
 """
 from __future__ import annotations
 
@@ -19,6 +22,7 @@ from typing import Protocol
 
 DEBOUNCE_SECONDS = 0.05
 STUCK_SECONDS = 5.0
+HOLD_SECONDS = 5.0  # the hidden long press on the start screen (ADR-045)
 CHIP = "/dev/gpiochip0"
 
 
@@ -84,13 +88,20 @@ class GpiodLine:
 
 
 class Button:
-    """Watches the line in a thread and calls `on_press` for each press while `enabled` is set."""
+    """Watches the line in a thread and calls `on_press` for each press while `enabled` is set.
 
-    def __init__(self, line: Line, on_press: Callable[[], None], clock: Callable[[], float] = time.monotonic) -> None:
-        self.line, self.on_press, self.clock = line, on_press, clock
+    While `holding` is also set, presses count on release and a long hold calls `on_hold` instead.
+    """
+
+    def __init__(self, line: Line, on_press: Callable[[], None], clock: Callable[[], float] = time.monotonic,
+                 on_hold: Callable[[], None] | None = None) -> None:
+        self.line, self.on_press, self.clock, self.on_hold = line, on_press, clock, on_hold
         self.filter = PressFilter()
         self.enabled = threading.Event()
+        self.holding = threading.Event()
         self.stopping = threading.Event()
+        self.down_at: float | None = None  # a press waiting for its release, in holding mode
+        self.held = False
         self.thread = threading.Thread(target=self._run, name="photobox-button", daemon=True)
 
     def start(self) -> Button:
@@ -106,24 +117,46 @@ class Button:
     def stuck(self) -> bool:
         return self.filter.stuck(self.clock())
 
+    def _pressed(self, at: float) -> None:
+        if not self.enabled.is_set():
+            return
+        if self.holding.is_set() and self.on_hold is not None:
+            self.down_at, self.held = at, False  # wait: a press or a hold
+        else:
+            self.on_press()
+
+    def _check_hold(self, now: float) -> None:
+        if self.down_at is None:
+            return
+        if not (self.enabled.is_set() and self.holding.is_set()):
+            self.down_at = None  # the screen changed while the button was down: neither a press nor a hold
+        elif not self.filter.down:
+            if not self.held:
+                self.on_press()  # let go before the hold: an ordinary press
+            self.down_at = None
+        elif not self.held and now - self.down_at >= HOLD_SECONDS:
+            self.held = True
+            self.on_hold()
+
     def _run(self) -> None:
         while not self.stopping.is_set():
             try:
                 if self.line.wait(DEBOUNCE_SECONDS):
                     for pressed, at in self.line.edges():
-                        if self.filter.edge(pressed, at) and self.enabled.is_set():
-                            self.on_press()
+                        if self.filter.edge(pressed, at):
+                            self._pressed(at)
                 else:
                     self.filter.settle(self.line.pressed(), self.clock())
+                self._check_hold(self.clock())
             except OSError:
                 time.sleep(1)  # a failing line only means no button; the keyboard still works
 
 
-def open_button(gpio: str, on_press: Callable[[], None]) -> Button | None:
+def open_button(gpio: str, on_press: Callable[[], None], on_hold: Callable[[], None] | None = None) -> Button | None:
     """The button on this GPIO number, or None if there is none or it cannot be used."""
     if not gpio.strip():
         return None
     try:
-        return Button(GpiodLine(int(gpio)), on_press).start()
+        return Button(GpiodLine(int(gpio)), on_press, on_hold=on_hold).start()
     except (ImportError, OSError, ValueError):
         return None

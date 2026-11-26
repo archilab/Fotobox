@@ -110,7 +110,7 @@ def snapshot(db: sqlite3.Connection, self_box_id: str, now: datetime | None = No
     unavailable = me is not None and me.status == "not ready"
     key, about = messages.choose(self_unavailable=unavailable, locations=others, earlier_portrait=earlier,
                                  live_partner=live_partner(db, self_box_id, views))
-    return {
+    result = {
         "type": "presence.snapshot",
         "generated_at": now.isoformat(),
         "detail": config.detail,
@@ -120,3 +120,7 @@ def snapshot(db: sqlite3.Connection, self_box_id: str, now: datetime | None = No
         "earlier_portrait_available": earlier,
         "message": messages.render(key, about) | ({"until": about.invite_until} if key == "partner_waiting" and about else {}),
     }
+    from .. import video
+    if video.enabled():  # the hidden video link (ADR-045): only this box's own request or link
+        result["video"] = video.view(db, video.peek(db, self_box_id, now), self_box_id)
+    return result
