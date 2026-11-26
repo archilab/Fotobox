@@ -20,7 +20,7 @@
   <tr>
     <td>{{ d.id }}{% if d.revoked_at %} <span class="muted">(revoked)</span>{% endif %}</td>
     <td class="{{ 'ok' if d.online else 'bad' }}">{{ 'online' if d.online else 'offline' }}</td>
-    <td>{{ d.state or '—' }}{% if d.detail %} <span class="warn">· {{ d.detail }}</span>{% endif %}</td>
+    <td>{{ d.state or '—' }}{% if d.detail == 'resting' %} · resting{% elif d.detail %} <span class="warn">· {{ d.detail }}</span>{% endif %}</td>
     <td>{{ d.activity or '—' }}</td>
     <td class="muted">{{ d.health_text or '—' }}</td>
     <td class="muted mono">{{ (d.reported_at or '')[:19].replace('T', ' ') }}</td>

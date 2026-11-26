@@ -328,5 +328,5 @@ Checked at 1280 x 800 on all sixteen prototype screens, by eye and by measuring 
 
 - **QR code** for the project's website, `https://www.midap.space` unless `PHOTOBOX_IDLE_URL` names another http or https address. The booth makes it with the library `segno` (the `client-screen` extra; pure Python with no dependencies of its own, approved by the owner on 2026-11-26) at error correction level M, and the browser draws its modules black on white with the quiet zone, because not every phone reads a light code on black. The address also stands below it as text, "midap.space". Without `segno` the screen shows the address as text only. Checked by reading the code back with OpenCV's QR reader, from the modules in a test and from a screenshot of the screen at 1280 x 800.
 
-**Planned, not built yet:** idle booths left out of invitations, so nobody waits 20 s for a booth that will not show them (I3).
+- **Invitations.** A visitor's strip waits for a live partner only while another booth could send one (ADR-037); a resting booth does not count, because it would not show the invitation, so nobody waits 20 s for it. It counts again once its start screen is back. The dashboard shows "idle · resting" without the warning colour.
 

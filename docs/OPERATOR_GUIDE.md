@@ -189,7 +189,7 @@ If one of the two cancels or deletes their pictures before the strip is done, th
 
 ## The resting screen
 
-After 5 minutes on the start screen without a press, the booth rests (ADR-041): it shows a QR code for MIDAP's website, MIDAP and the cooperation of UdK Berlin and Folkwang, and the camera stops looking. A press, on the button or ENTER, brings the start screen back; it does not start a visit. While resting, the booth does not show invitations from other booths. The dashboard shows it as idle, "resting".
+After 5 minutes on the start screen without a press, the booth rests (ADR-041): it shows a QR code for MIDAP's website, MIDAP and the cooperation of UdK Berlin and Folkwang, and the camera stops looking. A press, on the button or ENTER, brings the start screen back; it does not start a visit. While resting, the booth does not show invitations from other booths, and visitors elsewhere do not wait for it. The dashboard shows it as idle, "resting".
 
 To change the time, set `PHOTOBOX_IDLE_MINUTES` in `~/.photobox-kiosk.env`, such as `PHOTOBOX_IDLE_MINUTES=10`, and restart the kiosk; `0` turns resting off. `PHOTOBOX_IDLE_URL` sets the website behind the QR code, `https://www.midap.space` by default. The code needs the `client-screen` extra, which the installer includes; without it the screen shows the address as text.
 

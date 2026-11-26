@@ -44,13 +44,21 @@ def consented(db: sqlite3.Connection, session_id: str) -> bool:
     ).fetchone() is not None
 
 
+RESTING = "resting"  # the detail a resting box reports with the state idle (ADR-041)
+
+
 def other_box_online(db: sqlite3.Connection, box_id: str) -> bool:
-    """Waiting only makes sense if another real box could send someone."""
+    """Waiting only makes sense if another real box could send someone.
+
+    A resting box does not show invitations until someone presses its button (ADR-041), so nobody
+    waits for it; it counts again once its start screen is back.
+    """
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=OFFLINE_SECONDS)).isoformat()
     return db.execute(
         """SELECT 1 FROM device_status s JOIN devices d ON d.id = s.device_id
-           WHERE s.device_id != ? AND d.revoked_at IS NULL AND s.reported_at > ? LIMIT 1""",
-        (box_id, cutoff),
+           WHERE s.device_id != ? AND d.revoked_at IS NULL AND s.reported_at > ?
+             AND NOT (s.state = 'idle' AND COALESCE(s.detail, '') = ?) LIMIT 1""",
+        (box_id, cutoff, RESTING),
     ).fetchone() is not None
 
 

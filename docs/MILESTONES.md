@@ -127,7 +127,7 @@ Each milestone stops for the owner's review. Off by default.
 ## Resting screen (ADR-041)
 - [x] **I1** After 5 minutes without a press the booth rests: MIDAP and the cooperation on screen, a short green flash, the camera not looking; a press brings the start screen back and is never consent. `PHOTOBOX_IDLE_MINUTES` sets the time
 - [x] **I2** QR code for midap.space on the resting screen, made on the booth with `segno` and read back by OpenCV in a test; `PHOTOBOX_IDLE_URL` sets the address
-- [ ] **I3** Idle booths left out of invitations; resting shown on the dashboard; deployed to `newbox`
+- [x] **I3** Resting booths are not waited for as live partners; resting shown calmly on the dashboard
 
 ## Unattended running (ADR-032)
 - [x] Pi: starts at boot, recovers from a frozen browser, kiosk or system, restarts nightly, reports its health to the dashboard

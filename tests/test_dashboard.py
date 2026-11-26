@@ -168,6 +168,14 @@ def test_someone_seen_at_a_box_shows_on_overview_and_boxes(client, dash):
     assert "NEARBY" not in dash.get("/").text
 
 
+def test_resting_box_shows_calmly_and_other_details_as_warnings(client, dash):
+    client.post("/api/v1/devices/status", json={"state": "idle", "detail": "resting"})
+    page = dash.get("/").text
+    assert "· resting" in page and '<span class="warn">· resting' not in page
+    client.post("/api/v1/devices/status", json={"state": "idle", "detail": "camera failed"})
+    assert '<span class="warn">· camera failed' in dash.get("/").text
+
+
 def test_silent_box_shows_offline(client, dash):
     client.post("/api/v1/devices/status", json={"state": "idle"})
     with db_connect() as db:

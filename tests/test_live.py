@@ -152,6 +152,16 @@ def test_no_wait_without_another_box_online(client, on):
     assert status(client, sid)["job"]["waiting_for_partner"] is False and run() == 1
 
 
+def test_no_wait_for_a_resting_box(boxes):
+    """A resting box does not show invitations, so nobody waits 20 s for it (ADR-041)."""
+    client, berlin = boxes
+    assert berlin.post("/api/v1/devices/status", json={"state": "idle", "detail": "resting"}).status_code == 204
+    sid = visit(client)
+    assert status(client, sid)["job"]["waiting_for_partner"] is False and run() == 1
+    assert berlin.post("/api/v1/devices/status", json={"state": "idle"}).status_code == 204  # its start screen is back
+    assert status(client, visit(client))["job"]["waiting_for_partner"] is True
+
+
 def test_no_wait_and_no_pairing_without_live_consent(boxes):
     client, berlin = boxes
     first = visit(client, live_consent=False)
