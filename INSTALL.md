@@ -176,6 +176,6 @@ cd ~/photobox-server && git pull && .venv/bin/pip install -e '.[server-ai]' && l
 ```
 On the Pi, after `ssh admin@fotobox.local`:
 ```bash
-cd ~/photobox && git pull && .venv/bin/pip install -e '.[client-camera]' && sudo systemctl restart photobox-kiosk
+cd ~/photobox && git pull && .venv/bin/pip install -e '.[client-camera,client-gpio,client-screen]' && sudo systemctl restart photobox-kiosk
 ```
 Your settings, photos and stories are kept.

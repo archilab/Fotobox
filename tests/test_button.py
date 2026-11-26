@@ -209,4 +209,4 @@ def test_the_button_setting_is_kept(tmp_path):
 
 
 def test_the_installer_installs_the_gpio_library():
-    assert "'.[client-camera,client-gpio]'" in (Path(__file__).parent.parent / "deploy" / "pi" / "install.sh").read_text()
+    assert "'.[client-camera,client-gpio,client-screen]'" in (Path(__file__).parent.parent / "deploy" / "pi" / "install.sh").read_text()

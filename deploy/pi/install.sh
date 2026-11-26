@@ -109,7 +109,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends c
 echo "== 2/5 Photo booth program"
 cd "$REPOSITORY"
 [ -x "$PYTHON" ] || python3 -m venv .venv
-"$PYTHON" -m pip install --quiet -e '.[client-camera,client-gpio]'
+"$PYTHON" -m pip install --quiet -e '.[client-camera,client-gpio,client-screen]'
 
 echo "== 3/5 Voice"
 install -d -m 700 "$SPEECH"

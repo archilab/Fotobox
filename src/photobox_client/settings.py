@@ -13,6 +13,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from .qr import DEFAULT_ADDRESS, valid_address
+
 KEYS = ("PHOTOBOX_SERVER", "PHOTOBOX_CAMERA")
 PIN_ITERATIONS = 200_000
 PIN_LENGTHS = range(4, 9)
@@ -46,6 +48,7 @@ class Settings:
     button: str = ""  # GPIO number of a push button that works like ENTER; empty is none (ADR-036)
     lights: str = ""  # GPIO numbers of the red, green and blue status lights, such as 18,23,24 (ADR-036)
     idle_minutes: int = 5  # the start screen rests after this many minutes without a press; 0 never (ADR-041)
+    idle_address: str = DEFAULT_ADDRESS  # the website on the resting screen, as a QR code (ADR-041)
 
     @classmethod
     def load(cls, path: Path) -> "Settings":
@@ -59,13 +62,14 @@ class Settings:
                    microphone=values.get("PHOTOBOX_MICROPHONE", ""),
                    person_detection=values.get("PHOTOBOX_PERSON_DETECTION", "").lower() in {"1", "true", "yes"},
                    person_area=values.get("PHOTOBOX_PERSON_AREA", ""), button=values.get("PHOTOBOX_BUTTON", ""),
-                   lights=values.get("PHOTOBOX_LIGHTS", ""), idle_minutes=_minutes(values.get("PHOTOBOX_IDLE_MINUTES", "")))
+                   lights=values.get("PHOTOBOX_LIGHTS", ""), idle_minutes=_minutes(values.get("PHOTOBOX_IDLE_MINUTES", "")),
+                   idle_address=valid_address(values.get("PHOTOBOX_IDLE_URL", "")) or DEFAULT_ADDRESS)
 
     def save(self, path: Path) -> None:
         _write_private(path, f"PHOTOBOX_SERVER={self.server}\nPHOTOBOX_CAMERA={self.camera}\nPHOTOBOX_MICROPHONE={self.microphone}\n"
                                 f"PHOTOBOX_PERSON_DETECTION={'true' if self.person_detection else 'false'}\nPHOTOBOX_PERSON_AREA={self.person_area}\n"
                                 f"PHOTOBOX_BUTTON={self.button}\nPHOTOBOX_LIGHTS={self.lights}\n"
-                                f"PHOTOBOX_IDLE_MINUTES={self.idle_minutes}\n")
+                                f"PHOTOBOX_IDLE_MINUTES={self.idle_minutes}\nPHOTOBOX_IDLE_URL={self.idle_address}\n")
 
 
 def normalize_server(text: str) -> str:

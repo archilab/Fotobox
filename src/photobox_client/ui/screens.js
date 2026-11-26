@@ -268,6 +268,18 @@
       el("div", "", de, en ? el("small", "", en) : null));
   }
 
+  // A QR code from its rows of modules ("1" dark), with the quiet zone of four modules readers need.
+  function qrCode(rows) {
+    const size = rows.length;
+    let d = "";
+    rows.forEach((row, y) => {
+      for (const run of row.matchAll(/1+/g)) d += `M${run.index} ${y}h${run[0].length}v1h-${run[0].length}z`;
+    });
+    return svg("svg", { class: "qr", viewBox: `-4 -4 ${size + 8} ${size + 8}`, "shape-rendering": "crispEdges", role: "img", "aria-label": "QR-Code" },
+      svg("rect", { x: -4, y: -4, width: size + 8, height: size + 8, class: "qr-paper" }),
+      svg("path", { d, class: "qr-ink" }));
+  }
+
   function runRings(node) {
     for (const ring of node.querySelectorAll("circle[data-ring]")) {
       const length = 2 * Math.PI * 63;
@@ -405,15 +417,24 @@
         midap())),
 
     // The booth rests after a while without a press (ADR-041): the project behind it, and one press to wake it.
-    resting: (s) => screen("resting",
-      el("div", "rest-body",
-        svg("svg", { class: "rest-mark", viewBox: "-1 -1 23 20", "aria-hidden": "true" }, svg("path", { d: MIDAP_MARK })),
-        el("div", "",
-          el("p", "rest-midap", "MIDAP"),
-          el("p", "rest-name", s.name),
-          el("p", "rest-cooperation", s.cooperation.de),
-          el("p", "rest-cooperation-en en", s.cooperation.en))),
-      press(s.wake.de, s.wake.en)),
+    // With an address the QR code leads, on white so every phone reads it; MIDAP's mark then sits by its name.
+    resting: (s) => {
+      const code = s.address && s.address.modules && qrCode(s.address.modules);
+      const about = el("div", "rest-about",
+        el("p", "rest-midap", code && svg("svg", { class: "rest-mark small", viewBox: "-1 -1 23 20", "aria-hidden": "true" }, svg("path", { d: MIDAP_MARK })), "MIDAP"),
+        el("p", "rest-name", s.name),
+        el("p", "rest-cooperation", s.cooperation.de),
+        el("p", "rest-cooperation-en en", s.cooperation.en),
+        s.address && !code && el("p", "rest-address-text", s.address.text));
+      return screen("resting",
+        el("div", "rest-body" + (code ? " with-code" : ""),
+          code ? el("div", "rest-code", code,
+            el("p", "rest-address", s.address.text),
+            el("p", "rest-address-de", s.address.de), el("p", "rest-address-en en", s.address.en))
+            : svg("svg", { class: "rest-mark", viewBox: "-1 -1 23 20", "aria-hidden": "true" }, svg("path", { d: MIDAP_MARK })),
+          about),
+        press(s.wake.de, s.wake.en));
+    },
 
     // Another booth invites this one to a shared strip (ADR-037): the seconds are counted down here.
     invite: (s) => {

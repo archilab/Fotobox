@@ -151,6 +151,18 @@ body { font-family: "Inter", sans-serif; color: var(--fg); -webkit-font-smoothin
 .rest-name { font-size: 58px; font-weight: 500; line-height: 1.14; margin-top: 28px; }
 .rest-cooperation { font-size: 48px; font-weight: 500; line-height: 1.24; margin-top: 88px; max-width: 30ch; text-wrap: balance; }
 .rest-cooperation-en { font-size: 38px; line-height: 1.28; margin-top: 14px; max-width: 36ch; text-wrap: balance; }
+.rest-body.with-code { gap: 150px; }
+.rest-body.with-code .rest-midap { display: flex; align-items: center; gap: 36px; font-size: 104px; }
+.rest-mark.small { width: 132px; height: 115px; }
+.rest-mark.small path { stroke-width: 1.3; }
+.rest-code { flex-shrink: 0; width: 700px; }
+.qr { display: block; width: 700px; height: 700px; border-radius: 28px; }
+.qr-paper { fill: #fff; }
+.qr-ink { fill: #000; }
+.rest-address { font-size: 64px; font-weight: 750; letter-spacing: -.01em; margin-top: 44px; }
+.rest-address-de { font-size: 42px; font-weight: 500; margin-top: 10px; }
+.rest-address-en { font-size: 36px; margin-top: 4px; }
+.rest-address-text { font-size: 54px; font-weight: 700; margin-top: 64px; }
 
 .test-mode { position: absolute; right: var(--margin); bottom: 52px; font-size: 30px; font-weight: 700; letter-spacing: .14em; color: var(--bg); background: var(--fg); padding: 6px 16px; border-radius: 6px; }
 

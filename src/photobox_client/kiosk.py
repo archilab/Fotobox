@@ -360,7 +360,8 @@ class Kiosk:
                  heartbeat: Callable[[], None] = lambda: None, on_camera_error: Callable[[], None] = lambda: None,
                  printer: Callable[[], UsbPrinter | None] = lambda: None,
                  on_print: Callable[[str], None] = lambda _state: None, button: bool = False,
-                 light: Callable[[str | None], None] = lambda _name: None, idle_seconds: float = 0) -> None:
+                 light: Callable[[str | None], None] = lambda _name: None, idle_seconds: float = 0,
+                 idle_address: str | None = None) -> None:
         self.api, self.camera, self.screen, self.keys, self.report = api, camera, screen, keys, report
         self.display, self.strip_seconds = display, strip_seconds
         self.wait_seconds, self.sleep, self.clock = wait_seconds, sleep, clock
@@ -375,6 +376,7 @@ class Kiosk:
         self.live_visit = False  # this visitor was paired live with someone at another booth
         self.label: str | None = None
         self.idle_seconds = idle_seconds  # 0: the booth never rests (ADR-041)
+        self.idle_address = idle_address  # the website the resting screen shows as a QR code
 
     def present(self, state: dict, light: str | None = None) -> None:
         """Show a screen. Every screen carries the box's name and whether this is a test.
@@ -457,7 +459,7 @@ class Kiosk:
                     snapshot = self.feed.latest()[1] if self.feed is not None and self.feed.connected else self.api.presence()
                 except (httpx.HTTPError, ValueError, KeyError, TypeError):
                     snapshot = None
-                state = views.resting(views.someone_live(snapshot))
+                state = views.resting(views.someone_live(snapshot), self.idle_address)
                 if state != shown:
                     self.keys.flush()
                     self.present(state)
@@ -806,7 +808,7 @@ def main(argv: list[str] | None = None) -> None:
                               make_conversation=conversation, detector=detector, feed=feed, heartbeat=heartbeat.beat,
                               on_camera_error=lambda camera_name=settings.camera: camera_trouble(camera_name),
                               printer=find_printer, on_print=printed, button=button is not None, light=light,
-                              idle_seconds=settings.idle_minutes * 60)
+                              idle_seconds=settings.idle_minutes * 60, idle_address=settings.idle_address)
                 outcome = serve(kiosk, button)
                 feed.stop()
                 if person_reporter is not None:

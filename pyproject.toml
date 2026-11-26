@@ -13,9 +13,11 @@ dependencies = ["fastapi>=0.110,<1", "uvicorn>=0.27,<1", "python-multipart>=0.0.
 client-camera = ["opencv-python-headless>=4.8"]
 # The push button and status lights (ADR-036); matches libgpiod 2.2 on Raspberry Pi OS 13.
 client-gpio = ["gpiod>=2.2.1,<2.3"]
+# The QR code on the resting screen (ADR-041): pure Python, no dependencies of its own.
+client-screen = ["segno>=1.6,<2"]
 # The face-count check needs CascadeClassifier, which OpenCV 5 no longer includes.
 server-ai = ["opencv-python-headless>=4.8,<5"]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff>=0.6", "segno>=1.6,<2"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

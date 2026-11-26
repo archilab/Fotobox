@@ -114,11 +114,20 @@ def someone_live(snapshot: dict | None) -> bool:
     return ((snapshot or {}).get("message") or {}).get("key") in LIVE_KEYS
 
 
-def resting(live: bool = False) -> dict:
-    """`live` only changes the light: violet while someone is live at another booth."""
-    plain = (f"MIDAP\n{PROJECT_NAME}\n\n{COOPERATION['de']}\n{COOPERATION['en']}\n\n"
-             f"ENTER = Aufwecken / Wake up").translate(_PLAIN)
-    return {"screen": "resting", "name": PROJECT_NAME, "cooperation": dict(COOPERATION), "wake": dict(WAKE), "live": live, "plain": plain}
+def resting(live: bool = False, address: str | None = None) -> dict:
+    """`live` only changes the light: violet while someone is live at another booth.
+
+    `address`: the project's website, shown as a QR code when the booth can draw one, and always as text.
+    """
+    from . import qr
+    state = {"screen": "resting", "name": PROJECT_NAME, "cooperation": dict(COOPERATION), "wake": dict(WAKE), "live": live}
+    lines = f"MIDAP\n{PROJECT_NAME}\n\n{COOPERATION['de']}\n{COOPERATION['en']}"
+    if address:
+        state["address"] = {"text": qr.shown_address(address), "de": "Mehr über das Projekt", "en": "More about the project",
+                            "modules": qr.modules(address)}
+        lines += f"\n\n{state['address']['text']}"
+    state["plain"] = f"{lines}\n\nENTER = Aufwecken / Wake up".translate(_PLAIN)
+    return state
 
 
 def consent(text: str, pool_question: dict | None = None, seconds: int = 45) -> dict:
